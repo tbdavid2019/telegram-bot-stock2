@@ -9,3 +9,5 @@ ta
 langchain-core
 langgraph
 langchain_openai
+httpx
+beautifulsoup4

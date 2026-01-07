@@ -4,7 +4,7 @@ import json  # 正確導入標準 json 庫
 # API 設定
 LLM_ENDPOINT = "http://llm.glsoft.ai/v1/chat-messages"
 API_KEY = "app-Nei865AcKu"
-USER_ID = "oli_billion_bot"
+USER_ID = "test_user_123"
 
 # 測試問題
 query = "AVGO 的股價前景如何？"

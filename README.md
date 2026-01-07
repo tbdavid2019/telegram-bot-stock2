@@ -5,6 +5,8 @@
 這是一個基於 Python 和 `python-telegram-bot` 開發的 **Telegram 股票資訊機器人**，提供即時股票數據查詢、K 線圖生成，股價預測功能，以及強大的基本面分析和 AI 智能回應。  
 目前支援 **台股** 和 **美股** 股票。
 
+![alt text](image-3.png)
+
 ![alt text](image.png)
 
 ![alt text](image-1.png)
@@ -25,45 +27,25 @@
 4. **股價預測功能**
    - `/p 股票代碼`：使用 Prophet 模型預測未來 5 天的股價範圍。
 
-5. **AI 基本面分析**
-   - `/ai 股票代碼`：使用 LangGraph 和多個工具進行深度基本面分析，包含：
-     - 技術指標分析（RSI、MACD、VWAP、隨機指標）
-     - 財務健康度評估（P/E、P/B、負債權益比、利潤率等）
-     - 最新新聞與市場情緒分析
-     - 綜合投資建議（買入/持有/賣出）
+5. **AI 基本面分析 (`/ai`) - [客觀數據報告]**
+   - **定義**：專注於「客觀數據」的結構化分析。
+   - **功能**：整合 LangGraph 工具鏈，分析技術指標 (RSI, MACD)、財務指標 (P/E, 財報) 與市場新聞。
+   - **產出**：一份包含具體數據支撐的投資評估報告與建議。
 
-6. **投資大師集體分析**
-   - `/ai2 股票代碼`：連接專業投資分析 API，提供多位知名投資大師的集體分析：
-     
-     **價值投資大師 (7位)：**
-     - 👴 華倫·巴菲特 (Warren Buffett) - 長期價值投資，尋找優質企業
-     - 🧓 查理·蒙格 (Charlie Munger) - 品質投資，尋找護城河與高 ROE
-     - 📚 班傑明·葛拉漢 (Ben Graham) - 價值投資之父，重視安全邊際
-     - 👨‍💼 比爾·阿克曼 (Bill Ackman) - 激進價值投資，專注優質企業
-     - 😏 麥可·貝瑞 (Michael Burry) - 深度價值投資，尋找被低估資產
-     - 🤠 彼得·林區 (Peter Lynch) - 成長價值投資，重視 PEG Ratio
-     - 📖 菲爾·費雪 (Phil Fisher) - 成長潛力分析，重視研發與管理品質
-     
-     **成長與創新 (1位)：**
-     - 👩‍💼 凱西·伍德 (Cathie Wood) - 顛覆式創新投資，聚焦 AI、電動車、基因科技
-     
-     **技術與情緒分析 (4位)：**
-     - 👵 南希·佩洛西 (Nancy Pelosi) - 追蹤國會議員股票交易記錄
-     - 🦍 華爾街賭場 (WallStreetBets) - Reddit 社群情緒、散戶動能分析
-     - 📉 技術分析師 (Technical Analyst) - MA、RSI、MACD 等技術指標
-     - 🔍 情緒分析師 (Sentiment Analyst) - 新聞情緒分析、市場氛圍評估
-     
-     **基本面與估值分析 (2位)：**
-     - 📈 基本面分析師 (Fundamentals Analyst) - 深度財務報表分析
-     - 💰 估值分析師 (Valuation Analyst) - 企業估值模型、DCF 分析
-     
-     - 最終給出綜合決策建議（買入/賣出/持有/做空）及信心度評分
+6. **投資大師集體分析 (`/ai2`) - [AI 對沖基金]**
+   - **定義**：模擬「投資委員會」的決策過程。
+   - **功能**：扮演多位傳奇投資人（如巴菲特、木頭姐、蒙格）的 Persona，從不同流派（價值、成長、技術）進行辯論。
+   - **產出**：綜合投票結果（買入/賣出/做空）、信心度分數，以及各流派的具體觀點。
 
-7. **LLM 智能回答**
-   - `/llm 問題`：連接 DIFY LLM API，使用先進的語言模型回答股票相關問題：
-     - 支援串流式回應，即時顯示 AI 分析結果
-     - 可詢問任何股票相關問題，如：`/llm AVGO 的股價前景如何？`
-     - 適合配合 `/ai` 或 `/ai2` 指令使用，進行深度問答
+7. **Dify 深度研究 (`/llm`) - [開放式研究員]**
+   - **定義**：連接 Dify 知識庫的深度研究 Agent。
+   - **功能**：擅長處理開放式問題、產業趨勢分析、或非標準化的金融問答 (e.g. "分析電動車產業的未來挑戰")。
+   - **產出**：深度且長篇的研究型回答。
+
+9. **自然語言對話 (Main Agent)**
+   - **記憶功能**：機器人現在擁有短期記憶，能記住您上下文的對話內容（例如：「分析 TSLA」->「那 AMD 呢？」）。
+   - **重置記憶**：輸入 `/start` 可清除所有對話歷史，重新開始。
+   - **工具整合**：自動調用股價、新聞、財報工具來回答您的自然語言問題。
 
 8. **其他工具連結**
    - `/h`：顯示其他股票預測工具的連結。
@@ -110,6 +92,9 @@ docker run -d --name telegram-bot-stock2 \
   -e OPENAI_BASE_URL=<選填: 自訂 API 端點> \
   -e DIFY_API_KEY=<你的 DIFY API Key> \
   -e DIFY_BASE_URL=<選填: 預設為 http://llm.glsoft.ai/v1/chat-messages> \
+  -e LLM_API_KEY=<你的 Groq/OpenAI/Gemini API Key> \
+  -e LLM_BASE_URL=<選填: 例如 https://api.groq.com/openai/v1> \
+  -e LLM_MODEL=<選填: 例如 llama3-70b-8192> \
   tbdavid2019/telegram-bot-stock2:latest
 ```
 
@@ -136,6 +121,11 @@ OPENAI_MODEL=gpt-4o  # 選填，預設為 gpt-4o，可改為其他模型如 gpt-
 OPENAI_BASE_URL=     # 選填，若使用代理服務請填入，例如: https://your-proxy.com/v1
 DIFY_API_KEY=你的 DIFY API Key
 DIFY_BASE_URL=http://llm.glsoft.ai/v1/chat-messages  # 選填，預設為此網址
+
+# Main LLM Agent (支援 Groq, Gemini, DeepSeek 等 OpenAI 兼容 API)
+LLM_API_KEY=你的 API Key
+LLM_BASE_URL=https://api.groq.com/openai/v1  # 範例
+LLM_MODEL=llama3-70b-8192                    # 範例
 ```
 
 3. 啟動機器人：
@@ -147,7 +137,7 @@ python main.py
 
 | 指令 | 功能描述 | 使用範例 |
 |------|---------|---------|
-| `/start` | 啟動機器人 | `/start` |
+| `/start` | 啟動機器人 (並重置對話記憶) | `/start` |
 | `/s` | 查詢股價與 K 線圖 | `/s 2330.TW` |
 | `/n` | 查詢美股新聞 | `/n TSLA` |
 | `/ny` | 查詢台股新聞 | `/ny 2330.TW` |
@@ -185,45 +175,25 @@ It supports Taiwan Stock Exchange (TWSE) and U.S. Stocks.
 4. **Stock Price Prediction**
    - `/p <stock_code>`: Predict the next 5 days' stock price range using the Prophet model.
 
-5. **AI Fundamental Analysis**
-   - `/ai <stock_code>`: Uses LangGraph and multiple tools for in-depth fundamental analysis, including:
-     - Technical indicator analysis (RSI, MACD, VWAP, Stochastic Oscillator)
-     - Financial health assessment (P/E, P/B, Debt-to-Equity, Profit Margins, etc.)
-     - Latest news and market sentiment analysis
-     - Comprehensive investment recommendations (Buy/Hold/Sell)
+5. **AI Fundamental Analysis (`/ai`) - [Objective Data Report]**
+   - **Definition**: Focuses on structured analysis of "objective data".
+   - **Function**: Uses LangGraph toolchain to analyze Technicals (RSI, MACD), Financials (P/E, Reports), and News.
+   - **Output**: A data-backed investment evaluation report and recommendation.
 
-6. **Investment Gurus Analysis**
-   - `/ai2 <stock_code>`: Connects to professional investment analysis API, providing collective analysis from multiple renowned investors:
-     
-     **Value Investing Masters (7):**
-     - 👴 Warren Buffett - Long-term value investing, seeking quality companies
-     - 🧓 Charlie Munger - Quality investing, seeking moats and high ROE
-     - 📚 Ben Graham - Father of value investing, emphasizes margin of safety
-     - 👨‍💼 Bill Ackman - Activist value investing, focuses on quality businesses
-     - 😏 Michael Burry - Deep value investing, seeks undervalued assets
-     - 🤠 Peter Lynch - Growth-at-reasonable-price, emphasizes PEG Ratio
-     - 📖 Phil Fisher - Growth potential analysis, values R&D and management quality
-     
-     **Growth & Innovation (1):**
-     - 👩‍💼 Cathie Wood - Disruptive innovation investing, focuses on AI, EVs, genomics
-     
-     **Technical & Sentiment Analysis (4):**
-     - 👵 Nancy Pelosi - Tracks congressional stock trading records
-     - 🦍 WallStreetBets - Reddit community sentiment, retail momentum analysis
-     - 📉 Technical Analyst - MA, RSI, MACD and other technical indicators
-     - 🔍 Sentiment Analyst - News sentiment analysis, market atmosphere assessment
-     
-     **Fundamentals & Valuation Analysis (2):**
-     - 📈 Fundamentals Analyst - Deep financial statement analysis
-     - 💰 Valuation Analyst - Enterprise valuation models, DCF analysis
-     
-     - Final comprehensive decision (Buy/Sell/Hold/Short) with confidence score
+6. **Investment Gurus Analysis (`/ai2`) - [AI Hedge Fund]**
+   - **Definition**: Simulates an "Investment Committee" decision process.
+   - **Function**: Acts as multiple legendary investor personas (Buffett, Wood, Munger, etc.) debating from different schools of thought (Value, Growth, Technical).
+   - **Output**: A collective vote (Buy/Sell/Short), confidence score, and specific reasoning from each guru.
 
-7. **LLM Smart Responses**
-   - `/llm <question>`: Connects to DIFY LLM API, uses advanced language models to answer stock-related questions:
-     - Supports streaming responses for real-time AI analysis
-     - Can answer any stock-related questions, e.g., `/llm What's the outlook for AVGO?`
-     - Best used in combination with `/ai` or `/ai2` commands for in-depth Q&A
+7. **Dify Research Research (`/llm`) - [Open-Ended Researcher]**
+   - **Definition**: Connects to a Dify-powered research agent.
+   - **Function**: Best for open-ended questions, industry trend analysis, or unstructured financial Q&A (e.g. "Future challenges of the EV industry").
+   - **Output**: Deep, long-form research responses.
+
+9. **Natural Language Chat (Main Agent)**
+   - **Context Memory**: The bot now remembers your conversation context (e.g., "Analyze TSLA" -> "What about AMD?").
+   - **Reset Memory**: Type `/start` to clear conversation history and start fresh.
+   - **Tool Integration**: Automatically calls stock tools to answer your questions.
 
 8. **Other Tools**
    - `/h`: Display links to other stock prediction tools.
@@ -268,6 +238,9 @@ docker run -d --name telegram-bot-stock2 \
   -e OPENAI_BASE_URL=<optional_custom_api_endpoint> \
   -e DIFY_API_KEY=<your_dify_api_key> \
   -e DIFY_BASE_URL=<optional_defaults_to_http://llm.glsoft.ai/v1/chat-messages> \
+  -e LLM_API_KEY=<your_llm_api_key> \
+  -e LLM_BASE_URL=<optional: e.g. https://api.groq.com/openai/v1> \
+  -e LLM_MODEL=<optional: e.g. llama3-70b-8192> \
   tbdavid2019/telegram-bot-stock2:latest
 ```
 
@@ -305,7 +278,7 @@ python main.py
 
 | Command | Description | Example Usage |
 |---------|-------------|--------------|
-| `/start` | Start the bot | `/start` |
+| `/start` | Start bot (and reset memory) | `/start` |
 | `/s` | Retrieve stock prices and K-line charts | `/s 2330.TW` |
 | `/n` | Fetch U.S. stock news | `/n TSLA` |
 | `/ny` | Fetch Taiwan stock news | `/ny 2330.TW` |
