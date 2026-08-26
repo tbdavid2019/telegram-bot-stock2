@@ -68,75 +68,83 @@ def get_financial_news(ticker: str) -> Dict:
     logger.info(f"=== [Tool] get_financial_news called with ticker: {ticker}")
     latest_news = []
     
-    # Strategy 1: 2MD Search Engine (Primary + Backups)
     try:
-        query = f"{ticker} stock news 財經" if ".TW" in ticker.upper() or ".TWO" in ticker.upper() else f"{ticker} stock news"
-        latest_news = fetch_2md_news(query, limit=5)
-    except Exception as e:
-        logger.warning(f"Strategy 1 (2MD) failed: {e}")
-
-    # Strategy 2: yfinance News API
-    if not latest_news:
+        # Strategy 1: 2MD Search Engine (Primary + Backups)
         try:
-            stock = yf.Ticker(ticker)
-            news = stock.news
-            if news:
-                for idx, article in enumerate(news[:5]):
-                    try:
-                        title = "Title Unavailable"
-                        link = f"https://finance.yahoo.com/quote/{ticker}"
-                        publisher = "Yahoo Finance"
-                        published_date = int(time.time())
+            query = f"{ticker} stock news 財經" if ".TW" in ticker.upper() or ".TWO" in ticker.upper() else f"{ticker} stock news"
+            latest_news = fetch_2md_news(query, limit=5)
+        except Exception as e:
+            logger.warning(f"Strategy 1 (2MD) failed: {e}")
 
-                        if 'content' in article:
-                            content = article['content']
-                            if isinstance(content, dict):
-                                title = content.get('title', title)
-                                if 'clickThroughUrl' in content and isinstance(content['clickThroughUrl'], dict) and 'url' in content['clickThroughUrl']:
-                                    link = content['clickThroughUrl']['url']
-                                elif 'canonicalUrl' in content and isinstance(content['canonicalUrl'], dict) and 'url' in content['canonicalUrl']:
-                                    link = content['canonicalUrl']['url']
-                                elif 'url' in content:
-                                    link = content['url']
+        # Strategy 2: yfinance News API
+        if not latest_news:
+            try:
+                stock = yf.Ticker(ticker)
+                news = stock.news
+                if news:
+                    for idx, article in enumerate(news[:5]):
+                        try:
+                            title = "Title Unavailable"
+                            link = f"https://finance.yahoo.com/quote/{ticker}"
+                            publisher = "Yahoo Finance"
+                            published_date = int(time.time())
+
+                            if 'content' in article:
+                                content = article['content']
+                                if isinstance(content, dict):
+                                    title = content.get('title', title)
+                                    if 'clickThroughUrl' in content and isinstance(content['clickThroughUrl'], dict) and 'url' in content['clickThroughUrl']:
+                                        link = content['clickThroughUrl']['url']
+                                    elif 'canonicalUrl' in content and isinstance(content['canonicalUrl'], dict) and 'url' in content['canonicalUrl']:
+                                        link = content['canonicalUrl']['url']
+                                    elif 'url' in content:
+                                        link = content['url']
+                                    publisher = article.get('publisher', publisher)
+                                    published_date = article.get('providerPublishTime', published_date)
+                            else:
+                                title = article.get('title', title)
+                                link = article.get('link', link)
                                 publisher = article.get('publisher', publisher)
                                 published_date = article.get('providerPublishTime', published_date)
-                        else:
-                            title = article.get('title', title)
-                            link = article.get('link', link)
-                            publisher = article.get('publisher', publisher)
-                            published_date = article.get('providerPublishTime', published_date)
-                        
-                        latest_news.append({
-                            "title": title,
-                            "publisher": publisher,
-                            "link": link,
-                            "published_date": published_date
-                        })
-                    except Exception as e:
-                        logger.debug(f"Error parsing yfinance news item {idx}: {e}")
-                        continue
-        except Exception as e:
-            logger.warning(f"Strategy 2 (yfinance) failed: {e}")
+                            
+                            latest_news.append({
+                                "title": title,
+                                "publisher": publisher,
+                                "link": link,
+                                "published_date": published_date
+                            })
+                        except Exception as e:
+                            logger.debug(f"Error parsing yfinance news item {idx}: {e}")
+                            continue
+            except Exception as e:
+                logger.warning(f"Strategy 2 (yfinance) failed: {e}")
 
-    # Strategy 3: Web Scraping (Yahoo Finance)
-    if not latest_news:
-        logger.info("Using fallback scraping for news (Yahoo)...")
-        latest_news = scrape_yahoo_finance_news(ticker)
+        # Strategy 3: Web Scraping (Yahoo Finance)
+        if not latest_news:
+            logger.info("Using fallback scraping for news (Yahoo)...")
+            latest_news = scrape_yahoo_finance_news(ticker)
 
-    # Strategy 4: Google News Scraping (Last Resort)
-    if not latest_news:
-        logger.info("Using Google News fallback...")
-        latest_news = scrape_google_news(ticker)
-        
-    if not latest_news:
-        latest_news.append({
-            "title": f"No news found for {ticker}",
-            "publisher": "System",
-            "link": f"https://finance.yahoo.com/quote/{ticker}",
-            "published_date": int(time.time())
-        })
-        
-    return {"stock": ticker, "news": latest_news}
+        # Strategy 4: Google News Scraping (Last Resort)
+        if not latest_news:
+            logger.info("Using Google News fallback...")
+            latest_news = scrape_google_news(ticker)
+            
+        if not latest_news:
+            return {
+                "stock": ticker,
+                "error": f"新聞模組故障：目前無法獲取 {ticker} 的即時新聞",
+                "news": []
+            }
+            
+        return {"stock": ticker, "news": latest_news}
+
+    except Exception as e:
+        logger.error(f"Error fetching news: {e}")
+        return {
+            "stock": ticker, 
+            "error": f"新聞模組故障：{str(e)}",
+            "news": []
+        }
 
 def scrape_yahoo_finance_news(ticker: str) -> List[Dict]:
     news_items = []
