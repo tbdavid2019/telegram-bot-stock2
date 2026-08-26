@@ -9,7 +9,11 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Base
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 
-from config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
+from config import (
+    OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL,
+    LLM_API_KEY, LLM_BASE_URL, LLM_MODEL,
+    FALLBACK_LLM_API_KEY, FALLBACK_LLM_BASE_URL, FALLBACK_LLM_MODEL
+)
 from tools.stock import get_stock_prices, get_financial_metrics
 from tools.news import get_financial_news
 
@@ -21,25 +25,33 @@ class State(TypedDict):
     stock: str
 
 # --- Main Agent Setup ---
-# This agent handles general user conversation and decides when to call tools.
-# It uses the AI-compatible config (Groq, DeepSeek, OpenAI, etc.)
-
 main_agent_tools = [get_stock_prices, get_financial_metrics, get_financial_news]
 
-# Initialize Main LLM
-main_llm_config = {
-    "model": LLM_MODEL,
-    "api_key": LLM_API_KEY or "dummy-key",
-    "base_url": LLM_BASE_URL,
-    "temperature": 0.5,
-    "max_tokens": 1024
-}
-# Only use what is available
-if not LLM_API_KEY:
-    logger.warning("LLM_API_KEY is not set. Main agent functionality might fail if not using other auth methods.")
+# Initialize Primary LLM (NEN / DeepSeek-v4-flash)
+primary_llm = ChatOpenAI(
+    model=LLM_MODEL,
+    api_key=LLM_API_KEY or "dummy-key",
+    base_url=LLM_BASE_URL,
+    temperature=0.5,
+    max_tokens=2048
+)
+primary_with_tools = primary_llm.bind_tools(main_agent_tools)
 
-main_llm = ChatOpenAI(**main_llm_config)
-main_llm_with_tools = main_llm.bind_tools(main_agent_tools)
+# Initialize Fallback LLM (Groq) if configured
+if FALLBACK_LLM_API_KEY:
+    fallback_llm = ChatOpenAI(
+        model=FALLBACK_LLM_MODEL,
+        api_key=FALLBACK_LLM_API_KEY,
+        base_url=FALLBACK_LLM_BASE_URL,
+        temperature=0.5,
+        max_tokens=2048
+    )
+    fallback_with_tools = fallback_llm.bind_tools(main_agent_tools)
+    main_llm_with_tools = primary_with_tools.with_fallbacks([fallback_with_tools])
+    logger.info(f"Main agent initialized with Primary ({LLM_MODEL}) and Fallback ({FALLBACK_LLM_MODEL})")
+else:
+    main_llm_with_tools = primary_with_tools
+    logger.info(f"Main agent initialized with Primary ({LLM_MODEL})")
 
 # --- Memory Setup ---
 # Initialize in-memory persistence for conversation history
@@ -104,17 +116,25 @@ main_agent_graph = agent_builder.compile(checkpointer=valid_memory)
 # --- Fundamental Analyst Logic (/ai command) ---
 fa_key = OPENAI_API_KEY or LLM_API_KEY or "dummy-key"
 fa_model = OPENAI_MODEL if OPENAI_API_KEY else LLM_MODEL
-fa_base_url = OPENAI_BASE_URL if OPENAI_API_KEY else (LLM_BASE_URL if LLM_BASE_URL != "https://api.groq.com/openai/v1" else None)
+fa_base_url = OPENAI_BASE_URL if OPENAI_API_KEY else LLM_BASE_URL
 
-llm_fa_config = {
-    "model_name": fa_model,
-    "openai_api_key": fa_key,
-    "temperature": 0
-}
-if fa_base_url:
-    llm_fa_config["base_url"] = fa_base_url
+llm_fa_primary = ChatOpenAI(
+    model=fa_model,
+    api_key=fa_key,
+    base_url=fa_base_url,
+    temperature=0
+)
 
-llm_fa = ChatOpenAI(**llm_fa_config)
+if FALLBACK_LLM_API_KEY:
+    llm_fa_fallback = ChatOpenAI(
+        model=FALLBACK_LLM_MODEL,
+        api_key=FALLBACK_LLM_API_KEY,
+        base_url=FALLBACK_LLM_BASE_URL,
+        temperature=0
+    )
+    llm_fa = llm_fa_primary.with_fallbacks([llm_fa_fallback])
+else:
+    llm_fa = llm_fa_primary
 
 def fundamental_analyst(state: State):
     """Use tool chain for fundamental analysis (Legacy /ai command)"""

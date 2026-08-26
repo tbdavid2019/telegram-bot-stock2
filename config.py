@@ -34,11 +34,16 @@ TWOMD_SEARCH_ENDPOINTS = [
     TWOMD_BACKUP2_URL
 ]
 
-# --- Main LLM Agent Configuration ---
+# --- Main LLM Agent Configuration (Primary: NEN deepseek-v4-flash, Fallback: Groq) ---
 # Protocol: OpenAI-compatible
-LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1") # Default to Groq if not set, or generic
-LLM_MODEL = os.getenv("LLM_MODEL", "llama3-70b-8192") # Default model
+LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-XqYJN7YDjomSEeOPn9GsHvSpspYLuQrxdgQc2zcA3kvuZD34")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://nen.com.tw/v1")
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-flash")
+
+# Fallback LLM (Groq)
+FALLBACK_LLM_API_KEY = os.getenv("FALLBACK_LLM_API_KEY", os.getenv("GROQ_API_KEY"))
+FALLBACK_LLM_BASE_URL = os.getenv("FALLBACK_LLM_BASE_URL", "https://api.groq.com/openai/v1")
+FALLBACK_LLM_MODEL = os.getenv("FALLBACK_LLM_MODEL", "openai/gpt-oss-120b")
 
 # Telegram Token
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
