@@ -2,24 +2,26 @@ import yfinance as yf
 import datetime as dt
 import pandas as pd
 from typing import Dict
-from ta.momentum import RSIIndicator, StochasticOscillator
-from ta.trend import MACD
-from ta.volume import volume_weighted_average_price
-from langchain_core.tools import tool
-import asyncio
+try:
+    from ta.momentum import RSIIndicator, StochasticOscillator
+    from ta.trend import MACD
+    from ta.volume import volume_weighted_average_price
+    HAS_TA = True
+except ImportError:
+    HAS_TA = False
+
+try:
+    from langchain_core.tools import tool
+except ImportError:
+    def tool(fn):
+        fn.invoke = lambda args: fn(**args) if isinstance(args, dict) else fn(args)
+        return fn
 
 @tool
 def get_stock_prices(ticker: str) -> Dict:
     """Fetches historical stock price data and technical indicators for a given ticker."""
     print(f"=== [Tool] get_stock_prices called with ticker: {ticker}")
     try:
-        # Wrap the blocking yf.download call in a thread
-        # Note: yf.download is not async, so we likely run it directly here unless we want to use run_in_executor in the caller.
-        # But since this is a tool called by LangChain/LangGraph, it might be running in a threadpool anyway.
-        # For simplicity in this tool definition (which is sync-style for LangChain tools often), we keep it as is 
-        # but ensure proper error handling. 
-        # However, for the bot handlers we will use run_in_executor.
-        
         data = yf.download(
             ticker,
             start=dt.datetime.now() - dt.timedelta(weeks=13),
@@ -28,47 +30,71 @@ def get_stock_prices(ticker: str) -> Dict:
             progress=False
         )
         if data.empty:
-             return {"error": f"No data found for {ticker}"}
-
+            return {"error": f"No data found for {ticker}"}
         df = data.copy()
-        if len(df.columns) > 0 and isinstance(df.columns[0], tuple) and len(df.columns[0]) > 1:
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        elif len(df.columns) > 0 and isinstance(df.columns[0], tuple):
             df.columns = [i[0] for i in df.columns]
+            
         data.reset_index(inplace=True)
         data['Date'] = data['Date'].astype(str)
+
+        # Ensure numeric series
+        close_series = pd.to_numeric(df['Close'], errors='coerce').dropna()
+        high_series = pd.to_numeric(df['High'], errors='coerce').dropna()
+        low_series = pd.to_numeric(df['Low'], errors='coerce').dropna()
+        volume_series = pd.to_numeric(df['Volume'], errors='coerce').dropna()
 
         # Technical Indicators
         indicators = {}
 
-        # RSI
-        if len(df) > 14:
-            rsi_series = RSIIndicator(df['Close'], window=14).rsi().iloc[-1]
-            indicators["RSI"] = round(rsi_series, 2)
+        if len(close_series) > 14:
+            if HAS_TA:
+                rsi_series = RSIIndicator(close_series, window=14).rsi().iloc[-1]
+                sto_series = StochasticOscillator(high_series, low_series, close_series, window=14).stoch().iloc[-1]
+                macd = MACD(close_series)
+                macd_series = macd.macd().iloc[-1]
+                macd_signal_series = macd.macd_signal().iloc[-1]
+                vwap_series = volume_weighted_average_price(
+                    high=high_series,
+                    low=low_series,
+                    close=close_series,
+                    volume=volume_series,
+                ).iloc[-1]
+            else:
+                # Pandas fallback calculations
+                delta = close_series.diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / (loss + 1e-9)
+                rsi_series = (100 - (100 / (1 + rs))).iloc[-1]
 
-            # Stochastic Oscillator
-            sto_series = StochasticOscillator(df['High'], df['Low'], df['Close'], window=14).stoch().iloc[-1]
-            indicators["Stochastic_Oscillator"] = round(sto_series, 2)
+                low14 = low_series.rolling(14).min()
+                high14 = high_series.rolling(14).max()
+                sto_series = (100 * (close_series - low14) / ((high14 - low14) + 1e-9)).iloc[-1]
 
-            # MACD
-            macd = MACD(df['Close'])
-            macd_series = macd.macd().iloc[-1]
-            macd_signal_series = macd.macd_signal().iloc[-1]
-            indicators["MACD"] = round(macd_series, 2)
-            indicators["MACD_Signal"] = round(macd_signal_series, 2)
+                ema12 = close_series.ewm(span=12, adjust=False).mean()
+                ema26 = close_series.ewm(span=26, adjust=False).mean()
+                macd_line = ema12 - ema26
+                macd_signal = macd_line.ewm(span=9, adjust=False).mean()
+                macd_series = macd_line.iloc[-1]
+                macd_signal_series = macd_signal.iloc[-1]
 
-            # VWAP
-            vwap_series = volume_weighted_average_price(
-                high=df['High'],
-                low=df['Low'],
-                close=df['Close'],
-                volume=df['Volume'],
-            ).iloc[-1]
-            indicators["VWAP"] = round(vwap_series, 2)
+                vwap_series = ((close_series * volume_series).cumsum() / (volume_series.cumsum() + 1e-9)).iloc[-1]
+
+            indicators["RSI"] = round(float(rsi_series), 2)
+            indicators["Stochastic_Oscillator"] = round(float(sto_series), 2)
+            indicators["MACD"] = round(float(macd_series), 2)
+            indicators["MACD_Signal"] = round(float(macd_signal_series), 2)
+            indicators["VWAP"] = round(float(vwap_series), 2)
         else:
             indicators["Note"] = "Not enough data for technical indicators (need > 14 days)"
 
+        latest_price = round(float(close_series.iloc[-1]), 2) if not close_series.empty else "N/A"
         return {
             "stock": ticker,
-            "latest_close_price": round(df['Close'].iloc[-1], 2),
+            "latest_close_price": latest_price,
             "indicators": indicators
         }
     except Exception as e:

@@ -1,20 +1,19 @@
 import requests
 from bs4 import BeautifulSoup
+from tools.news import fetch_2md_news
 
 def fetch_yahoo_news(stock_code):
     """
     從 Yahoo News 搜尋特定股票代碼的新聞，並返回標題和連結。
     """
     url = f"https://tw.news.yahoo.com/search?p={stock_code}"
-    print(f"📡 正在抓取：{url}")
+    print(f"📡 正在抓取 Yahoo News：{url}")
 
     try:
-        # 發送 HTTP 請求
-        response = requests.get(url)
-        response.raise_for_status()  # 確保請求成功
+        response = requests.get(url, timeout=8)
+        response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # 抓取所有新聞項目的連結和標題
         news_links = []
         for item in soup.find_all("a", href=True):
             href = item["href"]
@@ -24,25 +23,32 @@ def fetch_yahoo_news(stock_code):
                 if title and full_url not in news_links:
                     news_links.append((title, full_url))
 
-        # 篩選出有效的新聞標題和連結（前5則）
         valid_news = [(title, url) for title, url in news_links if "news" in url][:5]
-
-        # 顯示結果
-        if not valid_news:
-            print(f"⚠️ 找不到 {stock_code} 的新聞。")
-            return []
-
-        print(f"✅ {stock_code} 的 Yahoo News：")
-        for idx, (title, url) in enumerate(valid_news):
-            print(f"{idx+1}. {title}\n   {url}")
-
         return valid_news
-
     except Exception as e:
-        print(f"❌ 抓取新聞時發生錯誤：{str(e)}")
+        print(f"❌ 抓取 Yahoo 新聞時發生錯誤：{str(e)}")
         return []
 
+def get_stock_news_combined(stock_code: str):
+    """
+    綜合抓取股票新聞：優先使用 2MD 搜尋引擎 (主力: 2md.aiurl.tw, 備援: 2md.glsoft.ai, create360.ai)，
+    若無結果則回退至 Yahoo News 爬蟲。
+    """
+    print(f"🔍 正在透過 2MD 搜尋引擎檢索 {stock_code} 最新財經新聞...")
+    query = f"{stock_code} 台灣 股票 新聞" if ".TW" in stock_code.upper() else f"{stock_code} stock news"
+    two_md_results = fetch_2md_news(query, limit=5)
+    
+    if two_md_results:
+        print(f"✅ 成功從 2MD 獲取 {len(two_md_results)} 則新聞：")
+        for idx, item in enumerate(two_md_results):
+            print(f"{idx+1}. {item['title']}\n   {item['link']}")
+            if item.get('description'):
+                print(f"   摘要: {item['description'][:80]}...")
+        return [(it['title'], it['link']) for it in two_md_results]
+        
+    print("⚠️ 2MD 未能檢索到新聞，正在切換至 Yahoo News 爬蟲...")
+    return fetch_yahoo_news(stock_code)
+
 if __name__ == "__main__":
-    # 測試股票代碼：輸入不同股票代碼來測試
-    stock_code = input("請輸入股票代碼（例如：2330.TW）： ").strip()
-    fetch_yahoo_news(stock_code)
+    stock_code = input("請輸入股票代碼（例如：2330.TW 或 TSLA）： ").strip()
+    get_stock_news_combined(stock_code)

@@ -81,39 +81,54 @@ async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Stock info error: {e}")
         await update.message.reply_text(f"❌ 查詢股價時發生錯誤：{str(e)}")
 
+async def safe_reply_news(update: Update, text: str):
+    """Safely reply with Markdown, falling back to plain text if syntax issues occur."""
+    try:
+        await update.message.reply_text(text, parse_mode="Markdown", disable_web_page_preview=True)
+    except Exception:
+        await update.message.reply_text(text, disable_web_page_preview=True)
+
 async def stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/n TSLA")
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/n TSLA 或 /n NVDA")
         return
+        
     stock_code = context.args[0].upper()
+    await update.message.reply_text(f"🔍 正在為您檢索 {stock_code} 最新美股新聞...")
+    
     try:
-        # We can reuse tools.news.get_financial_news but that returns a dict for LLM.
-        # For direct user consumption, we want formatted text.
-        # Ideally we refactor 'tools.news' to return objects/structured data that can be formatted by both.
-        # For now, let's use the 'tools.news.get_financial_news' tool and format the output.
-        from tools.news import get_financial_news
-        
+        from tools.news import fetch_2md_news, get_financial_news
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, get_financial_news, stock_code) # No invoke, just call function directly? 
-        # Tool is a LangChain tool, invoke expects input. 
-        # But get_financial_news is decorated with @tool which makes it a BaseTool.
-        # Calling it directly as python function? It might need .run or .invoke.
-        # Let's import the raw function if possible or just implement a format helper.
-        # Actually LangChain tools when decorated wrap the function.
         
-        # Let's just implement a direct async scrape helper here or in tools/news.py as a normal function 
-        # that the tool also uses.
-        # For expediency, I will call the tool via invoke (sync) in executor.
+        def get_us_news():
+            # 1. Try 2MD Search
+            news_items = fetch_2md_news(f"{stock_code} stock market news", limit=5)
+            if not news_items:
+                # 2. Fallback to general tool
+                tool_res = get_financial_news.invoke({"ticker": stock_code})
+                news_items = tool_res.get('news', [])
+            return news_items
+
+        news_list = await loop.run_in_executor(None, get_us_news)
         
-        news_list = result.get('news', [])
+        if not news_list:
+            await update.message.reply_text(f"⚠️ 找不到 {stock_code} 的相關新聞。")
+            return
+            
+        reply_text = f"📰 **{stock_code} 美股即時新聞**：\n━━━━━━━━━━━━━━━━━━━━\n"
+        for idx, item in enumerate(news_list[:5]):
+            title = item.get('title', '新聞連結').replace("[", "(").replace("]", ")")
+            link = item.get('link') or item.get('url') or '#'
+            desc = item.get('description', '').strip()
+            
+            reply_text += f"{idx+1}. [{title}]({link})\n"
+            if desc and len(desc) > 10:
+                short_desc = desc[:120] + "..." if len(desc) > 120 else desc
+                reply_text += f"   _{short_desc}_\n\n"
+            else:
+                reply_text += "\n"
         
-        reply_text = f"📰 **{stock_code} 美股新聞**：\n"
-        for i, item in enumerate(news_list[:5]):
-             title = item['title']
-             link = item['link']
-             reply_text += f"{i+1}. [{title}]({link})\n"
-        
-        await update.message.reply_text(reply_text, parse_mode="Markdown")
+        await safe_reply_news(update, reply_text)
 
     except Exception as e:
         logger.error(f"News error: {e}")
@@ -121,37 +136,61 @@ async def stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def taiwan_stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/ny 2330.TW")
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/ny 2330.TW 或 /ny 2002.TW")
         return
 
     stock_code = context.args[0].upper()
-    # Async wrapper for requests
+    await update.message.reply_text(f"🔍 正在為您檢索 {stock_code} 最新台股中文新聞...")
+    
     loop = asyncio.get_running_loop()
     
-    def scrape_tw_news():
+    def get_tw_news():
+        from tools.news import fetch_2md_news
+        # 1. Try 2MD Search for Taiwan Stock News
+        tw_items = fetch_2md_news(f"{stock_code} 台灣 股票 新聞", limit=5)
+        if tw_items:
+            return tw_items
+            
+        # 2. Fallback to direct Yahoo News Scraper
         url = f"https://tw.news.yahoo.com/search?p={stock_code}"
-        r = requests.get(url)
-        soup = BeautifulSoup(r.text, "html.parser")
-        news_links = []
-        for item in soup.find_all("a", href=True):
-            href = item["href"]
-            if href.startswith("/"):
-                full_url = f"https://tw.news.yahoo.com{href}"
-                title = item.get_text(strip=True)
-                if title and full_url not in news_links:
-                    news_links.append((title, full_url))
-        return [(t, u) for t, u in news_links if "news" in u][:5]
+        try:
+            r = requests.get(url, timeout=8)
+            soup = BeautifulSoup(r.text, "html.parser")
+            news_links = []
+            for item in soup.find_all("a", href=True):
+                href = item["href"]
+                if href.startswith("/"):
+                    full_url = f"https://tw.news.yahoo.com{href}"
+                    title = item.get_text(strip=True)
+                    if title and full_url not in news_links:
+                        news_links.append({"title": title, "link": full_url})
+            return [it for it in news_links if "news" in it["link"]][:5]
+        except Exception as e:
+            logger.error(f"Yahoo scraping fallback error: {e}")
+            return []
 
     try:
-        valid_news = await loop.run_in_executor(None, scrape_tw_news)
+        valid_news = await loop.run_in_executor(None, get_tw_news)
         if not valid_news:
-            await update.message.reply_text(f"⚠️ 找不到 {stock_code} 的新聞。")
+            await update.message.reply_text(f"⚠️ 找不到 {stock_code} 的相關新聞。")
             return
-        reply_text = f"📰 **{stock_code} 的 Yahoo News**：\n"
-        for idx, (title, url) in enumerate(valid_news):
-            reply_text += f"{idx+1}. [{title}]({url})\n"
-        await update.message.reply_text(reply_text, parse_mode="Markdown")
+            
+        reply_text = f"📰 **{stock_code} 台股即時新聞**：\n━━━━━━━━━━━━━━━━━━━━\n"
+        for idx, item in enumerate(valid_news[:5]):
+            title = item.get('title', '新聞連結').replace("[", "(").replace("]", ")")
+            link = item.get('link') or item.get('url') or '#'
+            desc = item.get('description', '').strip()
+            
+            reply_text += f"{idx+1}. [{title}]({link})\n"
+            if desc and len(desc) > 10:
+                short_desc = desc[:120] + "..." if len(desc) > 120 else desc
+                reply_text += f"   _{short_desc}_\n\n"
+            else:
+                reply_text += "\n"
+                
+        await safe_reply_news(update, reply_text)
     except Exception as e:
+        logger.error(f"TW News error: {e}")
         await update.message.reply_text(f"❌ 抓取新聞時發生錯誤：{str(e)}")
 
 # Prophet prediction (Simplified - imports inside to avoid overhead if not used)
@@ -169,6 +208,12 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             df = yf.download(stock_code, period="1y")
             if df.empty: return None, None
             
+            import pandas as pd
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            elif len(df.columns) > 0 and isinstance(df.columns[0], tuple):
+                df.columns = [i[0] for i in df.columns]
+                
             data = df.reset_index()[['Date', 'Close']]
             # Fix for timezone naive/aware if needed, Prophet usually handles it
             if data['Date'].dt.tz is not None:

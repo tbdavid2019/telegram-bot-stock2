@@ -9,7 +9,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Base
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 
-from config import OPENAI_API_KEY, DIFY_BASE_URL, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
+from config import OPENAI_API_KEY, OPENAI_MODEL, OPENAI_BASE_URL, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 from tools.stock import get_stock_prices, get_financial_metrics
 from tools.news import get_financial_news
 
@@ -22,14 +22,14 @@ class State(TypedDict):
 
 # --- Main Agent Setup ---
 # This agent handles general user conversation and decides when to call tools.
-# It uses the AI-compatible config (Groq, etc.)
+# It uses the AI-compatible config (Groq, DeepSeek, OpenAI, etc.)
 
 main_agent_tools = [get_stock_prices, get_financial_metrics, get_financial_news]
 
 # Initialize Main LLM
 main_llm_config = {
     "model": LLM_MODEL,
-    "api_key": LLM_API_KEY,
+    "api_key": LLM_API_KEY or "dummy-key",
     "base_url": LLM_BASE_URL,
     "temperature": 0.5,
     "max_tokens": 1024
@@ -55,37 +55,33 @@ def main_agent_node(state: MainAgentState):
     
     # Optional system prompt
     system_prompt = SystemMessage(content="""
-You are DAVID888 stock assistant, a helpful AI financial assistant.
+You are DAVID888 stock assistant, a helpful and professional AI financial assistant.
 
-You have access to 3 specialized analysis modes that users can trigger via commands. You should explain these differences if asked:
+You have access to specialized analysis modes that users can trigger via commands:
 
 1. **/ai <ticker>** (Fundamental Analysis):
    - Performs a comprehensive "Fundamental Analysis" combining:
-     - Technical Indicators (RSI, MACD, VWAP).
-     - Financial Metrics (P/E, Market Cap, Margins).
+     - Technical Indicators (RSI, MACD, VWAP, Stochastic).
+     - Financial Metrics (P/E, Market Cap, Profit Margins, Debt-to-Equity).
      - Recent News & Market Sentiment.
    - Output: A structured evaluation report with specific data points and a comprehensive investment strategy.
 
-2. **/ai2 <ticker>** (Investment Gurus / Hedge Fund):
-   - Uses an "AI Hedge Fund" approach with multiple specialized agents (personas).
-   - Simulates opinions from famous investors like Warren Buffett, Cathie Wood, Charlie Munger, Bill Ackman, etc.
-   - Output: A collective "Vote" (Buy/Sell/Short) with confidence scores and individual reasoning from each guru persona.
+2. **/ai2 <ticker>** (AI Hedge Fund Committee & 14 Gurus):
+   - Uses an "AI Hedge Fund" multi-agent committee system.
+   - Simulates opinions from 14 famous investor personas (Warren Buffett, Charlie Munger, Cathie Wood, Michael Burry, Peter Lynch, Ben Graham, Bill Ackman, Nancy Pelosi, Phil Fisher, WSB, Technicals, Fundamentals, Sentiment, Valuation).
+   - Conducts a multi-round round table committee debate clashing valuation vs growth.
+   - Output: Final collective decision (Buy/Sell/Hold/Short), target quantity, confidence score, round table debate summary, and individual guru signals.
 
-3. **/llm <query>** (Dify Research Agent):
-   - Connects to a Dify-powered research agent.
-   - Best for open-ended questions or deep-dive research requests (e.g., "Analyze the industry trends for EVs").
-   - Output: In-depth research reports, industry analysis, or specific Q&A not limited to standard metrics.
+3. **/llm <query>** or Natural Language Chat:
+   - Chat directly with the AI assistant with conversation memory and live financial data tools.
+   - Best for quick queries, general Q&A, stock comparisons, and explanations.
 
 **Your Role (Main Agent):**
 - You are the conversational interface.
-- You can directly use tools (get_stock_prices, get_financial_news) to answer quick questions (e.g., "What is TSLA price?").
-- If a user wants a deep analysis, complex opinion or asks "Is X a good buy?", RECOMMEND using one of the specific commands (/ai, /ai2) for a more professional report.
-- Always be polite and professional.
+- You can directly use tools (get_stock_prices, get_financial_metrics, get_financial_news) to answer questions in real time (e.g., "What is TSLA price?").
+- If a user wants deep comprehensive analysis or asks "Should I buy X?", recommend using `/ai <ticker>` or `/ai2 <ticker>`.
+- Always be polite, concise, and respond in Traditional Chinese (繁體中文) by default unless requested otherwise.
     """)
-    
-    # If first message, prepend system prompt (simplified logic)
-    # In a persistent chat we might check if system prompt is there, 
-    # but here we just invoke with system prompt + history.
     
     response = main_llm_with_tools.invoke([system_prompt] + messages)
     return {"messages": [response]}
@@ -102,23 +98,18 @@ agent_builder.add_edge("tools", "agent")
 # Compile with memory persistence
 main_agent_graph = agent_builder.compile(checkpointer=valid_memory)
 
-# --- Legacy Fundamental Analyst Logic (Preserved) ---
-# For simplicity, let's keep fundamental_analyst using the standard OpenAI key or migrate it.
-# The user request implies replacing the "main agent", but /ai command was specific.
-# Let's keep fundamental_analyst as is but update it to use the generic config if OPENAI_KEY is missing?
-# Or keep them separate as per config. The user said "This LLM and OPENAI_MODEL separated".
-# So we keep fundamental_analyst using OPENAI_API_KEY and Main Agent using LLM_API_KEY.
-
-openai_model = os.getenv("OPENAI_MODEL", "gpt-4o")
-openai_base_url = os.getenv("OPENAI_BASE_URL", None)
+# --- Fundamental Analyst Logic (/ai command) ---
+fa_key = OPENAI_API_KEY or LLM_API_KEY or "dummy-key"
+fa_model = OPENAI_MODEL if OPENAI_API_KEY else LLM_MODEL
+fa_base_url = OPENAI_BASE_URL if OPENAI_API_KEY else (LLM_BASE_URL if LLM_BASE_URL != "https://api.groq.com/openai/v1" else None)
 
 llm_fa_config = {
-    "model_name": openai_model,
-    "openai_api_key": OPENAI_API_KEY,
+    "model_name": fa_model,
+    "openai_api_key": fa_key,
     "temperature": 0
 }
-if openai_base_url:
-    llm_fa_config["base_url"] = openai_base_url
+if fa_base_url:
+    llm_fa_config["base_url"] = fa_base_url
 
 llm_fa = ChatOpenAI(**llm_fa_config)
 

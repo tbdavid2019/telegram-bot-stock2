@@ -1,2 +1,7 @@
 myenv/
 .env
+__pycache__/
+*/__pycache__/
+*.pyc
+bot.log
+.auto_update_yfinance.lock

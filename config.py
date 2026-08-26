@@ -14,12 +14,25 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --- Configuration Constants ---
-DIFY_BASE_URL = os.getenv("DIFY_BASE_URL", "http://llm.glsoft.ai/v1/chat-messages")
-DIFY_API_KEY = os.getenv("DIFY_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", None)
 
-# API URL for AI2 Analysis
-AI2_API_URL = "http://dns.glsoft.ai:6000/api/analysis"
+# --- AI Hedge Fund Microservice Endpoints ---
+AI2_BASE_URL = os.getenv("AI2_BASE_URL", "http://dns.glsoft.ai:6000")
+AI2_API_URL = os.getenv("AI2_API_URL", f"{AI2_BASE_URL}/api/analysis")
+AI2_ROUND_TABLE_URL = os.getenv("AI2_ROUND_TABLE_URL", f"{AI2_BASE_URL}/api/round_table")
+AI2_HEALTH_URL = os.getenv("AI2_HEALTH_URL", f"{AI2_BASE_URL}/api/health")
+
+# --- 2MD Web Reader & SERP Search Endpoints (Primary & Backups) ---
+TWOMD_PRIMARY_URL = os.getenv("TWOMD_PRIMARY_URL", "https://2md.aiurl.tw")
+TWOMD_BACKUP1_URL = os.getenv("TWOMD_BACKUP1_URL", "https://2md.glsoft.ai")
+TWOMD_BACKUP2_URL = os.getenv("TWOMD_BACKUP2_URL", "https://create360.ai")
+TWOMD_SEARCH_ENDPOINTS = [
+    TWOMD_PRIMARY_URL,
+    TWOMD_BACKUP1_URL,
+    TWOMD_BACKUP2_URL
+]
 
 # --- Main LLM Agent Configuration ---
 # Protocol: OpenAI-compatible
