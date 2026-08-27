@@ -21,5 +21,8 @@ COPY . .
 # 設定環境變數 (PYTHONUNBUFFERED=1 讓 Python 輸出不緩衝)
 ENV PYTHONUNBUFFERED=1
 
+# Watchtower 自動化更新標籤
+LABEL com.centurylinklabs.watchtower.enable="true"
+
 # 直接啟動 Python 程式
 CMD ["python", "main.py"]

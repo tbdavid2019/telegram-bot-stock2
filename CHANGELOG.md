@@ -2,6 +2,20 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.1.0] - 2026-08-27
+
+### 🚀 新增功能與自動化運維 (DevOps & Automation)
+- **Watchtower 無人值守自動更新整合**：
+  - 新增 `docker-compose.yml` 配置 `watchtower` 服務（定時自動拉取 Docker Hub 最新映像檔並重啟）。
+  - 新增 `start-watchtower.sh` 快速啟動 Watchtower 容器。
+  - 在 `Dockerfile` 中加入 `LABEL com.centurylinklabs.watchtower.enable="true"` 支援標籤過濾更新。
+- **yfinance 自主排程檢查與 Docker 自動重建**：
+  - 新增 `check_and_update_yfinance.sh`，可藉由 cron 定期排程檢查 PyPI 上的 `yfinance` 最新版本。
+  - 若有新版本自動 bump `requirements.txt`、commit & push 到 Git，並觸發 `docker build --no-cache` 與映像檔推送。
+- **2MD 搜尋引擎即時檢索與全域零幻覺鐵律實裝**：
+  - 全面整合 `2md.aiurl.tw`、`2md.glsoft.ai` 與 `create360.ai` 即時財經新聞與全網實體檢索。
+  - 在主對話代理人中加入 `search_financial_web` 工具，避免公司上市/IPO狀態、代號或時事產生模型幻覺。
+
 ---
 
 ## [2.0.0] - 2026-08-26

@@ -119,7 +119,43 @@ docker run -d --name telegram-bot-stock2 --restart unless-stopped --env-file .en
 
 ---
 
-### 方式 B：本機 Python 執行
+### 方式 B：使用 Docker Compose + Watchtower 自動發布 (推薦無人值守運維)
+
+本專案支援 **[Watchtower](https://containrrr.dev/watchtower/)** 自動化容器更新，當有最新映像檔發布時自動重啟更新：
+
+1. **一鍵啟動 Bot 與 Watchtower 服務**：
+```bash
+docker compose up -d
+```
+
+2. **或單獨啟動 Watchtower 監控**：
+```bash
+bash start-watchtower.sh
+```
+
+---
+
+### 🔄 yfinance 自動檢查更新與 Docker 自動重建
+
+為了解決 Yahoo Finance 經常更新 API 導致舊版 `yfinance` 抓取失敗的問題，本專案提供自主排程檢查腳本：
+
+```bash
+# 檢查 PyPI 最新版本，若有更新則自動更新 requirements.txt、commit、push 並重新打包 Docker
+bash check_and_update_yfinance.sh
+```
+
+#### 設定 Linux / macOS Crontab 自動排程 (每 4 小時檢查一次)：
+```bash
+crontab -e
+```
+加入以下排程：
+```cron
+0 */4 * * * cd /path/to/telegram-bot-stock2 && bash check_and_update_yfinance.sh >> /tmp/yfinance_update.log 2>&1
+```
+
+---
+
+### 方式 C：本機 Python 執行
 
 1. **安裝依賴套件**：
 ```bash

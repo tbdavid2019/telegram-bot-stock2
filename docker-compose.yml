@@ -1,0 +1,36 @@
+services:
+  telegram-bot-stock2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tbdavid2019/telegram-bot-stock2:latest
+    container_name: telegram-bot-stock2
+    restart: unless-stopped
+    env_file:
+      - .env
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower-stockbot
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_REVIVE_STOPPED=false
+      - TZ=Asia/Taipei
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
