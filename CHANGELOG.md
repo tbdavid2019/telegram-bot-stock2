@@ -14,6 +14,9 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 - **整合 `/ai` 與 `/llm` 至主對話代理**：使用者可直接以自然語言詢問（如「分析 2330.TW 基本面與技術面」），系統自動調用即時行情、財務指標、新聞與 2MD 搜尋，並具備上下文記憶。
 - **Telegram 指令選單與鍵盤清理**：從 Telegram 左下角選單與底部鍵盤中清理冗餘的 `/ai` 與 `/llm`，專注於自然語言對話與核心指令 (`/ai2`, `/s`, `/p`, `/n`, `/ny`, `/h`, `/start`)，並對舊指令維持向後相容。
 
+### 🛠️ CI/CD 自動化建置工作流
+- **GitHub Actions 自動建置與推送**：新增 `.github/workflows/docker-publish.yml`，在每次 `git push` 到 master 時自動在 GitHub 雲端環境打包 Docker 映像檔並推送至 Docker Hub (`tbdavid2019/telegram-bot-stock2:latest`)，真正打通 Watchtower 自動拉取與無縫重啟流程。
+
 ---
 
 ## [2.1.0] - 2026-08-27

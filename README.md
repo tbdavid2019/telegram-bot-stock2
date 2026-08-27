@@ -15,17 +15,20 @@
 
 ## 🌟 核心功能一覽
 
-### 1. 🏛️ AI 對沖基金投資委員會 (`/ai2 股票代碼`)
+### 1. 💬 智能金融助理自由對話（直接傳送文字）
+- **對話記憶 (Memory)**：具備對話記憶能力，支援自然語言連續追問與多輪討論。
+- **即時工具動態調用**：在對話中動態查詢最新即時股價、技術指標（RSI/MACD/VWAP）、公司基本面財務比率（P/E、營收成長率、毛利率等）、即時新聞以及 **2MD 全網連網即時檢索**。
+- **零幻覺保證**：嚴格實時聯網驗證公司上市/IPO 狀態、代號與即時消息，杜絕模型幻覺。
+- **重置記憶**：輸入 `/start` 即可重置對話上下文。
+
+### 2. 🏛️ AI 對沖基金投資委員會 (`/ai2 股票代碼`)
 - **14 位傳奇投資大師與專家 Persona**：
   - 👴 **巴菲特** (護城河/內在價值)、🧓 **蒙格** (定價權/逆向思維)、📚 **葛拉漢** (淨流動資產/深價值)、👩‍💼 **伍德** (破壞性創新)、🦈 **艾克曼** (催化劑/積極主義)、🏛️ **裴洛西** (國會交易揭露)、👁️ **貝瑞** (反向放空/隱性負債)、🛍️ **林區** (十倍股/生活選股)、🔍 **費雪** (15項質化調查)、🦍 **WSB** (散戶熱度/軋空)、📉 **技術分析師**、📈 **基本面分析師**、🌐 **情緒分析師**、⚖️ **估值分析師**。
 - **圓桌辯論 (Round Table Debate)**：大師們就「成長 vs 估值」展開激烈多輪辯論，產出委員會共識 (`Consensus`) 與分歧觀點 (`Dissenting Opinions`)。
 - **配置建議**：輸出最終操作決策（買入 / 賣出 / 做空 / 持有）、建議股數與信心度評分（支援中英雙語解析）。
 
-### 2. 📊 綜合基本面與技術指標評估 (`/ai 股票代碼`)
-- 整合 LangGraph 工具鏈，自動抓取 RSI、MACD、VWAP、Stochastic Oscillator、P/E、P/B、負債比率、利潤率與即時新聞，產出結構化投資報告。
-
 ### 3. 📈 即時股價與 K 線圖 (`/s 股票代碼`)
-- 查詢即時最新成交價、開高低收、成交量，並自動繪製產生 **日K、週K、月K 線圖**。
+- 查詢即時最新成交價、開高低收、成交量，並由背景線程自動繪製產生 **日K、週K、月K 線圖**。
 - 支援美股（例如 `TSLA`、`NVDA`、`AAPL`）與台股（例如 `2330.TW`、`2002.TW`、`0050.TW`）。
 
 ### 4. 🔮 Prophet 股價時間序列預測 (`/p 股票代碼`)
@@ -35,12 +38,7 @@
 - `/n 股票代碼`：查詢美股最新即時英文財經新聞。
 - `/ny 股票代碼`：查詢 Yahoo 台灣最新即時中文新聞。
 
-### 6. 🤖 智能對話與即時金融工具 (`/llm 問題` 或 直接傳送訊息)
-- **對話記憶 (Memory)**：具備短期記憶，能自動追蹤對話上下文。
-- **工具自動調用**：在自然語言對話中即時查詢股價、指標與新聞回答您的問題。
-- **重置記憶**：輸入 `/start` 即可重置對話上下文。
-
-### 7. 🛠️ 其他量化工具連結 (`/h`)
+### 6. 🛠️ 其他量化工具連結 (`/h`)
 - 提供台股 LSTM 預測、潛力股預測模型與 HuggingFace 空間快速入口。
 
 ---
@@ -64,7 +62,7 @@
 
 詳細架構設計與 14 位 Persona 規範請參閱 [AGENTS.md](AGENTS.md)。
 
-- **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot`
+- **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發)
 - **Agent 與工具鏈**：`LangGraph`, `LangChain`
 - **市場數據與圖表**：`yfinance` (支援 1.6.0+ 與 MultiIndex 欄位展平), `matplotlib`, `prophet`, `pandas`, `ta`
 - **2MD 財經即時搜尋 (Web Reader & SERP)**：
@@ -95,14 +93,10 @@ TWOMD_PRIMARY_URL=https://2md.aiurl.tw
 TWOMD_BACKUP1_URL=https://2md.glsoft.ai
 TWOMD_BACKUP2_URL=https://create360.ai
 
-# 基本面分析 (/ai)
-OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4o
-
-# 主對話助理 (/llm & 自由問答，支援 Groq / DeepSeek / OpenAI 等)
+# 主對話助理 (支援 NEN DeepSeek / Groq / OpenAI 等相容端點)
 LLM_API_KEY=your_llm_api_key
-LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_MODEL=llama3-70b-8192
+LLM_BASE_URL=https://nen.com.tw/v1
+LLM_MODEL=deepseek-v4-flash
 ```
 
 2. **使用部署腳本一鍵啟動**：
