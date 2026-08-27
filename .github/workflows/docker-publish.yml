@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - '**.md'
       - '.gitignore'
+  workflow_dispatch:
 
 jobs:
   build-and-push:
