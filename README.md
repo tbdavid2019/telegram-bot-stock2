@@ -1,4 +1,4 @@
-# 🤖 Telegram 股票資訊與 AI 投資分析機器人 (Stock Bot 2.0)
+# 🤖 Telegram 股票資訊與 AI 投資分析機器人 (`telegram-bot-stock2`)
 
 這是一個基於 Python 與 `python-telegram-bot` 開發的高效能 **Telegram 股票與 AI 投資分析機器人**。提供即時台股/美股行情、多週期 K 線圖、Prophet 股價預測、基本面技術面評估，以及強大的 **14 位投資大師 AI 對沖基金委員會與圓桌會議辯論**。
 
