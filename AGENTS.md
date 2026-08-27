@@ -96,6 +96,12 @@ telegram-bot-stock2/
 - For lengthy outputs (such as `/ai2` 14-guru breakdown and committee debate), split the content into logical sequential messages.
 - Always wrap markdown sends in a try/except block to fallback to plain text if Markdown syntax errors occur (e.g. unescaped underscores or brackets from external data).
 
+### 7. 📖 MANDATORY Documentation & Versioning Policy (嚴格執行 CHANGELOG.md 與 README.md 維護)
+- **100% 同步鐵律 (Continuous Sync Rule)**：無論是新增功能、修改架構、修復 Bug、優化 Prompt、刪除或整併指令，**AI 代理人必須在同一輪改動中立即同步更新 `CHANGELOG.md` 與 `README.md`，絕對不可推延或遺漏！**
+- **嚴禁殘留廢棄指令 (No Obsolete Syntax Residuals)**：當指令被整併或廢除（例如 `/ai`、`/llm` 改為自然語言直接對話），必須徹底清查 `README.md` 中的「功能一覽」、「指令速查表」、「環境變數範例」與「快速鍵盤說明」，絕不准出現相互矛盾或過期的指令文字。
+- **標準化版本號與變更紀錄**：在 `CHANGELOG.md` 中詳細記錄每一次版本號（如 `[2.2.0]`）、分類（`⚡ 全面非阻塞併發升級`、`💬 自然語言深度整合`、`🛠️ CI/CD 自動化建置` 等）與改動條目。
+- **CI/CD 與 DevOps 一致性**：任何與 Docker 映像檔標籤（`tbdavid2019/telegram-bot-stock2:latest`）、Watchtower 標籤、GitHub Actions 工作流相關的調整，皆須同步反映於 `README.md` 與 `AGENTS.md`。
+
 ---
 
 ## ⚙️ Environment Variables Reference
@@ -108,12 +114,12 @@ telegram-bot-stock2/
 | `TWOMD_PRIMARY_URL` | ❌ | `https://2md.aiurl.tw` | Primary 2MD search & web reader endpoint |
 | `TWOMD_BACKUP1_URL` | ❌ | `https://2md.glsoft.ai` | Backup 1 2MD search endpoint |
 | `TWOMD_BACKUP2_URL` | ❌ | `https://create360.ai` | Backup 2 2MD search endpoint |
-| `OPENAI_API_KEY` | ❌ | - | OpenAI API Key (used for `/ai` fundamental analysis) |
-| `OPENAI_MODEL` | ❌ | `gpt-4o` | Model name for `/ai` fundamental analysis |
+| `OPENAI_API_KEY` | ❌ | - | OpenAI API Key (Optional) |
+| `OPENAI_MODEL` | ❌ | `gpt-4o` | Model name for OpenAI endpoint |
 | `OPENAI_BASE_URL` | ❌ | `None` | Optional custom base URL for OpenAI endpoint |
-| `LLM_API_KEY` | ❌ | - | API Key for Main Agent (Groq, DeepSeek, OpenAI, Gemini, etc.) |
-| `LLM_BASE_URL` | ❌ | `https://api.groq.com/openai/v1` | Base URL for OpenAI-compatible conversational endpoint |
-| `LLM_MODEL` | ❌ | `llama3-70b-8192` | Model name for conversational agent |
+| `LLM_API_KEY` | ❌ | - | API Key for Main Agent (NEN DeepSeek, Groq, OpenAI, Gemini) |
+| `LLM_BASE_URL` | ❌ | `https://nen.com.tw/v1` | Base URL for Main Agent endpoint |
+| `LLM_MODEL` | ❌ | `deepseek-v4-flash` | Model name for conversational agent |
 
 ---
 
@@ -134,22 +140,22 @@ python3 main.py
 bash docker-run.sh
 
 # Or manual Docker build & run
-docker build -t telegram-bot-stock2 .
-docker run -d --name telegram-bot-stock2 --restart unless-stopped --env-file .env telegram-bot-stock2
+docker build -t tbdavid2019/telegram-bot-stock2:latest .
+docker run -d --name telegram-bot-stock2 --restart unless-stopped --label "com.centurylinklabs.watchtower.enable=true" --env-file .env tbdavid2019/telegram-bot-stock2:latest
 ```
 
 ### Automated yfinance Update Cron
 ```bash
 # Checks PyPI, bumps requirements.txt, commits, pushes, and rebuilds container if updated
-bash auto_update_yfinance.sh
+bash check_and_update_yfinance.sh
 ```
 
 ---
 
 ## 📝 Conventions for Future Edits
 - Keep dependencies updated and unpinned or loosely pinned in `requirements.txt`.
-- When adding new bot commands:
+- When adding or modifying bot commands:
   1. Define handler in `handlers/<category>_cmds.py` (with async/run_in_executor pattern).
   2. Register `CommandHandler` in `main.py`.
   3. Update `BotCommand` list in `handlers/general.py` (`reset_commands`).
-  4. Document in `README.md` and `CHANGELOG.md`.
+  4. **MANDATORY**: Fully update `README.md` (all sections) and `CHANGELOG.md` with version bump.
