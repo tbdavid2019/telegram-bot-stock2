@@ -54,7 +54,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, default_message_handler))
 
     logger.info("🚀 Bot started successfully with concurrent_updates=True (non-blocking mode)...")
-    app.run_polling(concurrent_updates=True)
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
