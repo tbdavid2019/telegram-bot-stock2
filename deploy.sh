@@ -13,11 +13,12 @@ if docker ps -a --format '{{.Names}}' | grep -qx "$container_name"; then
   docker rm "$container_name" >/dev/null 2>&1 || true
 fi
 
-docker build -t "$image_name" .
+docker build -t "$remote_tag" -t "$image_name" .
+docker push "$remote_tag"
+
 docker run -d \
   --name "$container_name" \
   --restart unless-stopped \
+  --label "com.centurylinklabs.watchtower.enable=true" \
   --env-file .env \
-  "$image_name"
-docker tag "$image_name" "$remote_tag"
-docker push "$remote_tag"
+  "$remote_tag"

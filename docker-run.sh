@@ -19,15 +19,16 @@ fi
 
 # 建立 Docker 映像檔
 echo "🔨 正在建立 Docker 映像檔..."
-docker build -t telegram-bot-stock2 .
+docker build -t tbdavid2019/telegram-bot-stock2:latest -t telegram-bot-stock2:latest .
 
 # 執行 Docker 容器，並傳入環境變數
 echo "🚀 正在啟動 Docker 容器..."
 docker run -d \
     --name telegram-bot-stock2 \
     --restart unless-stopped \
+    --label "com.centurylinklabs.watchtower.enable=true" \
     --env-file .env \
-    telegram-bot-stock2
+    tbdavid2019/telegram-bot-stock2:latest
 
 echo "✅ Docker 容器已啟動！"
 echo "📊 查看日誌：docker logs -f telegram-bot-stock2"
