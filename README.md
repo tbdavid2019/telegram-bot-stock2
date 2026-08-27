@@ -119,38 +119,71 @@ docker run -d --name telegram-bot-stock2 --restart unless-stopped --env-file .en
 
 ---
 
-### 方式 B：使用 Docker Compose + Watchtower 自動發布 (推薦無人值守運維)
+## 🔄 yfinance 自動檢查更新與 Docker 自動重建 (Auto-Update & CI/CD)
 
-本專案支援 **[Watchtower](https://containrrr.dev/watchtower/)** 自動化容器更新，當有最新映像檔發布時自動重啟更新：
+Yahoo Finance 經常調整後端 API，導致舊版 `yfinance` 出現報價抓取失敗。本專案內建專屬的 **PyPI 即時檢查與自動化重建腳本 (`check_and_update_yfinance.sh`)**，實現自動升級與熱更新閉環。
 
-1. **一鍵啟動 Bot 與 Watchtower 服務**：
-```bash
-docker compose up -d
+### 📊 自動更新與 Watchtower 聯動流程圖
+
+```mermaid
+graph TD
+    A["⏰ Crontab 定時排程 (每 4 小時)"] --> B["🔍 check_and_update_yfinance.sh"]
+    B --> C{"PyPI 上有新版 yfinance？"}
+    C -- "否 (已是最新)" --> D["✅ 結束檢查，無須動作"]
+    C -- "是 (發現新版本)" --> E["📝 自動更新 requirements.txt (yfinance==新版本)"]
+    E --> F["📤 自動 Git Commit & Push 到遠端倉庫"]
+    F --> G["🔨 自動執行 docker build --no-cache 重建映像檔"]
+    G --> H["🚢 推送至 Docker Hub (tbdavid2019/telegram-bot-stock2:latest)"]
+    H --> I["🔭 Watchtower 自動偵測到新鏡像"]
+    I --> J["🚀 自動重啟生產容器，無人值守零停機發布！"]
 ```
 
-2. **或單獨啟動 Watchtower 監控**：
+### 🛠️ 常用操作指令
+
+#### 1. 執行完整自動升級流程（檢查 + 更新 requirements.txt + Push + Docker 重建與推送）：
 ```bash
-bash start-watchtower.sh
+bash check_and_update_yfinance.sh
+```
+
+#### 2. 僅檢查 PyPI 版本（不進行 Docker 建置與推送）：
+```bash
+SKIP_DOCKER_BUILD=1 SKIP_GIT_PUSH=1 bash check_and_update_yfinance.sh
+```
+
+#### 3. 設定 Linux / macOS Crontab 排程（每 4 小時自動執行）：
+```bash
+crontab -e
+```
+填入以下設定：
+```cron
+# 每 4 小時自動檢查 PyPI yfinance，若有新版自動升級、重建並發布 Docker
+0 */4 * * * cd /home/bitnami/telegram-bot-stock2 && /bin/bash check_and_update_yfinance.sh >> /home/bitnami/telegram-bot-stock2/update_log.txt 2>&1
+```
+
+#### 4. 查看自動更新執行日誌：
+```bash
+tail -f update_log.txt
 ```
 
 ---
 
-### 🔄 yfinance 自動檢查更新與 Docker 自動重建
+## 🔭 Watchtower 自動化運維 (無人值守自動發布)
 
-為了解決 Yahoo Finance 經常更新 API 導致舊版 `yfinance` 抓取失敗的問題，本專案提供自主排程檢查腳本：
+本專案支援 **[Watchtower](https://containrrr.dev/watchtower/)** 自動化容器更新，當 Docker Hub 發布新映像檔時自動無縫重啟：
 
+### 方式 1：使用 Docker Compose 一鍵啟動 (推薦)
 ```bash
-# 檢查 PyPI 最新版本，若有更新則自動更新 requirements.txt、commit、push 並重新打包 Docker
-bash check_and_update_yfinance.sh
+docker compose up -d
 ```
 
-#### 設定 Linux / macOS Crontab 自動排程 (每 4 小時檢查一次)：
+### 方式 2：單獨啟動 Watchtower 監控容器
 ```bash
-crontab -e
+bash start-watchtower.sh
 ```
-加入以下排程：
-```cron
-0 */4 * * * cd /path/to/telegram-bot-stock2 && bash check_and_update_yfinance.sh >> /tmp/yfinance_update.log 2>&1
+
+### 查看 Watchtower 監控日誌：
+```bash
+docker logs -f watchtower-stockbot
 ```
 
 ---
