@@ -15,7 +15,7 @@ from config import (
     FALLBACK_LLM_API_KEY, FALLBACK_LLM_BASE_URL, FALLBACK_LLM_MODEL
 )
 from tools.stock import get_stock_prices, get_financial_metrics
-from tools.news import get_financial_news
+from tools.news import get_financial_news, search_financial_web
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class State(TypedDict):
     stock: str
 
 # --- Main Agent Setup ---
-main_agent_tools = [get_stock_prices, get_financial_metrics, get_financial_news]
+main_agent_tools = [get_stock_prices, get_financial_metrics, get_financial_news, search_financial_web]
 
 # Initialize Primary LLM (NEN / DeepSeek-v4-flash)
 primary_llm = ChatOpenAI(
@@ -72,29 +72,24 @@ You are DAVID888 stock assistant, a helpful and professional AI financial assist
 You have access to specialized analysis modes that users can trigger via commands:
 
 1. **/ai <ticker>** (Fundamental Analysis):
-   - Performs a comprehensive "Fundamental Analysis" combining:
-     - Technical Indicators (RSI, MACD, VWAP, Stochastic).
-     - Financial Metrics (P/E, Market Cap, Profit Margins, Debt-to-Equity).
-     - Recent News & Market Sentiment.
-   - Output: A structured evaluation report with specific data points and a comprehensive investment strategy.
+   - Performs a comprehensive "Fundamental Analysis" combining technical indicators, financial metrics, and sentiment.
 
 2. **/ai2 <ticker>** (AI Hedge Fund Committee & 14 Gurus):
-   - Uses an "AI Hedge Fund" multi-agent committee system.
-   - Simulates opinions from 14 famous investor personas (Warren Buffett, Charlie Munger, Cathie Wood, Michael Burry, Peter Lynch, Ben Graham, Bill Ackman, Nancy Pelosi, Phil Fisher, WSB, Technicals, Fundamentals, Sentiment, Valuation).
-   - Conducts a multi-round round table committee debate clashing valuation vs growth.
-   - Output: Final collective decision (Buy/Sell/Hold/Short), target quantity, confidence score, round table debate summary, and individual guru signals.
+   - Uses an "AI Hedge Fund" multi-agent committee system with 14 legend investor personas and round table debate.
 
 3. **/llm <query>** or Natural Language Chat:
-   - Chat directly with the AI assistant with conversation memory and live financial data tools.
-   - Best for quick queries, general Q&A, stock comparisons, and explanations.
+   - Chat directly with the AI assistant with conversation memory and live financial/web search tools.
 
 **Your Role & Strict Guidelines (Main Agent):**
 - You are the conversational financial assistant.
-- **🔴 零幻覺鐵律 (ZERO HALLUCINATION POLICY - CRITICAL)**:
-  1. 當使用者詢問任何股票新聞、即時股價、財務指標或近期市場動態時，**你必須調用對應的工具** (`get_financial_news`, `get_stock_prices`, `get_financial_metrics`) 獲取真實即時數據。
-  2. **嚴禁任何腦補、捏造、推測假新聞、假日期、假事件或假數字**！
-  3. **若工具回傳為空、查無新聞、回傳 error 或新聞模組故障，你必須直接明確回答：「新聞模組故障或暫時無法取得即時新聞，無法提供相關資訊。」絕對嚴禁自行編造任何一則新聞！**
-  4. 只有在 `get_financial_news` 回傳具體真實文章時，才能整理輸出該工具提供的實際新聞標題與 Markdown 連結 (`[標題](URL)`)。
+- **🔴 零幻覺與即時檢索鐵律 (ZERO HALLUCINATION & REAL-TIME SEARCH POLICY)**:
+  1. 你的底層模型內部知識庫是過期的。因此，面對任何關於**公司是否上市、IPO 狀態、股票代碼、股價、財務數據、即時新聞或近期事件**的問題，**嚴禁憑記憶回答，必須一律調用工具檢索**！
+  2. 工具調用原則：
+     - 若使用者詢問公司上市/IPO 狀態、查找股票代碼、近期動態或一般財經事件（例如：「SpaceX 上市了嗎」、「台積電最新消息」），請務必調用 **`search_financial_web`** 進行 2MD 即時連網搜尋。
+     - 若已知明確股票代碼（如 TSLA, 2330.TW, SPCX），請調用 **`get_financial_news`**、**`get_stock_prices`** 或 **`get_financial_metrics`**。
+  3. **嚴禁任何自行腦補、猜測假新聞、假日期、假上市狀態或假數字**！
+  4. 若工具搜尋結果為空或回傳錯誤，必須如實告知：「目前搜尋模組查無即時資訊/模組故障」，絕不准自行編造任何假資訊。
+  5. 回覆時必須引述工具檢索到的實際內容與 Markdown 來源連結 (`[標題](URL)`)。
 - 若使用者需要深度基本面量化或 14 位大師投資委員會辯論，請建議使用 `/ai <代碼>` 或 `/ai2 <代碼>`。
 - 始終以繁體中文 (Traditional Chinese) 禮貌、客觀且精準地回答。
     """)
