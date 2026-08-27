@@ -1,6 +1,6 @@
 import asyncio
+import io
 import logging
-import tempfile
 import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -19,6 +19,28 @@ except Exception:
     pass
 
 logger = logging.getLogger(__name__)
+
+def generate_stock_charts(stock_code: str, hist) -> list:
+    """Generate Day, Week, and Month K-line charts in memory (non-blocking thread)."""
+    charts = []
+    for label, resample, color in [("日K線", "D", "blue"), ("週K線", "W", "green"), ("月K線", "ME", "red")]:
+        try:
+            data = hist["Close"].resample(resample).mean()
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.plot(data, label=label, color=color)
+            ax.set_title(f"{stock_code} {label}")
+            ax.legend()
+            ax.grid(True, linestyle="--", alpha=0.7)
+            
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", bbox_inches="tight")
+            plt.close(fig)
+            buf.seek(0)
+            charts.append((label, buf.getvalue()))
+        except Exception as e:
+            logger.error(f"Error generating chart for {label}: {e}")
+            plt.close('all')
+    return charts
 
 async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:
@@ -59,23 +81,10 @@ async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await update.message.reply_text(message, parse_mode="Markdown")
 
-        # Generate Charts
-        # This is CPU bound, should also be offloaded if heavy, but matplotlib is tricky with threads.
-        # We process sequentially for safety here, but could be optimized.
-        for label, resample, color in [("日K線", "D", "blue"), ("週K線", "W", "green"), ("月K線", "ME", "red")]:
-            data = hist["Close"].resample(resample).mean()
-            plt.figure(figsize=(10, 5))
-            plt.plot(data, label=label, color=color)
-            plt.title(f"{stock_code} {label}")
-            plt.legend()
-            plt.grid(True, linestyle="--", alpha=0.7)
-            
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                plt.savefig(tmp.name)
-                tmp_path = tmp.name
-            plt.close()
-            
-            await update.message.reply_photo(photo=open(tmp_path, "rb"), caption=f"📊 {label}")
+        # Generate Charts in worker thread (non-blocking)
+        charts = await loop.run_in_executor(None, generate_stock_charts, stock_code, hist)
+        for label, chart_bytes in charts:
+            await update.message.reply_photo(photo=chart_bytes, caption=f"📊 {label}")
 
     except Exception as e:
         logger.error(f"Stock info error: {e}")
@@ -227,26 +236,29 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             future = model.make_future_dataframe(periods=5)
             forecast = model.predict(future)
             
-            plt.figure(figsize=(10, 6))
-            plt.plot(data['ds'], data['y'], label='Actual')
-            plt.plot(forecast['ds'], forecast['yhat'], label='Predicted')
-            plt.title(f'{stock_code} Price Prediction')
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.plot(data['ds'], data['y'], label='Actual')
+            ax.plot(forecast['ds'], forecast['yhat'], label='Predicted')
+            ax.set_title(f'{stock_code} Price Prediction')
+            ax.legend()
+            ax.grid(True, linestyle="--", alpha=0.7)
             
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                plt.savefig(tmp.name)
-                chart_path = tmp.name
-            plt.close()
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", bbox_inches="tight")
+            plt.close(fig)
+            buf.seek(0)
             
-            return forecast.tail(5)[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].to_string(), chart_path
+            return forecast.tail(5)[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].to_string(), buf.getvalue()
         except Exception as e:
             logger.error(f"Prophet error: {e}")
+            plt.close('all')
             return None, None
 
     try:
-        forecast_text, chart_path = await loop.run_in_executor(None, run_prophet)
+        forecast_text, chart_bytes = await loop.run_in_executor(None, run_prophet)
         
-        if chart_path:
-            await update.message.reply_photo(photo=open(chart_path, "rb"), caption=f"📊 **{stock_code} 5 Day Forecast**")
+        if chart_bytes:
+            await update.message.reply_photo(photo=chart_bytes, caption=f"📊 **{stock_code} 5 Day Forecast**")
             await update.message.reply_text(f"```{forecast_text}```", parse_mode="Markdown")
         else:
              await update.message.reply_text("❌ 預測失敗或無法獲取數據")

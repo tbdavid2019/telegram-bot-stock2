@@ -5,7 +5,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from langchain_core.messages import HumanMessage
 from config import AI2_API_URL
-from ai_core import fundamental_analyst, process_chat_message
+from ai_core import process_chat_message
 
 logger = logging.getLogger(__name__)
 
@@ -38,32 +38,35 @@ async def safe_reply_markdown(update: Update, text: str):
         await update.message.reply_text(text)
 
 async def ai_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Legacy /ai command: Fundamental and Technical Indicator Analysis."""
+    """Unified /ai command: Forward to Main Conversational Agent with tools & memory."""
     if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/ai TSLA 或 /ai 2330.TW")
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/ai TSLA 或 /ai 2330.TW\n💡 提示：您也可以直接傳送文字「分析 TSLA 基本面」與機器人對話！")
         return
 
     ticker = context.args[0].upper()
-    await update.message.reply_text(f"🤖 正在為您進行 {ticker} 的基本面與技術面綜合分析，請稍候...")
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    processing_msg = await update.message.reply_text(f"📊 正在為您全面診斷 {ticker}（整合即時行情、財務指標、技術分析與新聞），請稍候...")
+    
+    prompt = f"請針對 {ticker} 進行全面的基本面財務指標、技術面指標（如 RSI/MACD/VWAP）與近期即時新聞綜合評估診斷，並給出清晰的投資策略分析。"
     
     try:
-        state = {
-            "stock": ticker, 
-            "messages": [HumanMessage(content="Should I buy this stock?")]
-        }
-        
-        import asyncio
-        loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, fundamental_analyst, state)
+        thread_id = str(update.effective_chat.id)
+        response = await process_chat_message(prompt, thread_id=thread_id)
 
-        final_answer = "(No response)"
-        if result.get("messages"):
-            final_answer = result["messages"][-1].content
+        # Delete processing status message
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
 
-        await safe_reply_markdown(update, f"📊 **{ticker} 基本面分析報告**：\n\n{final_answer}")
+        await safe_reply_markdown(update, response)
 
     except Exception as e:
-        logger.error(f"AI Analysis Error: {e}")
+        logger.error(f"AI Analysis Forward Error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
         await update.message.reply_text(f"❌ 分析時發生錯誤：{str(e)}")
 
 async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -73,7 +76,7 @@ async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     ticker = context.args[0].upper()
-    await update.message.reply_text(f"🏛️ 正在召開 14 位投資大師委員會與圓桌辯論分析 {ticker}，這需要約 15~30 秒，請稍候...")
+    processing_msg = await update.message.reply_text(f"🏛️ 正在召開 14 位投資大師委員會與圓桌辯論分析 {ticker}，這需要約 15~30 秒，請稍候...")
 
     headers = {"Content-Type": "application/json"}
     payload = {
@@ -109,6 +112,12 @@ async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
             (next(iter(round_table_dict.values()), None) if round_table_dict else None)
         )
         
+        # Delete processing message once data is retrieved
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
         if not decision:
             await update.message.reply_text(f"⚠️ 未能獲取 {ticker} 的決策數據，請確認代碼是否正確。")
             return
@@ -211,9 +220,17 @@ async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except httpx.HTTPStatusError as e:
         logger.error(f"AI2 HTTP Error: {e.response.status_code} - {e.response.text}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
         await update.message.reply_text(f"❌ 呼叫 AI Hedge Fund API 失敗 (HTTP {e.response.status_code})")
     except Exception as e:
         logger.error(f"AI2 Error: {e}", exc_info=True)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
         await update.message.reply_text(f"❌ 分析失敗: {str(e)}")
 
 async def llm_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -224,11 +241,23 @@ async def llm_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    processing_msg = await update.message.reply_text("⏳ 思考與處理中，請稍候...")
     
     try:
         thread_id = str(update.effective_chat.id)
         response = await process_chat_message(query, thread_id=thread_id)
+        
+        # Delete temporary processing message
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
         await safe_reply_markdown(update, response)
     except Exception as e:
         logger.error(f"LLM Query Error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
         await update.message.reply_text(f"❌ 回應失敗: {str(e)}")

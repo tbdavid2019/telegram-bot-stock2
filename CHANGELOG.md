@@ -2,6 +2,20 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.2.0] - 2026-08-27
+
+### ⚡ 全面非阻塞併發升級 (Non-Blocking Concurrency)
+- **PTB 全局並發更新引擎**：啟用 `concurrent_updates=True`，使每個使用者的訊息與指令皆作為獨立 `asyncio.Task` 平行處理，徹底解決請求排隊卡死瓶頸。
+- **背景執行緒池擴容**：配置 32 個並發 worker (`ThreadPoolExecutor(max_workers=32)`)，支撐多人同時查詢 yfinance、新聞爬蟲與 Prophet 運算。
+- **圖表繪製非阻塞與記憶體化**：`/s`（日/週/月 K 線）與 `/p`（Prophet 預測圖）繪圖運算全面移至背景執行緒，並改用 `io.BytesIO` 記憶體串流傳輸，不再凍結事件迴圈。
+- **思考狀態提示與自動刪除**：LLM 處理期間發送 `⏳ 思考與處理中，請稍候...` 提示，回應完成後自動刪除，保持聊天室清爽。
+
+### 💬 自然語言深度整合與指令精簡
+- **整合 `/ai` 與 `/llm` 至主對話代理**：使用者可直接以自然語言詢問（如「分析 2330.TW 基本面與技術面」），系統自動調用即時行情、財務指標、新聞與 2MD 搜尋，並具備上下文記憶。
+- **Telegram 指令選單與鍵盤清理**：從 Telegram 左下角選單與底部鍵盤中清理冗餘的 `/ai` 與 `/llm`，專注於自然語言對話與核心指令 (`/ai2`, `/s`, `/p`, `/n`, `/ny`, `/h`, `/start`)，並對舊指令維持向後相容。
+
+---
+
 ## [2.1.0] - 2026-08-27
 
 ### 🚀 新增功能與自動化運維 (DevOps & Automation)

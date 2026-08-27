@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import logging
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from config import TELEGRAM_BOT_TOKEN
 from handlers.general import start, tools_help, default_message_handler, reset_commands
@@ -23,7 +24,20 @@ def main():
         logger.critical("TELEGRAM_BOT_TOKEN is not set in environment!")
         return
 
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    # Configure ThreadPoolExecutor for background sync I/O tasks (yfinance, Prophet, scraping)
+    executor = ThreadPoolExecutor(max_workers=32)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.set_default_executor(executor)
+
+    # Build Application with non-blocking concurrent updates and post_init hook
+    app = (
+        ApplicationBuilder()
+        .token(TELEGRAM_BOT_TOKEN)
+        .concurrent_updates(True)
+        .post_init(reset_commands)
+        .build()
+    )
     
     # Register Handlers
     app.add_handler(CommandHandler("start", start))
@@ -39,12 +53,8 @@ def main():
     # Default handler for non-commands
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, default_message_handler))
 
-    # Reset commands on startup
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(reset_commands(app))
-
-    logger.info("🚀 Bot started successfully...")
-    app.run_polling()
+    logger.info("🚀 Bot started successfully with concurrent_updates=True (non-blocking mode)...")
+    app.run_polling(concurrent_updates=True)
 
 if __name__ == "__main__":
     main()

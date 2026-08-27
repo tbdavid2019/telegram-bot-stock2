@@ -13,21 +13,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_message = (
         "🎉 **歡迎使用 DAVID888 股票資訊與 AI 投資分析機器人！**\n\n"
         "*(您的對話記憶已重置，現在是一個全新的開始)*\n\n"
-        "📌 **主要指令功能**：\n"
+        "💬 **自然語言智能對話（直接傳送文字即可）**：\n"
+        "機器人已整合即時股價、財務指標、技術指標（RSI/MACD/VWAP）、2MD 連網搜尋與即時新聞。您可以像真人對話一樣直接詢問：\n"
+        "  • *「分析台積電 2330.TW 的基本面與技術面」*\n"
+        "  • *「SpaceX 最近有什麼重大進展？上市了嗎？」*\n"
+        "  • *「比較 NVDA 與 TSLA 的近期營收與成長率」*\n\n"
+        "📌 **專屬量化與委員會指令**：\n"
         "• `/ai2 股票代碼` - 🏛️ 14 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA`)\n"
-        "• `/ai 股票代碼` - 📊 綜合基本面與技術指標評估報告 (範例：`/ai TSLA`)\n"
-        "• `/s 股票代碼` - 📈 查詢公司即時股價和日/週/月 K 線圖 (範例：`/s 2330.TW`)\n"
-        "• `/p 股票代碼` - 🔮 Prophet 模型預測未來 5 天股價區間 (範例：`/p META`)\n"
+        "• `/s 股票代碼` - 📈 查詢即時股價與 日/週/月 K 線圖 (範例：`/s 2330.TW`)\n"
+        "• `/p 股票代碼` - 🔮 Prophet 時間序列預測未來 5 天股價區間 (範例：`/p META`)\n"
         "• `/n 股票代碼` - 📰 查詢美股即時英文新聞 (範例：`/n AAPL`)\n"
         "• `/ny 股票代碼` - 📰 查詢台股即時中文新聞 (範例：`/ny 2330.TW`)\n"
-        "• `/llm 問題` - 🤖 智能金融助理自由問答 (具備記憶與即時工具) (範例：`/llm 2330.TW 的前景如何？`)\n\n"
-        "💡 *您也可以直接傳送文字訊息與機器人自然語言對話！*"
+        "• `/h` - 🛠️ 顯示其他外部量化預測工具連結\n"
+        "• `/start` - 🔄 重置並清空當前對話記憶"
     )
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("/s 2330.TW  查詢股價和K線圖"), KeyboardButton("/n TSLA 查詢美股新聞")],
-            [KeyboardButton("/ny 2330.TW 查詢台股新聞"), KeyboardButton("/ai TSLA 綜合基本面分析")],
-            [KeyboardButton("/ai2 NVDA 14大師圓桌辯論"), KeyboardButton("/llm 2330.TW 的技術面與營收分析")]
+            [KeyboardButton("分析 2330.TW 基本面與技術面"), KeyboardButton("/s 2330.TW 查詢股價K線圖")],
+            [KeyboardButton("/ai2 NVDA 14大師圓桌辯論"), KeyboardButton("/p META Prophet預測")],
+            [KeyboardButton("/ny 2330.TW 台股新聞"), KeyboardButton("/n TSLA 美股新聞")]
         ],
         resize_keyboard=True
     )
@@ -55,29 +59,42 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
     if not user_input:
         return
 
-    # Notify user that bot is "typing" or thinking
+    # Notify user that bot is typing and send temporary status message
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    
-    # Process message via Main Agent with conversation memory
-    thread_id = str(update.effective_chat.id)
-    response = await process_chat_message(user_input, thread_id=thread_id)
+    processing_msg = await update.message.reply_text("⏳ 思考與處理中，請稍候...")
     
     try:
-        await update.message.reply_text(response, parse_mode="Markdown")
-    except Exception:
-        await update.message.reply_text(response)
+        # Process message via Main Agent with conversation memory
+        thread_id = str(update.effective_chat.id)
+        response = await process_chat_message(user_input, thread_id=thread_id)
+        
+        # Delete the temporary processing message
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        try:
+            await update.message.reply_text(response, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(response)
+    except Exception as e:
+        logger.error(f"Default message handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 處理訊息時發生錯誤：{str(e)}")
 
 
 async def reset_commands(application: Application):
     commands = [
-        BotCommand("start", "啟動機器人與重置對話"),
+        BotCommand("start", "啟動機器人與重置對話記憶"),
         BotCommand("ai2", "14位投資大師圓桌辯論 (AI對沖基金)"),
-        BotCommand("ai", "綜合基本面與技術面分析"),
-        BotCommand("s", "查詢即時股價和K線圖"),
-        BotCommand("p", "Prophet 預測未來 5 天股價"),
-        BotCommand("n", "查詢美股新聞"),
-        BotCommand("ny", "查詢台股新聞"),
-        BotCommand("llm", "智能助理問答 (帶工具與記憶)"),
-        BotCommand("h", "顯示量化與預測工具連結")
+        BotCommand("s", "查詢即時股價和日/週/月 K 線圖"),
+        BotCommand("p", "Prophet 模型預測未來 5 天股價"),
+        BotCommand("n", "查詢美股即時新聞"),
+        BotCommand("ny", "查詢台股即時新聞"),
+        BotCommand("h", "顯示量化預測工具連結")
     ]
     await application.bot.set_my_commands(commands)
