@@ -27,7 +27,8 @@ telegram-bot-stock2/
 │   └── general.py            # Handlers for /start (memory reset + keyboard), /h (tools help), text routing
 ├── tools/
 │   ├── stock.py              # LangChain tools: get_stock_prices, get_financial_metrics
-│   └── news.py               # LangChain tool: get_financial_news (yfinance + Yahoo + Google fallback)
+│   ├── news.py               # LangChain tool: get_financial_news (yfinance + Yahoo + Google fallback)
+│   └── wiki.py               # LangChain tool & helper: publish_to_wiki (David888 Wiki REST API)
 ├── news.py                   # Standalone Taiwan Yahoo news scraper helper
 ├── auto_update_yfinance.sh   # Automated cron script to bump yfinance version from PyPI & redeploy
 ├── deploy.sh                 # Docker build, tag, run, and push script
@@ -100,7 +101,16 @@ telegram-bot-stock2/
 - **100% 同步鐵律 (Continuous Sync Rule)**：無論是新增功能、修改架構、修復 Bug、優化 Prompt、刪除或整併指令，**AI 代理人必須在同一輪改動中立即同步更新 `CHANGELOG.md` 與 `README.md`，絕對不可推延或遺漏！**
 - **嚴禁殘留廢棄指令 (No Obsolete Syntax Residuals)**：當指令被整併或廢除（例如 `/ai`、`/llm` 改為自然語言直接對話），必須徹底清查 `README.md` 中的「功能一覽」、「指令速查表」、「環境變數範例」與「快速鍵盤說明」，絕不准出現相互矛盾或過期的指令文字。
 - **標準化版本號與變更紀錄**：在 `CHANGELOG.md` 中詳細記錄每一次版本號（如 `[2.2.0]`）、分類（`⚡ 全面非阻塞併發升級`、`💬 自然語言深度整合`、`🛠️ CI/CD 自動化建置` 等）與改動條目。
-- **CI/CD 與 DevOps 一致性**：任何與 Docker 映像檔標籤（`tbdavid2019/telegram-bot-stock2:latest`）、Watchtower 標籤、GitHub Actions 工作流相關的調整，皆須同步反映於 `README.md` 與 `AGENTS.md`。
+### 8. 🌐 David888 Wiki Publishing Standards & Architecture
+- **Endpoint**: `https://wiki.david888.com/api/<path>` (configurable via `WIKI_BASE_URL` / `WIKI_API_URL`).
+- **Mandatory Document Structure Rule**:
+  - Markdown content **MUST start with `# Document Title` on line 1**.
+  - **NEVER** prefix output with conversational small talk (e.g. "好的，這是為您整理的報告").
+  - Insert executive summary `> ...` and `[TOC]` right after the title.
+  - Utilize rich formatting: tables, GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`), footnotes (`[^1]`), and highlights (`==text==`).
+- **URL Handling**:
+  - Always extract and return `data.shareUrl` (public read-only URL) to users.
+  - **NEVER** give the internal edit `url` to users.
 
 ---
 
@@ -114,6 +124,7 @@ telegram-bot-stock2/
 | `TWOMD_PRIMARY_URL` | ❌ | `https://2md.aiurl.tw` | Primary 2MD search & web reader endpoint |
 | `TWOMD_BACKUP1_URL` | ❌ | `https://2md.glsoft.ai` | Backup 1 2MD search endpoint |
 | `TWOMD_BACKUP2_URL` | ❌ | `https://create360.ai` | Backup 2 2MD search endpoint |
+| `WIKI_BASE_URL` | ❌ | `https://wiki.david888.com` | Base URL for David888 Wiki Publisher |
 | `OPENAI_API_KEY` | ❌ | - | OpenAI API Key (Optional) |
 | `OPENAI_MODEL` | ❌ | `gpt-4o` | Model name for OpenAI endpoint |
 | `OPENAI_BASE_URL` | ❌ | `None` | Optional custom base URL for OpenAI endpoint |

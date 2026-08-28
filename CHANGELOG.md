@@ -2,6 +2,15 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.3.0] - 2026-08-28
+
+### 🌐 David888 Wiki 智能發布工具鏈整合 (David888 Wiki Publisher)
+- **實作 `publish_to_wiki` LangGraph Tool**：遵循 `wiki.david888.com` 最新規範，嚴格遵守「開頭第一行必為 `# Document Title`、移除前置客套對話、自動配置 `[TOC]` 與美化主題（支援 `claude-canvas`、`retro`、`tokyo-night` 等）」，並保證永遠回傳公開閱讀連結 `shareUrl`。
+- **主對話 Agent 自主長文發布**：LLM 大腦在產出深度研究報告、跨公司比較或使用者要求生成分享網址時，可自主調用 `publish_to_wiki` 生成高階排版 Wiki 網頁。
+- **`/ai2` 14 位大師投資委員會全自動 Wiki 發布**：在執行 `/ai2` 時，自動在背景將 14 位投資大師個別深入論點、圓桌會議辯論共識/分歧、建議倉位與執行理由打包發布至 David888 Wiki，並於 Telegram 訊息末尾提供一鍵網頁閱讀連結。
+
+---
+
 ## [2.2.0] - 2026-08-27
 
 ### ⚡ 全面非阻塞併發升級 (Non-Blocking Concurrency)

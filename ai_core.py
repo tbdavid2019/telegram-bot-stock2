@@ -16,6 +16,7 @@ from config import (
 )
 from tools.stock import get_stock_prices, get_financial_metrics
 from tools.news import get_financial_news, search_financial_web
+from tools.wiki import publish_to_wiki
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class State(TypedDict):
     stock: str
 
 # --- Main Agent Setup ---
-main_agent_tools = [get_stock_prices, get_financial_metrics, get_financial_news, search_financial_web]
+main_agent_tools = [get_stock_prices, get_financial_metrics, get_financial_news, search_financial_web, publish_to_wiki]
 
 # Initialize Primary LLM (NEN / DeepSeek-v4-flash)
 primary_llm = ChatOpenAI(
@@ -74,6 +75,7 @@ You have access to dynamic real-time tools:
 - `get_financial_metrics`: Key fundamental financial ratios (P/E, revenue growth, profit margins, debt-to-equity, current ratio).
 - `get_financial_news`: Live ticker news from 2MD search and Yahoo/Google fallbacks.
 - `search_financial_web`: 2MD live SERP search engine for company backgrounds, IPO status, ticker lookups, breaking news, and macroeconomic events.
+- `publish_to_wiki`: Publishes comprehensive financial reports, research documents, and multi-stock comparisons to David888 Wiki and returns a public shareUrl.
 
 Users can converse with you freely in natural language to perform fundamental analysis, technical health checks, news summaries, or market comparisons across Taiwan (e.g. 2330.TW) and US stocks (e.g. NVDA, TSLA).
 
@@ -81,6 +83,14 @@ Specialized macro commands available for users:
 - **/ai2 <ticker>**: AI Hedge Fund 14 Legend Investor Committee & Round Table debate. If a user asks for multi-analyst debate or Warren Buffett / Cathie Wood committee opinions, guide them to try `/ai2 <ticker>`.
 - **/s <ticker>**: Generates Day/Week/Month K-line charts.
 - **/p <ticker>**: Computes 5-day Prophet time-series forecast.
+
+**David888 Wiki Publishing Guidelines (Mandatory):**
+- When generating long-form reports or when the user asks to publish to Wiki or share as a link:
+  1. ALWAYS ensure the document starts with `# Document Title` on the very first line. Never output conversational small talk or greetings before `# Title`.
+  2. Put executive summary `> ...` and `[TOC]` right after the title.
+  3. Use rich formatting: tables, GitHub alerts (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`), footnotes (`[^1]`), text highlights (`==text==`), and code tabs.
+  4. Supported themes: `claude-canvas`, `retro`, `tokyo-night`, `notion-clean`, `botanical`, `professional`, `ayu-light`, `terminal`.
+  5. ALWAYS provide the public `shareUrl` to the user.
 
 **Your Role & Strict Guidelines:**
 - **🔴 零幻覺與即時檢索鐵律 (ZERO HALLUCINATION & REAL-TIME SEARCH POLICY)**:

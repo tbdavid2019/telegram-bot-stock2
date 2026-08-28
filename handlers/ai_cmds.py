@@ -1,11 +1,13 @@
 import json
 import logging
+import asyncio
 import httpx
 from telegram import Update
 from telegram.ext import ContextTypes
 from langchain_core.messages import HumanMessage
 from config import AI2_API_URL
 from ai_core import process_chat_message
+from tools.wiki import publish_wiki_report
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +209,59 @@ async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
             analyst_count += 1
 
         if analyst_count > 0:
+            # Generate and publish full David888 Wiki report
+            try:
+                wiki_md = f"# 🏛️ {ticker} AI 對沖基金 14 位投資大師深度投資報告\n\n"
+                wiki_md += f"> 🎯 **最終決策**：{action_text} | 📊 **信心度**：{confidence}% | 📦 **建議持倉**：{quantity} 股\n\n"
+                wiki_md += "[TOC]\n\n"
+                wiki_md += f"## 1. 🎯 投資委員會執行決策 (Executive Decision)\n\n"
+                wiki_md += f"- **決策方向**：{action_text}\n"
+                wiki_md += f"- **信心評分**：`{confidence}%`\n"
+                wiki_md += f"- **建議配置**：`{quantity}` 股\n\n"
+                wiki_md += f"### 💡 核心執行理由\n{reasoning}\n\n"
+                
+                if round_table_info and isinstance(round_table_info, dict):
+                    wiki_md += f"## 2. 🗣️ 圓桌委員會多輪辯論精要 (Round Table Debate)\n\n"
+                    if consensus:
+                        wiki_md += f"### 🤝 委員會共識觀點 (Consensus View)\n{consensus}\n\n"
+                    if dissenting:
+                        wiki_md += f"### ⚡ 委員會分歧觀點 (Dissenting Opinions)\n{dissenting}\n\n"
+                    if summary and not consensus:
+                        wiki_md += f"### 📝 辯論綜合總結\n{summary}\n\n"
+
+                wiki_md += f"## 3. 👥 14 位傳奇投資大師與專家深度觀點剖析\n\n"
+                
+                for analyst_key, (emoji, display_name) in ANALYST_PERSONAS.items():
+                    agent_payload = norm_signals.get(analyst_key) or norm_signals.get(f"{analyst_key}_agent")
+                    if not agent_payload or not isinstance(agent_payload, dict):
+                        continue
+                    info = (
+                        agent_payload.get(ticker) or 
+                        agent_payload.get(ticker.upper()) or 
+                        agent_payload.get(ticker.lower()) or 
+                        (next(iter(agent_payload.values()), None) if agent_payload else None)
+                    )
+                    if not info or not isinstance(info, dict):
+                        continue
+                    sig_raw = str(info.get("signal", "neutral")).lower()
+                    sig_text = signal_map.get(sig_raw, sig_raw)
+                    sig_conf = info.get("confidence", "N/A")
+                    sig_reason_full = info.get("reasoning", "無詳細說明")
+
+                    wiki_md += f"### {emoji} {display_name}\n"
+                    wiki_md += f"- **操作信號**：{sig_text}\n"
+                    wiki_md += f"- **信心指數**：`{sig_conf}%`\n"
+                    wiki_md += f"- **深度觀點分析**：\n{sig_reason_full}\n\n"
+
+                loop = asyncio.get_running_loop()
+                wiki_title = f"{ticker} AI 對沖基金 14 位投資大師深度投資分析報告"
+                share_url = await loop.run_in_executor(None, publish_wiki_report, wiki_title, wiki_md, "claude-canvas")
+
+                if share_url:
+                    msg2 += f"\n\n🌐 **[點此在 David888 Wiki 閱讀完整高階排版報告]({share_url})**\n"
+            except Exception as wiki_err:
+                logger.warning(f"Failed to publish /ai2 report to David888 Wiki: {wiki_err}")
+
             # Check length before sending
             if len(msg2) > 4000:
                 # Split in half
