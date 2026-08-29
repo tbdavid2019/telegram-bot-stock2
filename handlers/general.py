@@ -14,28 +14,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🎉 **歡迎使用 DAVID888 股票資訊與 AI 投資分析機器人！**\n\n"
         "*(您的對話記憶已重置，現在是一個全新的開始)*\n\n"
         "💬 **自然語言智能對話（直接傳送文字即可）**：\n"
-        "機器人已整合即時股價、財務指標、技術指標（RSI/MACD/VWAP）、2MD 連網搜尋與即時新聞。您可以像真人對話一樣直接詢問：\n"
-        "  • *「分析台積電 2330.TW 的基本面與技術面」*\n"
-        "  • *「SpaceX 最近有什麼重大進展？上市了嗎？」*\n"
-        "  • *「比較 NVDA 與 TSLA 的近期營收與成長率」*\n\n"
-        "📌 **專屬量化與委員會指令**：\n"
-        "• `/ai2 股票代碼` - 🏛️ 14 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA`)\n"
-        "• `/s 股票代碼` - 📈 查詢即時股價與 日/週/月 K 線圖 (範例：`/s 2330.TW`)\n"
-        "• `/p 股票代碼` - 🔮 Prophet 時間序列預測未來 5 天股價區間 (範例：`/p META`)\n"
+        "機器人已整合量化模型、2MD 全網情報、即時股價、技術指標與新聞。您可以像與研究員對話一樣直接詢問：\n"
+        "  • 📐 *「TSLA 目前符合 Minervini SEPA 突破與 Stage 2 嗎？」*\n"
+        "  • 💰 *「幫我計算 AAPL 的五年 DCF 內在價值與合理價」*\n"
+        "  • 🗓️ *「NVDA 下週財報預期與過去四季驚喜度如何？」*\n"
+        "  • 🏛️ *「巴菲特和段永平最近有買進或加減持哪檔股票？(13F持倉)」*\n"
+        "  • 🕵️ *「查詢 TSLA 最近的高階經理人內部人買賣 (Form 4)」*\n"
+        "  • 🚀 *「分析 GME 的做空比率與軋空 (Short Squeeze) 風險」*\n"
+        "  • 📰 *「台積電 2330.TW 最近有什麼重大新聞與基本面評估」*\n\n"
+        "📌 **專屬量化與委員會指令速查**：\n"
         "• `/sepa 股票代碼` - 📐 Minervini SEPA 8 項趨勢模板與 VCP 篩選 (範例：`/sepa TSLA`)\n"
         "• `/val 股票代碼` - 💰 五年 DCF 內在價值與 WACC 敏感度 (範例：`/val AAPL`)\n"
         "• `/earn 股票代碼` - 🗓️ 財報日期、共識預估與四季驚喜紀錄 (範例：`/earn NVDA`)\n"
         "• `/corr 股票1,股票2,...` - 🔗 90 日相關係數與 S&P 500 Beta (範例：`/corr TSLA,NVDA,AAPL`)\n"
+        "• `/ai2 股票代碼` - 🏛️ 14 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA`)\n"
+        "• `/s 股票代碼` - 📈 查詢即時股價與 日/週/月 K 線圖 (範例：`/s 2330.TW`)\n"
+        "• `/p 股票代碼` - 🔮 Prophet 時間序列預測未來 5 天股價區間 (範例：`/p META`)\n"
         "• `/n 股票代碼` - 📰 查詢美股即時英文新聞 (範例：`/n AAPL`)\n"
         "• `/ny 股票代碼` - 📰 查詢台股即時中文新聞 (範例：`/ny 2330.TW`)\n"
         "• `/h` - 🛠️ 顯示其他外部量化預測工具連結\n"
-        "• `/start` - 🔄 重置並清空當前對話記憶"
+        "• `/start` 或 `/help` - 🔄 重置記憶並顯示此說明選單"
     )
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("分析 2330.TW 基本面與技術面"), KeyboardButton("/s 2330.TW 查詢股價K線圖")],
-            [KeyboardButton("/ai2 NVDA 14大師圓桌辯論"), KeyboardButton("/p META Prophet預測")],
-            [KeyboardButton("/ny 2330.TW 台股新聞"), KeyboardButton("/n TSLA 美股新聞")]
+            [KeyboardButton("/sepa TSLA SEPA趨勢分析"), KeyboardButton("/val AAPL DCF估值計算")],
+            [KeyboardButton("/earn NVDA 財報前瞻簡報"), KeyboardButton("/corr TSLA,NVDA,AAPL 相關性分析")],
+            [KeyboardButton("/ai2 NVDA 14大師圓桌辯論"), KeyboardButton("/s 2330.TW 查詢K線圖")],
+            [KeyboardButton("分析 2330.TW 基本面與技術面"), KeyboardButton("/p META Prophet預測")]
         ],
         resize_keyboard=True
     )
@@ -103,6 +108,7 @@ async def reset_commands(application: Application):
         BotCommand("corr", "多股相關係數與 S&P 500 Beta"),
         BotCommand("n", "查詢美股即時新聞"),
         BotCommand("ny", "查詢台股即時新聞"),
-        BotCommand("h", "顯示量化預測工具連結")
+        BotCommand("h", "顯示量化預測工具連結"),
+        BotCommand("help", "顯示完整功能說明與指令表")
     ]
     await application.bot.set_my_commands(commands)

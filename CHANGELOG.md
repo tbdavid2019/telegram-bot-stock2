@@ -16,7 +16,8 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 
 ### 🤖 Agent 與 Telegram 整合
 - 將八項新工具註冊至 LangGraph 主對話 Agent，並加入量化資料不完整時不得猜測的提示規則。
-- 新增 `/sepa`、`/val`、`/earn`、`/corr` 快速指令；同步更新 Telegram 指令選單。
+- 新增 `/sepa`、`/val`、`/earn`、`/corr` 快速指令與 `/help` 說明指令；同步更新 Telegram 官方指令選單 (`set_my_commands`)。
+- 優化 `/start` 與 `/help` 說明文字（加入量化與 13F/內部人自然語言範例）與底部快捷鍵盤 (`ReplyKeyboardMarkup`)。
 - 新指令將 yfinance、計算與 JSON 報告透過 executor 執行，並以 4096 字元限制及 Markdown fallback 安全傳送。
 
 ## [2.3.0] - 2026-08-28

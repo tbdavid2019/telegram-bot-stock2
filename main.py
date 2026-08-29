@@ -62,6 +62,7 @@ def main():
     app.add_handler(CommandHandler("ai2", ai2_analysis))
     app.add_handler(CommandHandler("llm", llm_query))
     app.add_handler(CommandHandler("h", tools_help))
+    app.add_handler(CommandHandler("help", start))
     
     # Default handler for non-commands
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, default_message_handler))
