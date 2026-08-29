@@ -2,6 +2,23 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.4.0] - 2026-08-30
+
+### 📐 對沖基金量化研究工具
+- 新增 `tools/stock_analysis.py`：Mark Minervini SEPA 8 項 Trend Template、Stage 2/VCP 診斷、pivot 與風險停損。
+- 新增五年 FCFF DCF：以即時 `^TNX` 10 年期殖利率估算風險自由利率與 WACC，提供 Bull/Base/Bear 情境及 WACC/終值成長敏感度矩陣。
+- 新增 Earnings Briefing：財報日期、EPS/營收共識、分析師目標價及最近四季 beat/miss 紀錄；資料缺失時保留限制。
+- 新增 2 至 5 檔股票的 90 日報酬相關矩陣與 S&P 500 Beta 分析。
+
+### 🧭 2MD Smart Money 與社群情報
+- 新增 `tools/market_intel.py`：Dataroma/WhaleWisdom 13F、OpenInsider/Finviz/SEC Form 4、short squeeze/借券費率及 Reddit WSB/StockTwits 情緒工具。
+- 所有外部情報查詢依序使用 `2md.aiurl.tw`、`2md.glsoft.ai`、`create360.ai`，保留來源摘錄並在資料不足時明確回報。
+
+### 🤖 Agent 與 Telegram 整合
+- 將八項新工具註冊至 LangGraph 主對話 Agent，並加入量化資料不完整時不得猜測的提示規則。
+- 新增 `/sepa`、`/val`、`/earn`、`/corr` 快速指令；同步更新 Telegram 指令選單。
+- 新指令將 yfinance、計算與 JSON 報告透過 executor 執行，並以 4096 字元限制及 Markdown fallback 安全傳送。
+
 ## [2.3.0] - 2026-08-28
 
 ### 🌐 David888 Wiki 智能發布工具鏈整合 (David888 Wiki Publisher)

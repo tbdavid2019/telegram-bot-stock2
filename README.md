@@ -39,7 +39,21 @@
 - `/n 股票代碼`：查詢美股最新即時英文財經新聞。
 - `/ny 股票代碼`：查詢 Yahoo 台灣最新即時中文新聞。
 
-### 6. 🛠️ 其他量化工具連結 (`/h`)
+### 6. 📐 量化研究工具 (`/sepa` / `/val` / `/earn` / `/corr`)
+- `/sepa 股票代碼`：以 50/150/200 日均線、52 週高低點與 SPY 相對強度檢查 Minervini 8 項 SEPA Trend Template，並提供 pivot、風險停損與 VCP 收縮診斷。
+- `/val 股票代碼`：以最新 `^TNX` 10 年期美債殖利率建立 WACC，投射五年 FCFF，輸出 Bull/Base/Bear 公允價與 WACC/終值成長敏感度矩陣。負現金流公司會明確降級為 P/S 或 EV/Revenue 參考。
+- `/earn 股票代碼`：整理下一次財報日期、EPS/營收共識、分析師目標價與最近四季 beat/miss 驚喜紀錄。
+- `/corr 股票1,股票2,...`：以最近 90 個交易日計算 2 至 5 檔股票的日報酬相關矩陣及相對 SPY Beta。
+
+### 7. 🧭 Smart Money 與散戶市場情報（自然語言調用）
+- 13F：透過 2MD 三節點備援讀取 Dataroma/WhaleWisdom 公開資料，整理超級投資人買入、賣出或持有摘錄。
+- Form 4：透過 2MD 讀取 OpenInsider、Finviz/SEC 公開頁面，區分公開市場買賣與 option/grant。
+- Short squeeze：整合 yfinance short float、days to cover 與 2MD 借券費率摘錄。
+- Retail sentiment：以 2MD SERP 掃描 Reddit WallStreetBets 與 StockTwits 提及、方向與催化劑摘錄。
+
+以上情報工具可直接用自然語言提問，例如「整理 TSLA 最近的 13F 與內部人交易」或「分析 GME 的 short squeeze 風險」。搜尋結果不足時會保留資料限制，不以猜測補值。
+
+### 8. 🛠️ 其他量化工具連結 (`/h`)
 - 提供台股 LSTM 預測、潛力股預測模型與 HuggingFace 空間快速入口。
 
 ---
@@ -53,6 +67,10 @@
 | `/ai2` | 🏛️ 14 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA` 或 `/ai2 2330.TW` |
 | `/s` | 📈 查詢即時股價與日/週/月 K 線圖 | `/s 2330.TW` |
 | `/p` | 🔮 Prophet 模型預測未來 5 天股價區間 | `/p META` |
+| `/sepa` | 📐 Minervini SEPA 8 項趨勢模板與 VCP 分析 | `/sepa TSLA` |
+| `/val` | 💰 五年 DCF 內在價值、WACC 與敏感度矩陣 | `/val AAPL` |
+| `/earn` | 🗓️ 財報日期、共識預估與最近四季驚喜 | `/earn NVDA` |
+| `/corr` | 🔗 2-5 檔股票相關矩陣與 SPY Beta | `/corr TSLA,NVDA,AAPL` |
 | `/n` | 📰 查詢美股即時英文新聞 | `/n AAPL` |
 | `/ny` | 📰 查詢台股即時中文新聞 | `/ny 2330.TW` |
 | `/h` | 🛠️ 顯示其他機器學習模型與量化工具連結 | `/h` |
@@ -66,6 +84,7 @@
 - **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發)
 - **Agent 與工具鏈**：`LangGraph`, `LangChain`
 - **市場數據與圖表**：`yfinance` (支援 1.6.0+ 與 MultiIndex 欄位展平), `matplotlib`, `prophet`, `pandas`, `ta`
+- **量化分析模組**：`tools/stock_analysis.py`（SEPA/VCP、DCF/WACC、earnings、correlation/Beta）與 `tools/market_intel.py`（13F、Form 4、short squeeze、社群情緒）
 - **2MD 財經即時搜尋 (Web Reader & SERP)**：
   - 主力：`https://2md.aiurl.tw/`
   - 備援 1：`https://2md.glsoft.ai/`

@@ -1,5 +1,6 @@
 import asyncio
 import io
+import json
 import logging
 import yfinance as yf
 import matplotlib.pyplot as plt
@@ -96,6 +97,86 @@ async def safe_reply_news(update: Update, text: str):
         await update.message.reply_text(text, parse_mode="Markdown", disable_web_page_preview=True)
     except Exception:
         await update.message.reply_text(text, disable_web_page_preview=True)
+
+
+def _split_telegram_text(text: str, limit: int = 3900) -> list[str]:
+    """Split long tool output without exceeding Telegram's 4096-char limit."""
+    if len(text) <= limit:
+        return [text]
+    chunks = []
+    remaining = text
+    while len(remaining) > limit:
+        split_at = remaining.rfind("\n\n", 0, limit)
+        if split_at < limit // 2:
+            split_at = remaining.rfind("\n", 0, limit)
+        if split_at < limit // 2:
+            split_at = limit
+        chunks.append(remaining[:split_at].rstrip())
+        remaining = remaining[split_at:].lstrip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks
+
+
+async def safe_reply_analysis(update: Update, text: str):
+    """Send analysis in bounded chunks, falling back when Markdown is invalid."""
+    for chunk in _split_telegram_text(text):
+        try:
+            await update.message.reply_text(chunk, parse_mode="Markdown", disable_web_page_preview=True)
+        except Exception:
+            await update.message.reply_text(chunk, disable_web_page_preview=True)
+
+
+def _format_analysis(title: str, result) -> str:
+    if isinstance(result, dict):
+        payload = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+    else:
+        payload = str(result)
+    return f"📊 **{title}**\n```json\n{payload}\n```"
+
+
+async def _run_analysis_command(update: Update, tool_fn, args: dict, title: str):
+    await update.message.reply_text("⏳ 正在取得市場資料並計算，請稍候...")
+    try:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, tool_fn.invoke, args)
+        await safe_reply_analysis(update, _format_analysis(title, result))
+    except Exception as exc:
+        logger.error("%s command error: %s", title, exc)
+        await update.message.reply_text(f"❌ {title} 執行失敗：{exc}")
+
+
+async def sepa_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/sepa TSLA")
+        return
+    from tools.stock_analysis import get_sepa_analysis
+    await _run_analysis_command(update, get_sepa_analysis, {"ticker": context.args[0]}, "SEPA 趨勢與 VCP 分析")
+
+
+async def valuation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/val AAPL")
+        return
+    from tools.stock_analysis import get_dcf_valuation
+    await _run_analysis_command(update, get_dcf_valuation, {"ticker": context.args[0]}, "DCF 內在價值分析")
+
+
+async def earnings_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/earn NVDA")
+        return
+    from tools.stock_analysis import get_earnings_briefing
+    await _run_analysis_command(update, get_earnings_briefing, {"ticker": context.args[0]}, "財報與盈餘簡報")
+
+
+async def correlation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 2 and "," not in "".join(context.args):
+        await update.message.reply_text("❌ 請提供 2 至 5 個代碼，例如：/corr TSLA,NVDA,AAPL")
+        return
+    from tools.stock_analysis import get_correlation_analysis
+    symbols = ",".join(context.args)
+    await _run_analysis_command(update, get_correlation_analysis, {"tickers": symbols}, "多股相關性與 SPY Beta")
 
 async def stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:

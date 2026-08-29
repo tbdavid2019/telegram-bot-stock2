@@ -5,7 +5,16 @@ from concurrent.futures import ThreadPoolExecutor
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from config import TELEGRAM_BOT_TOKEN
 from handlers.general import start, tools_help, default_message_handler, reset_commands
-from handlers.stock_cmds import stock_info, stock_news, taiwan_stock_news, prophet_predict
+from handlers.stock_cmds import (
+    stock_info,
+    stock_news,
+    taiwan_stock_news,
+    prophet_predict,
+    sepa_analysis,
+    valuation_analysis,
+    earnings_briefing,
+    correlation_analysis,
+)
 from handlers.ai_cmds import ai_query, ai2_analysis, llm_query
 
 # Configure Logging
@@ -45,6 +54,10 @@ def main():
     app.add_handler(CommandHandler("n", stock_news))
     app.add_handler(CommandHandler("ny", taiwan_stock_news))
     app.add_handler(CommandHandler("p", prophet_predict))
+    app.add_handler(CommandHandler("sepa", sepa_analysis))
+    app.add_handler(CommandHandler("val", valuation_analysis))
+    app.add_handler(CommandHandler("earn", earnings_briefing))
+    app.add_handler(CommandHandler("corr", correlation_analysis))
     app.add_handler(CommandHandler("ai", ai_query))
     app.add_handler(CommandHandler("ai2", ai2_analysis))
     app.add_handler(CommandHandler("llm", llm_query))

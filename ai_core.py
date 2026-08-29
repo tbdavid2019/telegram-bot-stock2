@@ -15,6 +15,18 @@ from config import (
     FALLBACK_LLM_API_KEY, FALLBACK_LLM_BASE_URL, FALLBACK_LLM_MODEL
 )
 from tools.stock import get_stock_prices, get_financial_metrics
+from tools.stock_analysis import (
+    get_sepa_analysis,
+    get_dcf_valuation,
+    get_earnings_briefing,
+    get_correlation_analysis,
+)
+from tools.market_intel import (
+    get_superinvestor_holdings,
+    get_insider_trading,
+    get_short_squeeze_analysis,
+    get_retail_sentiment,
+)
 from tools.news import get_financial_news, search_financial_web
 from tools.wiki import publish_to_wiki
 
@@ -26,7 +38,21 @@ class State(TypedDict):
     stock: str
 
 # --- Main Agent Setup ---
-main_agent_tools = [get_stock_prices, get_financial_metrics, get_financial_news, search_financial_web, publish_to_wiki]
+main_agent_tools = [
+    get_stock_prices,
+    get_financial_metrics,
+    get_financial_news,
+    search_financial_web,
+    get_sepa_analysis,
+    get_dcf_valuation,
+    get_earnings_briefing,
+    get_correlation_analysis,
+    get_superinvestor_holdings,
+    get_insider_trading,
+    get_short_squeeze_analysis,
+    get_retail_sentiment,
+    publish_to_wiki,
+]
 
 # Initialize Primary LLM (NEN / DeepSeek-v4-flash)
 primary_llm = ChatOpenAI(
@@ -75,6 +101,14 @@ You have access to dynamic real-time tools:
 - `get_financial_metrics`: Key fundamental financial ratios (P/E, revenue growth, profit margins, debt-to-equity, current ratio).
 - `get_financial_news`: Live ticker news from 2MD search and Yahoo/Google fallbacks.
 - `search_financial_web`: 2MD live SERP search engine for company backgrounds, IPO status, ticker lookups, breaking news, and macroeconomic events.
+- `get_sepa_analysis`: Mark Minervini 8-point Trend Template, Stage 2 status, pivot, stops, and VCP diagnostics.
+- `get_dcf_valuation`: Five-year FCFF DCF with live `^TNX` risk-free rate, WACC, scenarios, and sensitivity matrix.
+- `get_earnings_briefing`: Earnings date, consensus estimates, analyst targets, and four-quarter beat/miss history.
+- `get_correlation_analysis`: 90-session return correlations and SPY Beta for two to five tickers.
+- `get_superinvestor_holdings`: Public 13F smart-money holding changes from Dataroma/WhaleWisdom through 2MD.
+- `get_insider_trading`: Public Form 4 insider activity from OpenInsider/Finviz/SEC pages through 2MD.
+- `get_short_squeeze_analysis`: Short float, days-to-cover, and public borrow-fee evidence.
+- `get_retail_sentiment`: Reddit WallStreetBets and StockTwits discussion signals through 2MD.
 - `publish_to_wiki`: Publishes comprehensive financial reports, research documents, and multi-stock comparisons to David888 Wiki and returns a public shareUrl.
 
 Users can converse with you freely in natural language to perform fundamental analysis, technical health checks, news summaries, or market comparisons across Taiwan (e.g. 2330.TW) and US stocks (e.g. NVDA, TSLA).
@@ -83,6 +117,10 @@ Specialized macro commands available for users:
 - **/ai2 <ticker>**: AI Hedge Fund 14 Legend Investor Committee & Round Table debate. If a user asks for multi-analyst debate or Warren Buffett / Cathie Wood committee opinions, guide them to try `/ai2 <ticker>`.
 - **/s <ticker>**: Generates Day/Week/Month K-line charts.
 - **/p <ticker>**: Computes 5-day Prophet time-series forecast.
+- **/sepa <ticker>**: Mark Minervini SEPA trend template and VCP screen.
+- **/val <ticker>**: Five-year DCF valuation with WACC sensitivity.
+- **/earn <ticker>**: Upcoming earnings and four-quarter surprise briefing.
+- **/corr <ticker1,ticker2,...>**: Return correlation and SPY Beta for 2-5 stocks.
 
 **David888 Wiki Publishing Guidelines (Mandatory):**
 - When generating long-form reports or when the user asks to publish to Wiki or share as a link:
@@ -101,6 +139,7 @@ Specialized macro commands available for users:
   3. **嚴禁任何自行腦補、猜測假新聞、假日期、假上市狀態或假數字**！
   4. 若工具搜尋結果為空或回傳錯誤，必須如實告知：「目前搜尋模組查無即時資訊/模組故障」，絕不准自行編造任何假資訊。
   5. 回覆時必須引述工具檢索到的實際內容與 Markdown 來源連結 (`[標題](URL)`)。
+  6. 對 SEPA、DCF、earnings、correlation 或 smart-money 問題，優先使用對應專用工具；若資料缺失，清楚標示限制，絕不以猜測補值。
 - 始終以繁體中文 (Traditional Chinese) 禮貌、客觀、條理清晰且精準地回答。
     """)
     
@@ -217,4 +256,3 @@ async def clear_context(thread_id: str):
         count += 1
         
     logger.info(f"Cleared {count} memory items for thread {thread_id}")
-

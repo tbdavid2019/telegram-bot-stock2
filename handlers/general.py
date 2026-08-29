@@ -22,6 +22,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/ai2 股票代碼` - 🏛️ 14 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA`)\n"
         "• `/s 股票代碼` - 📈 查詢即時股價與 日/週/月 K 線圖 (範例：`/s 2330.TW`)\n"
         "• `/p 股票代碼` - 🔮 Prophet 時間序列預測未來 5 天股價區間 (範例：`/p META`)\n"
+        "• `/sepa 股票代碼` - 📐 Minervini SEPA 8 項趨勢模板與 VCP 篩選 (範例：`/sepa TSLA`)\n"
+        "• `/val 股票代碼` - 💰 五年 DCF 內在價值與 WACC 敏感度 (範例：`/val AAPL`)\n"
+        "• `/earn 股票代碼` - 🗓️ 財報日期、共識預估與四季驚喜紀錄 (範例：`/earn NVDA`)\n"
+        "• `/corr 股票1,股票2,...` - 🔗 90 日相關係數與 S&P 500 Beta (範例：`/corr TSLA,NVDA,AAPL`)\n"
         "• `/n 股票代碼` - 📰 查詢美股即時英文新聞 (範例：`/n AAPL`)\n"
         "• `/ny 股票代碼` - 📰 查詢台股即時中文新聞 (範例：`/ny 2330.TW`)\n"
         "• `/h` - 🛠️ 顯示其他外部量化預測工具連結\n"
@@ -93,6 +97,10 @@ async def reset_commands(application: Application):
         BotCommand("ai2", "14位投資大師圓桌辯論 (AI對沖基金)"),
         BotCommand("s", "查詢即時股價和日/週/月 K 線圖"),
         BotCommand("p", "Prophet 模型預測未來 5 天股價"),
+        BotCommand("sepa", "Minervini SEPA 趨勢模板與 VCP 分析"),
+        BotCommand("val", "五年 DCF 內在價值與 WACC 敏感度"),
+        BotCommand("earn", "財報日期與四季盈餘驚喜簡報"),
+        BotCommand("corr", "多股相關係數與 S&P 500 Beta"),
         BotCommand("n", "查詢美股即時新聞"),
         BotCommand("ny", "查詢台股即時新聞"),
         BotCommand("h", "顯示量化預測工具連結")
