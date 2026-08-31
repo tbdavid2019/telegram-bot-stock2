@@ -165,14 +165,30 @@ Specialized macro commands available for users:
     response = main_llm_with_tools.invoke([system_prompt] + messages)
     return {"messages": [response]}
 
+def synthesizer_node(state: MainAgentState):
+    messages = state["messages"]
+    system_prompt = SystemMessage(content="""你是一位頂級專業金融分析師與量化研究員。
+請根據前述所有工具檢索出的即時市場數據、財務指標與量化計算結果，為使用者提供條理清晰、數據精確、專業詳盡的繁體中文分析回覆。
+嚴禁輸出空訊息，若有 Markdown 格式請確保格式正確，絕不提及系統內部限制。""")
+    
+    llm_without_tools = primary_llm.with_fallbacks([fallback_llm]) if FALLBACK_LLM_API_KEY else primary_llm
+    response = llm_without_tools.invoke([system_prompt] + messages)
+    return {"messages": [response]}
+
 # Build Graph
 agent_builder = StateGraph(MainAgentState)
 agent_builder.add_node("agent", main_agent_node)
 agent_builder.add_node("tools", ToolNode(main_agent_tools))
+agent_builder.add_node("synthesizer", synthesizer_node)
 
 agent_builder.add_edge(START, "agent")
-agent_builder.add_conditional_edges("agent", tools_condition)
-agent_builder.add_edge("tools", "agent")
+agent_builder.add_conditional_edges(
+    "agent",
+    tools_condition,
+    {"tools": "tools", END: END}
+)
+agent_builder.add_edge("tools", "synthesizer")
+agent_builder.add_edge("synthesizer", END)
 
 # Compile with memory persistence
 main_agent_graph = agent_builder.compile(checkpointer=valid_memory)
