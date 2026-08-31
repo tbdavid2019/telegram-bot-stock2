@@ -88,6 +88,9 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
 
+        if not response or not str(response).strip():
+            response = "⚠️ 系統分析完成，但未生成文字回覆，請嘗試重新提問或使用專屬指令（如 /val、/sepa、/chain）。"
+
         try:
             await update.message.reply_text(response, parse_mode="Markdown")
         except Exception:

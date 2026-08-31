@@ -153,6 +153,7 @@ Specialized macro commands available for users:
   4. 若工具搜尋結果為空或回傳錯誤，必須如實告知：「目前搜尋模組查無即時資訊/模組故障」，絕不准自行編造任何假資訊。
   5. 回覆時必須引述工具檢索到的實際內容與 Markdown 來源連結 (`[標題](URL)`)。
   6. 對 SEPA、DCF、earnings、correlation 或 smart-money 問題，優先使用對應專用工具；若資料缺失，清楚標示限制，絕不以猜測補值。
+  7. 工具調用完成並獲取資料後，請立即綜合數據輸出完整的繁體中文分析結論，嚴禁重複發起工具調用或陷入死循環！
 - **💼 專業投研語氣與嚴禁系統說教 (Zero-Preachiness & No Prompt Leakage)**:
   1. **絕對不要對用戶說教或輸出內部系統詞彙**（例如嚴禁向用戶說「這違反我的零幻覺原則」、「我的內部工具 get_dcf_valuation 只能接受...」等生硬的機器人說詞）。
   2. 若用戶詢問未上市/私營公司（例如 SpaceX, Stripe, OpenAI）的估值或 DCF，請以專業投資銀行分析師的口吻回答：
@@ -237,17 +238,47 @@ async def process_chat_message(user_input: str, thread_id: str = None) -> str:
     try:
         inputs = {"messages": [HumanMessage(content=user_input)]}
         
-        # Configure thread-based persistence
-        config = {"configurable": {"thread_id": thread_id}} if thread_id else None
+        # Configure thread-based persistence and recursion limit
+        config = {
+            "configurable": {"thread_id": thread_id} if thread_id else {},
+            "recursion_limit": 12
+        }
         
         result = await main_agent_graph.ainvoke(inputs, config=config)
         
-        # Get last message
-        last_msg = result["messages"][-1]
-        return last_msg.content
+        # Find the last AIMessage with non-empty content
+        messages = result.get("messages", [])
+        final_content = ""
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage) and msg.content:
+                if isinstance(msg.content, str) and msg.content.strip():
+                    final_content = msg.content.strip()
+                    break
+                elif isinstance(msg.content, list):
+                    text_parts = [
+                        b.get("text", "") if isinstance(b, dict) else str(b)
+                        for b in msg.content
+                    ]
+                    joined = "\n".join(p for p in text_parts if p.strip()).strip()
+                    if joined:
+                        final_content = joined
+                        break
+
+        # Fallback if final AIMessage had no text (e.g. ended after tool execution)
+        if not final_content:
+            tool_outputs = []
+            for msg in reversed(messages):
+                if hasattr(msg, "content") and str(msg.content).strip():
+                    tool_outputs.append(str(msg.content).strip())
+                if len(tool_outputs) >= 2:
+                    break
+            if tool_outputs:
+                final_content = f"已取得相關資訊：\n\n" + "\n\n".join(tool_outputs[:2])
+
+        return final_content or "抱歉，目前暫時無法取得該問題的完整分析結果，請稍後再試。"
     except Exception as e:
         logger.error(f"Main agent error: {e}")
-        return f"Sorry, I encountered an error: {str(e)}"
+        return f"❌ 處理訊息時發生錯誤：{str(e)}"
 
 async def clear_context(thread_id: str):
     """Clear conversation history for a specific user (thread)."""
