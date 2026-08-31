@@ -171,13 +171,32 @@ Specialized macro commands available for users:
 
 def synthesizer_node(state: MainAgentState):
     messages = state["messages"]
-    system_prompt = SystemMessage(content="""你是一位頂級專業金融分析師與量化研究員。
-請根據前述所有工具檢索出的即時市場數據、財務指標與量化計算結果，為使用者提供條理清晰、數據精確、專業詳盡的繁體中文分析回覆。
-嚴禁輸出空訊息，若有 Markdown 格式請確保格式正確，絕不提及系統內部限制。""")
+    user_question = ""
+    tool_outputs = []
     
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            user_question = msg.content
+        elif isinstance(msg, ToolMessage):
+            tool_outputs.append(f"【檢索/量化數據】:\n{msg.content}")
+
+    context_text = "\n\n".join(tool_outputs) if tool_outputs else "無額外工具數據"
+    synthesis_prompt = f"""你是一位頂級專業金融分析師與量化研究員。
+請根據以下檢索到的即時市場與量化數據，為使用者的問題提供條理清晰、數據精確、專業詳盡的繁體中文分析回覆。
+
+使用者問題："{user_question}"
+
+即時檢索與量化數據：
+{context_text}
+
+回覆規範：
+1. 請以繁體中文 (Traditional Chinese) 輸出結構清晰的分析報告。
+2. 包含核心結論、財務/市場指標數據、估值情境與風險提示。
+3. 嚴禁輸出 JSON 工具呼叫格式，直接輸出給使用者閱讀的 Markdown 文本。"""
+
     llm_without_tools = primary_llm.with_fallbacks([fallback_llm]) if FALLBACK_LLM_API_KEY else primary_llm
-    response = llm_without_tools.invoke([system_prompt] + messages)
-    return {"messages": [response]}
+    response = llm_without_tools.invoke([HumanMessage(content=synthesis_prompt)])
+    return {"messages": [AIMessage(content=response.content)]}
 
 # Build Graph
 agent_builder = StateGraph(MainAgentState)
