@@ -20,9 +20,35 @@ except ImportError:
 import re
 from tools.news import fetch_2md_news
 
+KNOWN_TICKER_MAP = {
+    "SPACEX": "SPCX",
+    "SPACE X": "SPCX",
+    "SPCX": "SPCX",
+    "太空探索": "SPCX",
+    "TSMC": "2330.TW",
+    "台積電": "2330.TW",
+    "聯發科": "2454.TW",
+    "鴻海": "2317.TW",
+    "聯電": "2303.TW",
+    "輝達": "NVDA",
+    "特斯拉": "TSLA",
+    "蘋果": "AAPL",
+    "微軟": "MSFT",
+    "亞馬遜": "AMZN",
+    "谷歌": "GOOGL",
+    "臉書": "META"
+}
+
 def resolve_ticker(company_or_query: str) -> str:
     """Resolve company name to actual ticker symbol using regex and 2MD search."""
     query = company_or_query.strip().upper()
+    if query in KNOWN_TICKER_MAP:
+        return KNOWN_TICKER_MAP[query]
+    
+    clean_query = query.replace("NASDAQ:", "").replace("NYSE:", "").replace("TWSE:", "").replace("TPEX:", "")
+    if clean_query in KNOWN_TICKER_MAP:
+        return KNOWN_TICKER_MAP[clean_query]
+
     if re.match(r"^[A-Z]{1,5}$", query) or re.match(r"^\d{4,6}(\.TW|\.TWO)?$", query):
         return query
     

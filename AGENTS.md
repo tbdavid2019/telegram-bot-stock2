@@ -47,9 +47,26 @@ telegram-bot-stock2/
 
 ---
 
-## 🚨 Critical Rules for AI Agents (MUST FOLLOW)
+## 🚨 Critical Rules for AI Agents (MUST ALWAYS FOLLOW)
 
-### 1. ❌ Dify API is Permanently Discontinued
+### 1. 🛑 Zero-Excuse & Zero-Arguing Policy (嚴禁推拖與爭辯)
+- **NEVER** argue with the user or lecture the user by saying "身為 AI 助理，我無法修改模型權重/訓練資料" or claiming a listed ticker is not real.
+- When the user points out a factual discrepancy, correction, or says you are mistaken:
+  1. **Immediately use search tools (`search_financial_web` / 2MD API)** to look up the latest live reality.
+  2. Ground your response on actual live facts.
+  3. Update relevant project rule files (`AGENTS.md`, `README.md`, configs) so future actions stay aligned.
+
+### 2. 🌐 Zero-Hallucination & Live Reality Rule (零幻覺與即時檢索鐵律)
+- Your internal static training weights have a knowledge cutoff and **MUST NOT** be trusted for:
+  - Real-time stock prices, tickers, and financial market quotes.
+  - Corporate IPO / listing status (e.g. SpaceX, Stripe, new market entrants).
+  - Recent corporate actions, acquisitions, earnings reports, or breaking news.
+- **SpaceX Listing Reality**:
+  - **SpaceX (Space Exploration Technologies Corp.) has been publicly traded on Nasdaq under ticker `SPCX` (`NASDAQ:SPCX`) since June 12, 2026** (IPO price $135/share, ~$1.77T valuation).
+  - **NEVER** argue that SpaceX is an unlisted private company or that SPCX is only a SPAC ETF.
+  - Always resolve `SpaceX` / `SPCX` to `SPCX` (`NASDAQ:SPCX`).
+
+### 3. ❌ Dify API is Permanently Discontinued
 - The external Dify service (`http://llm.glsoft.ai/v1/chat-messages`) has been decommissioned.
 - **NEVER** re-introduce Dify API calls, `DIFY_API_KEY`, or `DIFY_BASE_URL` into this repository.
 - Natural language queries (`/llm` or plain text messages) are routed through the **LangGraph Main Conversational Agent** in `ai_core.py`.
