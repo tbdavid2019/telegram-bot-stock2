@@ -65,7 +65,7 @@ primary_llm = ChatOpenAI(
     model=LLM_MODEL,
     api_key=LLM_API_KEY or "dummy-key",
     base_url=LLM_BASE_URL,
-    temperature=0.5,
+    temperature=0.1,
     max_tokens=2048
 )
 primary_with_tools = primary_llm.bind_tools(main_agent_tools)
@@ -76,7 +76,7 @@ if FALLBACK_LLM_API_KEY:
         model=FALLBACK_LLM_MODEL,
         api_key=FALLBACK_LLM_API_KEY,
         base_url=FALLBACK_LLM_BASE_URL,
-        temperature=0.5,
+        temperature=0.1,
         max_tokens=2048
     )
     fallback_with_tools = fallback_llm.bind_tools(main_agent_tools)

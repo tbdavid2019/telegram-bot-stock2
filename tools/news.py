@@ -64,11 +64,7 @@ def fetch_2md_news(query: str, limit: int = 5) -> List[Dict]:
 
 @tool
 def search_financial_web(query: str) -> Dict:
-    """
-    Searches the live web and financial markets via 2MD Search Engine for any general financial question,
-    company background, IPO status, stock ticker lookup, or recent market events.
-    ALWAYS use this tool whenever you need to verify whether a company is public/listed, find its ticker symbol, or look up recent market news.
-    """
+    """Searches the live web via 2MD for company background, IPO status, stock ticker lookup, or recent market events."""
     logger.info(f"=== [Tool] search_financial_web called with query: {query}")
     results = fetch_2md_news(query, limit=5)
     if not results:
