@@ -2,6 +2,20 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.6.0] - 2026-08-31
+
+### 📊 台股每日全市場資料庫整合 (`voidful/tw_stocker`)
+- **新增 `tools/tw_stocker.py`**：整合 voidful/tw_stocker 台股歷史 OHLCV 資料庫（包含 1000+ 檔台股與 ETF），提供標準化日 K 與 5 分鐘聚合解析。
+- **yfinance 台股高可用備援機制**：在 `tools/stock.py` 與 `tools/stock_analysis.py` 中建立自動 Fallback，當 Yahoo Finance 遭遇 Rate Limit 或網路連線異常時，自動切換至 GitHub 靜態資料庫，實現台股行情與技術指標查詢零失敗率。
+
+### 🏛️ 美股 Fama-French 多因子風險歸因與 20 年 ETF 基準 (`voidful/us_fddk`)
+- **新增 `tools/us_fddk.py`**：實作 Fama-French 多因子模型 (Market $\beta_{mkt}$, Size $\beta_{SMB}$, Value $\beta_{HML}$, Momentum $\beta_{UMD}$) 與年化超額選股 Alpha ($\alpha$) 歸因。
+- **新增 `/ff <股票代碼>` 指令**：支援一鍵計算個股因子曝險（例如 `/ff NVDA`、`/ff AAPL`），精確診斷成長/價值與大小市值風格。
+- **ETF 跨資產配置基準**：對接 voidful/us_fddk 實盤 Paper 交易狀態（v25 80% VUG / 20% GLD vs SPY），提供全天候資產配置參考。
+- **Agent 工具庫註冊**：新增 `get_fama_french_factor_analysis` 與 `get_us_fddk_live_benchmarks` 至 LangGraph 主對話代理人。
+
+---
+
 ## [2.5.0] - 2026-08-31
 
 ### ⛓️ 金融邏輯傳導鏈與事件因果分析 (Financial Transmission Chain)

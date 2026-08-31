@@ -48,7 +48,8 @@
   3. 三級受惠與受害台美股標的 (包含具體代號如 `2330.TW`, `NVDA`)
   4. 邏輯證偽條件與 **Mermaid 因果流程圖** 視覺化輸出。
 
-### 7. 📐 量化研究工具 (`/sepa` / `/val` / `/earn` / `/corr`)
+### 7. 📐 量化研究與 Fama-French 多因子模型 (`/ff` / `/sepa` / `/val` / `/earn` / `/corr`)
+- `/ff 股票代碼`：**Fama-French 多因子模型風險歸因**，計算市場 Beta ($\beta_{mkt}$)、市值 Size ($\beta_{SMB}$)、估值 Value ($\beta_{HML}$)、動能 Momentum ($\beta_{UMD}$) 及年化選股超額報酬 Alpha ($\alpha$) 與 Adj. $R^2$。
 - `/sepa 股票代碼`：以 50/150/200 日均線、52 週高低點與 SPY 相對強度檢查 Minervini 8 項 SEPA Trend Template，並提供 pivot、風險停損與 VCP 收縮診斷。
 - `/val 股票代碼`：以最新 `^TNX` 10 年期美債殖利率建立 WACC，投射五年 FCFF，輸出 Bull/Base/Bear 公允價與 WACC/終值成長敏感度矩陣。負現金流公司會明確降級為 P/S 或 EV/Revenue 參考。
 - `/earn 股票代碼`：整理下一次財報日期、EPS/營收共識、分析師目標價與最近四季 beat/miss 驚喜紀錄。
@@ -71,12 +72,13 @@
 
 | 指令 | 說明 | 範例 |
 | :--- | :--- | :--- |
-| **直接傳送文字** | 💬 智能金融助理自由問答 (整合量化模型、2MD 全網情報、傳導鏈、快訊與 Wiki 發布) | `分析 2330.TW 基本面與技術指標` 或 `中東局勢升溫對台股有何傳導鏈影響？` |
+| **直接傳送文字** | 💬 智能金融助理自由問答 (整合量化模型、2MD 全網情報、傳導鏈、快訊、Fama-French 與 Wiki 發布) | `分析 2330.TW 基本面與技術指標` 或 `中東局勢升溫對台股有何傳導鏈影響？` |
 | `/start` | 🔄 啟動機器人並重置對話記憶 | `/start` |
 | `/chain` | ⛓️ 金融邏輯傳導鏈分析與因果流程圖 | `/chain 聯準會降息` 或 `/chain 輝達財報` |
 | `/hot` | 🔥 財聯社/華爾街見聞/雪球即時快訊 | `/hot` 或 `/hot wallstreetcn` |
+| `/ff` | 📊 Fama-French 多因子風險歸因與 Alpha | `/ff NVDA` 或 `/ff TSLA` |
 | `/ai2` | 🏛️ 14 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA` 或 `/ai2 2330.TW` |
-| `/s` | 📈 查詢即時股價與日/週/月 K 線圖 | `/s 2330.TW` |
+| `/s` | 📈 查詢即時股價與日/週/月 K 線圖 (支援 tw_stocker 零失敗備援) | `/s 2330.TW` |
 | `/p` | 🔮 Prophet 模型預測未來 5 天股價區間 | `/p META` |
 | `/sepa` | 📐 Minervini SEPA 8 項趨勢模板與 VCP 分析 | `/sepa TSLA` |
 | `/val` | 💰 五年 DCF 內在價值、WACC 與敏感度矩陣 | `/val AAPL` |
@@ -94,7 +96,8 @@
 
 - **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發)
 - **Agent 與工具鏈**：`LangGraph`, `LangChain`
-- **市場數據與圖表**：`yfinance` (支援 1.6.0+ 與 MultiIndex 欄位展平), `matplotlib`, `prophet`, `pandas`, `ta`
+- **市場數據與備援**：`yfinance` (1.6.0+), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
+- **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
 - **金融邏輯與傳導鏈**：DeepEar Lite API、NewsNow API (財聯社/華爾街見聞/雪球)
 - **2MD 財經即時搜尋 (Web Reader & SERP)**：
   - 主力：`https://2md.aiurl.tw/`

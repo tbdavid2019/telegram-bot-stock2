@@ -30,6 +30,8 @@ telegram-bot-stock2/
 │   ├── stock_analysis.py     # Quant tools: SEPA, DCF valuation, earnings briefing, correlation
 │   ├── market_intel.py       # Smart money & sentiment: 13F, Form 4, short squeeze, retail sentiment
 │   ├── transmission.py       # Transmission chain & DeepEar signals: analyze_market_transmission_chain
+│   ├── tw_stocker.py         # Taiwan stock full history DB loader & yfinance fallback (voidful/tw_stocker)
+│   ├── us_fddk.py            # Fama-French multi-factor analysis & ETF live paper benchmarks (voidful/us_fddk)
 │   ├── news.py               # News tools: 2MD news, NewsNow hot news (CLS, WallstreetCN, Xueqiu)
 │   └── wiki.py               # LangChain tool & helper: publish_to_wiki (David888 Wiki REST API)
 ├── news.py                   # Standalone Taiwan Yahoo news scraper helper

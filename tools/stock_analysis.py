@@ -52,6 +52,11 @@ def _flatten_columns(data: pd.DataFrame) -> pd.DataFrame:
 def _history(ticker: str, period: str = "2y") -> pd.DataFrame:
     data = yf.download(ticker, period=period, interval="1d", progress=False, auto_adjust=False)
     if data is None or data.empty:
+        if ".TW" in ticker.upper() or ".TWO" in ticker.upper() or any(c.isdigit() for c in ticker):
+            from tools.tw_stocker import fetch_tw_stocker_df
+            tw_df = fetch_tw_stocker_df(ticker)
+            if tw_df is not None and not tw_df.empty:
+                return tw_df.copy()
         return pd.DataFrame()
     data = _flatten_columns(data)
     for column in ("Open", "High", "Low", "Close", "Adj Close", "Volume"):

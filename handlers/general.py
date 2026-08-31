@@ -17,6 +17,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "機器人已整合量化模型、2MD 全網情報、即時股價、技術指標與新聞。您可以像與研究員對話一樣直接詢問：\n"
         "  • 📐 *「TSLA 目前符合 Minervini SEPA 突破與 Stage 2 嗎？」*\n"
         "  • 💰 *「幫我計算 AAPL 的五年 DCF 內在價值與合理價」*\n"
+        "  • 📊 *「分析 NVDA 的 Fama-French 多因子模型與超額報酬 Alpha 歸因」*\n"
         "  • 🗓️ *「NVDA 下週財報預期與過去四季驚喜度如何？」*\n"
         "  • 🏛️ *「巴菲特和段永平最近有買進或加減持哪檔股票？(13F持倉)」*\n"
         "  • 🕵️ *「查詢 TSLA 最近的高階經理人內部人買賣 (Form 4)」*\n"
@@ -25,6 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📌 **專屬量化與委員會指令速查**：\n"
         "• `/chain 事件或主題` - ⛓️ 金融邏輯傳導鏈分析與因果流程圖 (範例：`/chain 聯準會降息`)\n"
         "• `/hot [來源]` - 🔥 財聯社/華爾街見聞/雪球即時快訊 (範例：`/hot` 或 `/hot wallstreetcn`)\n"
+        "• `/ff 股票代碼` - 📊 Fama-French 多因子風險歸因與 Alpha (範例：`/ff NVDA`)\n"
         "• `/sepa 股票代碼` - 📐 Minervini SEPA 8 項趨勢模板與 VCP 篩選 (範例：`/sepa TSLA`)\n"
         "• `/val 股票代碼` - 💰 五年 DCF 內在價值與 WACC 敏感度 (範例：`/val AAPL`)\n"
         "• `/earn 股票代碼` - 🗓️ 財報日期、共識預估與四季驚喜紀錄 (範例：`/earn NVDA`)\n"
@@ -40,8 +42,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton("/chain 聯準會降息 傳導鏈分析"), KeyboardButton("/hot 即時重大快訊")],
-            [KeyboardButton("/sepa TSLA SEPA趨勢分析"), KeyboardButton("/val AAPL DCF估值計算")],
-            [KeyboardButton("/earn NVDA 財報前瞻簡報"), KeyboardButton("/corr TSLA,NVDA,AAPL 相關性分析")],
+            [KeyboardButton("/ff NVDA 多因子風險歸因"), KeyboardButton("/val AAPL DCF估值計算")],
+            [KeyboardButton("/sepa TSLA SEPA趨勢分析"), KeyboardButton("/earn NVDA 財報前瞻簡報")],
             [KeyboardButton("/ai2 NVDA 14大師圓桌辯論"), KeyboardButton("/s 2330.TW 查詢K線圖")],
             [KeyboardButton("分析 2330.TW 基本面與技術面"), KeyboardButton("/p META Prophet預測")]
         ],
@@ -104,6 +106,7 @@ async def reset_commands(application: Application):
         BotCommand("start", "啟動機器人與重置對話記憶"),
         BotCommand("chain", "金融邏輯傳導鏈分析 (因果流程圖)"),
         BotCommand("hot", "即時重大財經快訊 (財聯社/華爾街見聞)"),
+        BotCommand("ff", "Fama-French 多因子風險歸因與 Alpha"),
         BotCommand("ai2", "14位投資大師圓桌辯論 (AI對沖基金)"),
         BotCommand("s", "查詢即時股價和日/週/月 K 線圖"),
         BotCommand("p", "Prophet 模型預測未來 5 天股價"),

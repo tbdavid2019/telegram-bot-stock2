@@ -421,3 +421,63 @@ async def hot_news_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await update.message.reply_text(reply_text, disable_web_page_preview=True)
 
+# Fama-French Multi-Factor Analysis (/ff)
+async def fama_french_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Run Fama-French multi-factor risk attribution for a ticker."""
+    if len(context.args) == 0:
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/ff NVDA 或 /ff TSLA")
+        return
+
+    ticker = context.args[0].upper().strip()
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    processing_msg = await update.message.reply_text(f"📐 正在計算【{ticker}】的 Fama-French 多因子模型與超額報酬 Alpha 歸因，請稍候...")
+
+    loop = asyncio.get_running_loop()
+    from tools.us_fddk import compute_fama_french_factors
+    
+    def run_ff():
+        return compute_fama_french_factors(ticker)
+
+    try:
+        res = await loop.run_in_executor(None, run_ff)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        if "error" in res:
+            await update.message.reply_text(f"❌ {res['error']}")
+            return
+
+        alpha_sign = "+" if res["annualized_alpha_pct"] > 0 else ""
+        alpha_emoji = "🟢" if res["annualized_alpha_pct"] > 0 else "🔴"
+
+        reply_text = (
+            f"📊 **【{ticker}】Fama-French 多因子風險歸因模型**\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"{alpha_emoji} **年化超額報酬 (Annualized Alpha)**：`{alpha_sign}{res['annualized_alpha_pct']}%`\n"
+            f"📈 **市場因子曝險 (Market Beta β_mkt)**：`{res['beta_market']}`\n"
+            f"🏢 **市值因子曝險 (Size SMB β_smb)**：`{res['beta_size_smb']}` ({res['style_profile']['size']})\n"
+            f"💎 **估值因子曝險 (Value HML β_hml)**：`{res['beta_value_hml']}` ({res['style_profile']['value_growth']})\n"
+            f"🚀 **動能因子曝險 (Momentum UMD β_umd)**：`{res['beta_momentum_umd']}` ({res['style_profile']['momentum']})\n\n"
+            f"🎯 **模型解釋力 (Adj. R²)**：`{res['adj_r_squared'] * 100:.1f}%` (樣本數：{res['sample_days']} 個交易日)\n\n"
+            f"💡 *因子解讀*：\n"
+            f"• **Alpha > 0**：代表扣除大盤、市值、價值與動能因子後，個股具備實質超額選股能力。\n"
+            f"• **HML < 0**：偏向高估值/高成長科技股；**HML > 0** 偏向低估值/傳統價值股。\n"
+            f"• **SMB < 0**：偏向巨型權值股；**SMB > 0** 偏向中小型股。"
+        )
+
+        try:
+            await update.message.reply_text(reply_text, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(reply_text)
+
+    except Exception as e:
+        logger.error(f"Fama-French handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 計算因子模型時發生錯誤：{str(e)}")
+
+

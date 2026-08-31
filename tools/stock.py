@@ -30,6 +30,13 @@ def get_stock_prices(ticker: str) -> Dict:
             progress=False
         )
         if data.empty:
+            # Fallback to tw_stocker for Taiwan stocks
+            if ".TW" in ticker.upper() or ".TWO" in ticker.upper() or any(c.isdigit() for c in ticker):
+                from tools.tw_stocker import fetch_tw_stocker_df
+                tw_df = fetch_tw_stocker_df(ticker)
+                if tw_df is not None and not tw_df.empty:
+                    data = tw_df.tail(65).copy()
+        if data.empty:
             return {"error": f"No data found for {ticker}"}
         df = data.copy()
         if isinstance(df.columns, pd.MultiIndex):
@@ -38,7 +45,10 @@ def get_stock_prices(ticker: str) -> Dict:
             df.columns = [i[0] for i in df.columns]
             
         data.reset_index(inplace=True)
-        data['Date'] = data['Date'].astype(str)
+        if 'Date' in data.columns:
+            data['Date'] = data['Date'].astype(str)
+        elif 'Datetime' in data.columns:
+            data['Date'] = data['Datetime'].astype(str)
 
         # Ensure numeric series
         close_series = pd.to_numeric(df['Close'], errors='coerce').dropna()
