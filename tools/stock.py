@@ -17,9 +17,31 @@ except ImportError:
         fn.invoke = lambda args: fn(**args) if isinstance(args, dict) else fn(args)
         return fn
 
+import re
+from tools.news import fetch_2md_news
+
+def resolve_ticker(company_or_query: str) -> str:
+    """Resolve company name to actual ticker symbol using regex and 2MD search."""
+    query = company_or_query.strip().upper()
+    if re.match(r"^[A-Z]{1,5}$", query) or re.match(r"^\d{4,6}(\.TW|\.TWO)?$", query):
+        return query
+    
+    try:
+        results = fetch_2md_news(f"{company_or_query} stock ticker 股票代碼", limit=3)
+        for item in results:
+            title = item.get("title", "")
+            desc = item.get("description", "")
+            match = re.search(r"\(([A-Z]{1,5})\)", title) or re.search(r"\(([A-Z]{1,5})\)", desc)
+            if match:
+                return match.group(1)
+    except Exception:
+        pass
+    return query
+
 @tool
 def get_stock_prices(ticker: str) -> Dict:
-    """Fetches historical stock price data and technical indicators for a given ticker."""
+    """Fetches historical stock price data and technical indicators for a given ticker or company name."""
+    ticker = resolve_ticker(ticker)
     print(f"=== [Tool] get_stock_prices called with ticker: {ticker}")
     try:
         data = yf.download(
@@ -112,7 +134,8 @@ def get_stock_prices(ticker: str) -> Dict:
 
 @tool
 def get_financial_metrics(ticker: str) -> Dict:
-    """Fetches key financial ratios for a given ticker."""
+    """Fetches key financial ratios for a given ticker or company name."""
+    ticker = resolve_ticker(ticker)
     print(f"=== [Tool] get_financial_metrics called with ticker: {ticker}")
     try:
         stock = yf.Ticker(ticker)

@@ -22,6 +22,8 @@ except ImportError:  # pragma: no cover - useful for lightweight local checks
         fn.invoke = lambda args: fn(**args) if isinstance(args, dict) else fn(args)
         return fn
 
+from tools.stock import resolve_ticker
+
 
 logger = logging.getLogger(__name__)
 
@@ -127,11 +129,11 @@ def _vcp_diagnostic(history: pd.DataFrame) -> Dict[str, Any]:
 
 @tool
 def get_sepa_analysis(ticker: str) -> Dict[str, Any]:
-    """Evaluate Mark Minervini's 8-point trend template and VCP heuristics."""
-    ticker = ticker.strip().upper()
+    """Evaluate Mark Minervini's 8-point trend template and VCP heuristics for a ticker or company name."""
+    ticker = resolve_ticker(ticker)
     history = _history(ticker, "2y")
     if history.empty or len(history) < 200:
-        return {"stock": ticker, "error": "資料不足：SEPA 至少需要約 200 個交易日。"}
+        return {"stock": ticker, "error": f"資料不足：{ticker} 的 SEPA 分析至少需要約 200 個交易日歷史價格。"}
 
     close = history["Close"]
     moving = {period: close.rolling(period).mean() for period in (50, 150, 200)}
@@ -143,10 +145,10 @@ def get_sepa_analysis(ticker: str) -> Dict[str, Any]:
     high_52 = _number(close.tail(252).max(), latest)
     low_52 = _number(close.tail(252).min(), latest)
 
-    spy_return = None
-    relative_return = None
+    relative_return: Optional[float] = None
+    spy_return: Optional[float] = None
     try:
-        spy = _history("SPY", "1y")["Close"]
+        spy = _history("SPY", "2y")["Close"]
         if len(spy) >= 63 and len(close) >= 63:
             spy_return = _number(spy.iloc[-1] / spy.iloc[-63] - 1)
             relative_return = _number(close.iloc[-1] / close.iloc[-63] - 1)
@@ -231,8 +233,8 @@ def get_dcf_valuation(
     terminal_growth: float = 0.03,
     equity_risk_premium: float = 0.055,
 ) -> Dict[str, Any]:
-    """Calculate a five-year FCFF DCF with ^TNX-based WACC and sensitivity."""
-    ticker = ticker.strip().upper()
+    """Calculate a five-year FCFF DCF with ^TNX-based WACC and sensitivity for a ticker or company name."""
+    ticker = resolve_ticker(ticker)
     stock = yf.Ticker(ticker)
     info = _info(ticker)
     price = _number(info.get("currentPrice"))
@@ -346,8 +348,8 @@ def _earnings_rows(stock: yf.Ticker) -> List[Dict[str, Any]]:
 
 @tool
 def get_earnings_briefing(ticker: str) -> Dict[str, Any]:
-    """Return upcoming earnings estimates and the latest four surprise results."""
-    ticker = ticker.strip().upper()
+    """Return upcoming earnings estimates and the latest four surprise results for a ticker or company name."""
+    ticker = resolve_ticker(ticker)
     stock = yf.Ticker(ticker)
     info = _info(ticker)
     rows = _earnings_rows(stock)
@@ -383,8 +385,9 @@ def get_earnings_briefing(ticker: str) -> Dict[str, Any]:
 
 @tool
 def get_correlation_analysis(tickers: str) -> Dict[str, Any]:
-    """Compute 90-trading-day return correlations and SPY betas for 2-5 tickers."""
-    symbols = [item.strip().upper() for item in tickers.replace("，", ",").split(",") if item.strip()]
+    """Compute 90-trading-day return correlations and SPY betas for 2-5 tickers or company names."""
+    raw_symbols = [item.strip() for item in tickers.replace("，", ",").split(",") if item.strip()]
+    symbols = [resolve_ticker(sym) for sym in raw_symbols]
     if len(symbols) < 2 or len(symbols) > 5:
         return {"error": "請提供 2 至 5 個股票代碼，以逗號分隔，例如：TSLA,NVDA,AAPL。"}
     series: Dict[str, pd.Series] = {}
