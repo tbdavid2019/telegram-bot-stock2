@@ -2,6 +2,20 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.5.0] - 2026-08-31
+
+### ⛓️ 金融邏輯傳導鏈與事件因果分析 (Financial Transmission Chain)
+- **新增 `tools/transmission.py`**：整合 DeepEar Lite 即時信號與事件傳導鏈引擎，針對宏觀政策、地緣政治、產業異動自動拆解「一級直接影響 ➔ 二級產業鏈傳導 ➔ 三級台美股受惠/受害個股標的與代號」，並附帶邏輯證偽條件。
+- **Mermaid 因果圖視覺化**：自動產出標準 Mermaid 流程圖語法，在 Telegram 與 David888 Wiki 直觀呈現傳導路徑。
+- **新增 `/chain <事件或主題>` 指令**：支援快速傳導鏈分析（如 `/chain 聯準會降息`、`/chain 中東地緣政治`）。
+
+### 🔥 華語高頻重大即時快訊 (NewsNow API Integration)
+- **多源盤中快訊擴充**：於 `tools/news.py` 整合 NewsNow 模組，支援即時抓取 **財聯社 (CLS 盤中快訊)**、**華爾街見聞 (全球宏觀)** 與 **雪球 (熱門討論榜)**。
+- **新增 `/hot [cls|wallstreetcn|xueqiu]` 指令**：供使用者一鍵掌握最新盤中突發頭條與熱搜趨勢。
+- **Agent 工具庫註冊**：新增 `analyze_market_transmission_chain` 與 `get_hot_news_flash` 至 LangGraph 主對話代理人，自然語言即可觸發。
+
+---
+
 ## [2.4.0] - 2026-08-30
 
 ### 📐 對沖基金量化研究工具

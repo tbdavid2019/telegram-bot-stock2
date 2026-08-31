@@ -217,3 +217,88 @@ def scrape_google_news(ticker: str) -> List[Dict]:
     except Exception as e:
         logger.error(f"Scraping Google failed: {e}")
     return news_items
+
+# --- NewsNow High-Frequency Hot News Integration ---
+NEWSNOW_BASE_URL = "https://newsnow.busiyi.world"
+NEWSNOW_SOURCES = {
+    "cls": "財聯社 (CLS 盤中快訊)",
+    "wallstreetcn": "華爾街見聞 (全球宏觀)",
+    "xueqiu": "雪球 (熱門討論榜)"
+}
+_newsnow_cache = {}
+
+def get_hot_financial_news(source_id: str = "cls", count: int = 10) -> List[Dict]:
+    """
+    Fetches real-time hot financial news headlines from NewsNow API (cls, wallstreetcn, xueqiu).
+    Uses a 3-minute in-memory cache.
+    """
+    if source_id not in NEWSNOW_SOURCES:
+        source_id = "cls"
+        
+    cache_key = f"{source_id}_{count}"
+    now = time.time()
+    if cache_key in _newsnow_cache and (now - _newsnow_cache[cache_key]["time"] < 180):
+        return _newsnow_cache[cache_key]["data"]
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    }
+
+    try:
+        url = f"{NEWSNOW_BASE_URL}/api/s?id={source_id}"
+        resp = requests.get(url, headers=headers, timeout=8.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            items = data.get("items", [])[:count]
+            result_list = []
+            source_name = NEWSNOW_SOURCES.get(source_id, source_id)
+            for idx, item in enumerate(items, 1):
+                title = item.get("title", "").strip()
+                item_url = item.get("url") or item.get("mobileUrl") or ""
+                if title:
+                    result_list.append({
+                        "rank": idx,
+                        "title": title,
+                        "url": item_url,
+                        "source": source_name,
+                        "published_at": item.get("pubDate")
+                    })
+            if result_list:
+                _newsnow_cache[cache_key] = {"time": now, "data": result_list}
+                return result_list
+    except Exception as e:
+        logger.warning(f"NewsNow fetch failed for {source_id}: {e}")
+
+    # Fallback to stale cache if exists
+    if cache_key in _newsnow_cache:
+        return _newsnow_cache[cache_key]["data"]
+
+    return []
+
+@tool
+def get_hot_news_flash(source: str = "cls") -> Dict:
+    """
+    Fetches the hottest real-time breaking financial news headlines from 財聯社 (cls), 華爾街見聞 (wallstreetcn), or 雪球 (xueqiu).
+    Use this tool whenever users ask for:
+    - '今日重大財經快訊 / 財聯社快訊'
+    - '華爾街見聞熱門話題'
+    - '目前市場有哪些重大突發新聞 / 熱門板塊'
+    Valid sources: 'cls', 'wallstreetcn', 'xueqiu'. Default is 'cls'.
+    """
+    logger.info(f"=== [Tool] get_hot_news_flash called for source: {source}")
+    news_items = get_hot_financial_news(source_id=source, count=8)
+    source_name = NEWSNOW_SOURCES.get(source, source)
+    
+    if not news_items:
+        return {
+            "source": source_name,
+            "error": "目前無法獲取即時快訊，請嘗試使用 2MD 全網搜尋。",
+            "headlines": []
+        }
+        
+    return {
+        "source": source_name,
+        "count": len(news_items),
+        "headlines": news_items
+    }
+

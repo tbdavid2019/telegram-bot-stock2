@@ -14,6 +14,8 @@ from handlers.stock_cmds import (
     valuation_analysis,
     earnings_briefing,
     correlation_analysis,
+    chain_analysis,
+    hot_news_query,
 )
 from handlers.ai_cmds import ai_query, ai2_analysis, llm_query
 
@@ -53,6 +55,8 @@ def main():
     app.add_handler(CommandHandler("s", stock_info))
     app.add_handler(CommandHandler("n", stock_news))
     app.add_handler(CommandHandler("ny", taiwan_stock_news))
+    app.add_handler(CommandHandler("hot", hot_news_query))
+    app.add_handler(CommandHandler("chain", chain_analysis))
     app.add_handler(CommandHandler("p", prophet_predict))
     app.add_handler(CommandHandler("sepa", sepa_analysis))
     app.add_handler(CommandHandler("val", valuation_analysis))

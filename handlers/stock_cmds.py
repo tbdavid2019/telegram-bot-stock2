@@ -346,3 +346,78 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
              
     except Exception as e:
         await update.message.reply_text(f"❌ 預測時發生錯誤：{str(e)}")
+
+# Financial Transmission Chain Analysis (/chain)
+async def chain_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Analyze financial logic transmission chain for macro/industry events."""
+    if len(context.args) == 0:
+        await update.message.reply_text("❌ 請提供要分析的事件或主題，例如：/chain 聯準會降息 或 /chain 中東局勢升溫")
+        return
+
+    topic = " ".join(context.args)
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    processing_msg = await update.message.reply_text(f"⛓️ 正在解析【{topic}】的三級金融邏輯傳導鏈與受惠/受害標的，請稍候...")
+
+    from ai_core import process_chat_message
+    prompt = (
+        f"請針對【{topic}】進行深入的「三級金融邏輯傳導鏈 (Transmission Chain Analysis)」與因果推導分析：\n"
+        f"1. 一級直接影響 (利率/匯率/原物料/供需)\n"
+        f"2. 二級產業鏈傳導 (成本、毛利、庫存週期)\n"
+        f"3. 三級受惠與受害台美股標的 (列出具體代碼如 2330.TW, NVDA 等)\n"
+        f"4. 邏輯證偽條件 (什麼情況下此邏輯失效)\n"
+        f"5. 繪製標準 Mermaid 流程圖 (使用 ```mermaid\\nflowchart LR\\n``` 且節點文字加雙引號)"
+    )
+
+    try:
+        thread_id = str(update.effective_chat.id)
+        response = await process_chat_message(prompt, thread_id=thread_id)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        try:
+            await update.message.reply_text(response, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(response)
+    except Exception as e:
+        logger.error(f"Chain analysis error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 分析傳導鏈時發生錯誤：{str(e)}")
+
+# Real-time Breaking Financial News (/hot)
+async def hot_news_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Fetch top breaking news from 財聯社 (cls), 華爾街見聞 (wallstreetcn), or 雪球 (xueqiu)."""
+    source_id = context.args[0].lower() if context.args else "cls"
+    if source_id not in ["cls", "wallstreetcn", "xueqiu"]:
+        source_id = "cls"
+
+    from tools.news import get_hot_financial_news, NEWSNOW_SOURCES
+    source_name = NEWSNOW_SOURCES.get(source_id, source_id)
+    
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    items = get_hot_financial_news(source_id=source_id, count=8)
+    
+    if not items:
+        await update.message.reply_text(f"⚠️ 目前暫時無法獲取 {source_name} 的即時快訊，請稍後重試。")
+        return
+
+    reply_text = f"🔥 **即時重大財經快訊 - {source_name}**\n━━━━━━━━━━━━━━━━━━━━\n"
+    for item in items:
+        rank = item.get("rank", "")
+        title = item.get("title", "")
+        url = item.get("url", "")
+        if url:
+            reply_text += f"{rank}. [{title}]({url})\n\n"
+        else:
+            reply_text += f"{rank}. {title}\n\n"
+            
+    reply_text += "💡 *輸入 `/hot cls`、`/hot wallstreetcn` 或 `/hot xueqiu` 切換不同快訊來源*"
+    
+    try:
+        await update.message.reply_text(reply_text, parse_mode="Markdown", disable_web_page_preview=True)
+    except Exception:
+        await update.message.reply_text(reply_text, disable_web_page_preview=True)
+

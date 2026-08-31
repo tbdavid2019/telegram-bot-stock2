@@ -27,7 +27,10 @@ telegram-bot-stock2/
 │   └── general.py            # Handlers for /start (memory reset + keyboard), /h (tools help), text routing
 ├── tools/
 │   ├── stock.py              # LangChain tools: get_stock_prices, get_financial_metrics
-│   ├── news.py               # LangChain tool: get_financial_news (yfinance + Yahoo + Google fallback)
+│   ├── stock_analysis.py     # Quant tools: SEPA, DCF valuation, earnings briefing, correlation
+│   ├── market_intel.py       # Smart money & sentiment: 13F, Form 4, short squeeze, retail sentiment
+│   ├── transmission.py       # Transmission chain & DeepEar signals: analyze_market_transmission_chain
+│   ├── news.py               # News tools: 2MD news, NewsNow hot news (CLS, WallstreetCN, Xueqiu)
 │   └── wiki.py               # LangChain tool & helper: publish_to_wiki (David888 Wiki REST API)
 ├── news.py                   # Standalone Taiwan Yahoo news scraper helper
 ├── auto_update_yfinance.sh   # Automated cron script to bump yfinance version from PyPI & redeploy

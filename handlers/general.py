@@ -23,6 +23,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  • 🚀 *「分析 GME 的做空比率與軋空 (Short Squeeze) 風險」*\n"
         "  • 📰 *「台積電 2330.TW 最近有什麼重大新聞與基本面評估」*\n\n"
         "📌 **專屬量化與委員會指令速查**：\n"
+        "• `/chain 事件或主題` - ⛓️ 金融邏輯傳導鏈分析與因果流程圖 (範例：`/chain 聯準會降息`)\n"
+        "• `/hot [來源]` - 🔥 財聯社/華爾街見聞/雪球即時快訊 (範例：`/hot` 或 `/hot wallstreetcn`)\n"
         "• `/sepa 股票代碼` - 📐 Minervini SEPA 8 項趨勢模板與 VCP 篩選 (範例：`/sepa TSLA`)\n"
         "• `/val 股票代碼` - 💰 五年 DCF 內在價值與 WACC 敏感度 (範例：`/val AAPL`)\n"
         "• `/earn 股票代碼` - 🗓️ 財報日期、共識預估與四季驚喜紀錄 (範例：`/earn NVDA`)\n"
@@ -37,6 +39,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton("/chain 聯準會降息 傳導鏈分析"), KeyboardButton("/hot 即時重大快訊")],
             [KeyboardButton("/sepa TSLA SEPA趨勢分析"), KeyboardButton("/val AAPL DCF估值計算")],
             [KeyboardButton("/earn NVDA 財報前瞻簡報"), KeyboardButton("/corr TSLA,NVDA,AAPL 相關性分析")],
             [KeyboardButton("/ai2 NVDA 14大師圓桌辯論"), KeyboardButton("/s 2330.TW 查詢K線圖")],
@@ -99,6 +102,8 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
 async def reset_commands(application: Application):
     commands = [
         BotCommand("start", "啟動機器人與重置對話記憶"),
+        BotCommand("chain", "金融邏輯傳導鏈分析 (因果流程圖)"),
+        BotCommand("hot", "即時重大財經快訊 (財聯社/華爾街見聞)"),
         BotCommand("ai2", "14位投資大師圓桌辯論 (AI對沖基金)"),
         BotCommand("s", "查詢即時股價和日/週/月 K 線圖"),
         BotCommand("p", "Prophet 模型預測未來 5 天股價"),

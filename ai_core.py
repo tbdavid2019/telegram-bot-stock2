@@ -27,7 +27,8 @@ from tools.market_intel import (
     get_short_squeeze_analysis,
     get_retail_sentiment,
 )
-from tools.news import get_financial_news, search_financial_web
+from tools.news import get_financial_news, search_financial_web, get_hot_news_flash
+from tools.transmission import analyze_market_transmission_chain
 from tools.wiki import publish_to_wiki
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,8 @@ main_agent_tools = [
     get_financial_metrics,
     get_financial_news,
     search_financial_web,
+    get_hot_news_flash,
+    analyze_market_transmission_chain,
     get_sepa_analysis,
     get_dcf_valuation,
     get_earnings_briefing,
@@ -100,6 +103,8 @@ You have access to dynamic real-time tools:
 - `get_stock_prices`: Real-time stock prices & technical indicators (RSI, Stochastic, MACD, VWAP).
 - `get_financial_metrics`: Key fundamental financial ratios (P/E, revenue growth, profit margins, debt-to-equity, current ratio).
 - `get_financial_news`: Live ticker news from 2MD search and Yahoo/Google fallbacks.
+- `get_hot_news_flash`: Real-time breaking financial headlines from 財聯社 (cls), 華爾街見聞 (wallstreetcn), and 雪球 (xueqiu).
+- `analyze_market_transmission_chain`: Multi-tier financial logic transmission chain analysis (Macro -> Industry -> Benefited/Impacted Tickers) with DeepEar signals and Mermaid diagrams.
 - `search_financial_web`: 2MD live SERP search engine for company backgrounds, IPO status, ticker lookups, breaking news, and macroeconomic events.
 - `get_sepa_analysis`: Mark Minervini 8-point Trend Template, Stage 2 status, pivot, stops, and VCP diagnostics.
 - `get_dcf_valuation`: Five-year FCFF DCF with live `^TNX` risk-free rate, WACC, scenarios, and sensitivity matrix.
@@ -111,10 +116,12 @@ You have access to dynamic real-time tools:
 - `get_retail_sentiment`: Reddit WallStreetBets and StockTwits discussion signals through 2MD.
 - `publish_to_wiki`: Publishes comprehensive financial reports, research documents, and multi-stock comparisons to David888 Wiki and returns a public shareUrl.
 
-Users can converse with you freely in natural language to perform fundamental analysis, technical health checks, news summaries, or market comparisons across Taiwan (e.g. 2330.TW) and US stocks (e.g. NVDA, TSLA).
+Users can converse with you freely in natural language to perform fundamental analysis, technical health checks, news summaries, transmission chain reasoning, or market comparisons across Taiwan (e.g. 2330.TW) and US stocks (e.g. NVDA, TSLA).
 
 Specialized macro commands available for users:
 - **/ai2 <ticker>**: AI Hedge Fund 14 Legend Investor Committee & Round Table debate. If a user asks for multi-analyst debate or Warren Buffett / Cathie Wood committee opinions, guide them to try `/ai2 <ticker>`.
+- **/chain <事件/主題>**: Financial logic transmission chain analysis (e.g. `/chain 聯準會降息` or `/chain 地緣政治升溫`) with Mermaid causal flowcharts.
+- **/hot [cls|wallstreetcn|xueqiu]**: Real-time breaking financial news headlines from 財聯社, 華爾街見聞, or 雪球.
 - **/s <ticker>**: Generates Day/Week/Month K-line charts.
 - **/p <ticker>**: Computes 5-day Prophet time-series forecast.
 - **/sepa <ticker>**: Mark Minervini SEPA trend template and VCP screen.
