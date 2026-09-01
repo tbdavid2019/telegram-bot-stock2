@@ -262,9 +262,27 @@ async def callback_prompt_handler(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
 
     data = query.data or ""
-    prompt_text = get_cached_prompt(data) if data.startswith("p:") else (
-        data[len("prompt:"):].strip() if data.startswith("prompt:") else data
-    )
+    prompt_text = ""
+
+    # 1. Try memory cache first
+    if data in PROMPT_CACHE:
+        prompt_text = PROMPT_CACHE[data]
+    elif data.startswith("prompt:"):
+        prompt_text = data[len("prompt:"):].strip()
+
+    # 2. Resilient Fallback: Retrieve exact button text from message reply_markup if cache missed (e.g. server restarted)
+    if not prompt_text and query.message and query.message.reply_markup:
+        for row in query.message.reply_markup.inline_keyboard:
+            for btn in row:
+                if btn.callback_data == data:
+                    prompt_text = btn.text.strip()
+                    break
+            if prompt_text:
+                break
+
+    # 3. Final fallback
+    if not prompt_text:
+        prompt_text = data.replace("p:", "").strip()
 
     if not prompt_text:
         return
