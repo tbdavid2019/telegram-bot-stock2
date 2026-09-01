@@ -2,6 +2,15 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.8.0] - 2026-09-01
+
+### ⏳ 對話 Session 3 天自動過期機制 (72h TTL) 與 `/new` 指令
+- **Session 72 小時自動過期 (TTL)**：自動追蹤每位使用者的最後活動時間戳記，當閒置超過 3 天時自動呼叫 `clear_context(thread_id)` 清理舊上下文記憶，並於回覆頂部附帶溫馨提示 `💡 *(距離上次對話已超過 3 天，系統已自動為您重置記憶並開啟全新對話)*`。
+- **新增手動清空記憶指令**：支援 `/new` 與 `/clear` 指令，使用者可隨時手動重置對話上下文並開啟全新主題。
+- **選單與快捷鍵盤升級**：在 `/start` 鍵盤與 Telegram 官方指令清單中註冊 `/new` 與 `/clear`。
+
+---
+
 ## [2.7.0] - 2026-09-01
 
 ### 🏢 台灣證交所 (TWSE) 與 櫃買中心 (TPEX) 三大法人官方籌碼整合

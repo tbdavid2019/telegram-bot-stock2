@@ -72,7 +72,12 @@ telegram-bot-stock2/
 - **NEVER** re-introduce Dify API calls, `DIFY_API_KEY`, or `DIFY_BASE_URL` into this repository.
 - Natural language queries (`/llm` or plain text messages) are routed through the **LangGraph Main Conversational Agent** in `ai_core.py`.
 
-### 2. 🏛️ AI Hedge Fund API (`/ai2`) Standards
+### 4. ⏳ Session Context Memory & 3-Day Auto-Expiration (72h TTL)
+- **Persistence Mechanism**: Uses LangGraph `MemorySaver` keyed by Telegram `chat_id` (`thread_id`).
+- **3-Day Auto-Expiration**: When a user's idle time exceeds 3 days (72 hours), the system automatically invokes `clear_context(thread_id)` upon next query and prepends `💡 *(距離上次對話已超過 3 天，系統已自動為您重置記憶並開啟全新對話)*\n\n`.
+- **Manual Reset**: Users can explicitly clear context anytime using `/new`, `/clear`, or `/start`.
+
+### 5. 🏛️ AI Hedge Fund API (`/ai2`) Standards
 - **Endpoint**: `http://dns.glsoft.ai:6000/api/analysis` (configurable via `AI2_API_URL` / `AI2_BASE_URL`).
 - **All 14 Analyst Personas**:
   - `warren_buffett`, `charlie_munger`, `ben_graham`, `cathie_wood`, `bill_ackman`, `nancy_pelosi`, `michael_burry`, `peter_lynch`, `phil_fisher`, `wsb`, `technical_analyst`, `fundamentals_analyst`, `sentiment_analyst`, `valuation_analyst`.
@@ -88,7 +93,7 @@ telegram-bot-stock2/
   - `analyst_signals`: Individual signals, confidence, and reasoning per persona.
 - **Language**: Output is bilingual (English and Traditional Chinese `【繁體中文解析】`). Responses sent to Telegram users should emphasize Traditional Chinese.
 
-### 3. ⚡ Async & Event Loop Safety (python-telegram-bot v20+)
+### 6. ⚡ Async & Event Loop Safety (python-telegram-bot v20+)
 - PTB handlers are `async def`.
 - Any blocking synchronous operations (e.g. `yf.download`, `t.history`, `t.info`, `matplotlib` plotting, `Prophet.fit/predict`, `BeautifulSoup` network scraping) **MUST NEVER** be run directly in the async handler.
 - Always use `await loop.run_in_executor(None, synchronous_fn)` to offload blocking tasks to worker threads.

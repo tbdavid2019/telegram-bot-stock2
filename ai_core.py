@@ -274,10 +274,26 @@ def fundamental_analyst(state: State):
     except Exception as e:
         return {"messages": [AIMessage(content=f"Error: {str(e)}")]}
 
+import datetime as dt
+
+# Session TTL tracking (3 days = 72 hours)
+SESSION_TTL_SECONDS = 3 * 86400
+session_last_active: Dict[str, dt.datetime] = {}
+
 # Export functions
 async def process_chat_message(user_input: str, thread_id: str = None) -> str:
-    """Process a natural language message using the Main Agent with context memory."""
+    """Process a natural language message using the Main Agent with context memory and 3-day TTL."""
     try:
+        expired_notice = ""
+        now = dt.datetime.now()
+        if thread_id:
+            if thread_id in session_last_active:
+                last_time = session_last_active[thread_id]
+                if (now - last_time).total_seconds() > SESSION_TTL_SECONDS:
+                    await clear_context(thread_id)
+                    expired_notice = "💡 *(距離上次對話已超過 3 天，系統已自動為您重置記憶並開啟全新對話)*\n\n"
+            session_last_active[thread_id] = now
+
         inputs = {"messages": [HumanMessage(content=user_input)]}
         
         # Configure thread-based persistence and recursion limit
@@ -317,7 +333,9 @@ async def process_chat_message(user_input: str, thread_id: str = None) -> str:
             if tool_outputs:
                 final_content = f"已取得相關資訊：\n\n" + "\n\n".join(tool_outputs[:2])
 
-        return final_content or "抱歉，目前暫時無法取得該問題的完整分析結果，請稍後再試。"
+        if final_content:
+            return expired_notice + final_content
+        return "抱歉，目前暫時無法取得該問題的完整分析結果，請稍後再試。"
     except Exception as e:
         logger.error(f"Main agent error: {e}")
         return f"❌ 處理訊息時發生錯誤：{str(e)}"
@@ -327,23 +345,21 @@ async def clear_context(thread_id: str):
     if not thread_id:
         return
     
-    # MemorySaver stores data in self.storage dictionary.
-    # We iterate and remove keys belonging to this thread_id.
-    # Note: This accesses internal storage of MemorySaver.
     count = 0
     keys_to_remove = []
     
-    # valid_memory.storage keys are typically tuples involving thread_id
-    # e.g. (thread_id, checkpoint_id)
-    for key in valid_memory.storage.keys():
+    for key in list(valid_memory.storage.keys()):
         if isinstance(key, tuple) and key[0] == thread_id:
             keys_to_remove.append(key)
-        # Fallback if keys are structured differently in future versions
         elif key == thread_id:
             keys_to_remove.append(key)
             
     for k in keys_to_remove:
-        del valid_memory.storage[k]
-        count += 1
+        try:
+            del valid_memory.storage[k]
+            count += 1
+        except KeyError:
+            pass
         
+    session_last_active[thread_id] = dt.datetime.now()
     logger.info(f"Cleared {count} memory items for thread {thread_id}")

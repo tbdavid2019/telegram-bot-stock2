@@ -38,6 +38,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/p 股票代碼` - 🔮 Prophet 時間序列預測未來 5 天股價區間 (範例：`/p META`)\n"
         "• `/n 股票代碼` - 📰 查詢美股即時英文新聞 (範例：`/n AAPL`)\n"
         "• `/ny 股票代碼` - 📰 查詢台股即時中文新聞 (範例：`/ny 2330.TW`)\n"
+        "• `/new` 或 `/clear` - 🧹 清空對話記憶開啟全新對話 (3 天無互動亦會自動重置)\n"
         "• `/h` - 🛠️ 顯示其他外部量化預測工具連結\n"
         "• `/start` 或 `/help` - 🔄 重置記憶並顯示此說明選單"
     )
@@ -47,11 +48,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [KeyboardButton("/chip 2330.TW"), KeyboardButton("/ff NVDA")],
             [KeyboardButton("/sepa TSLA"), KeyboardButton("/val AAPL")],
             [KeyboardButton("/earn NVDA"), KeyboardButton("/s 2330.TW")],
-            [KeyboardButton("/ai2 NVDA"), KeyboardButton("/p META")]
+            [KeyboardButton("/new"), KeyboardButton("/ai2 NVDA")]
         ],
         resize_keyboard=True
     )
     await update.message.reply_text(help_message, reply_markup=keyboard, parse_mode="Markdown")
+
+async def new_conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /new and /clear command to reset conversation memory."""
+    thread_id = str(update.effective_chat.id)
+    await clear_context(thread_id)
+    await update.message.reply_text(
+        "🧹 **對話記憶已清空，為您開啟全新對話！**\n\n您可以隨時開始輸入股票代碼、量化問題或財經話題。",
+        parse_mode="Markdown"
+    )
 
 async def tools_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = (
@@ -109,6 +119,8 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
 async def reset_commands(application: Application):
     commands = [
         BotCommand("start", "啟動機器人與重置對話記憶"),
+        BotCommand("new", "清空對話記憶開啟全新對話"),
+        BotCommand("clear", "清空對話記憶開啟全新對話"),
         BotCommand("chain", "金融邏輯傳導鏈分析 (因果流程圖)"),
         BotCommand("hot", "即時重大財經快訊 (財聯社/華爾街見聞)"),
         BotCommand("chip", "台股三大法人買賣超與連買連賣籌碼分析"),

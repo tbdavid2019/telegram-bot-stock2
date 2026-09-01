@@ -4,7 +4,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from config import TELEGRAM_BOT_TOKEN
-from handlers.general import start, tools_help, default_message_handler, reset_commands
+from handlers.general import start, new_conversation_handler, tools_help, default_message_handler, reset_commands
 from handlers.stock_cmds import (
     stock_info,
     stock_news,
@@ -54,6 +54,7 @@ def main():
     
     # Register Handlers
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler(["new", "clear"], new_conversation_handler))
     app.add_handler(CommandHandler("s", stock_info))
     app.add_handler(CommandHandler("n", stock_news))
     app.add_handler(CommandHandler("ny", taiwan_stock_news))
