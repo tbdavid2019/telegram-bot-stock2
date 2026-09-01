@@ -166,6 +166,16 @@ Specialized macro commands available for users:
   2. 若用戶詢問尚未公開上市之私營公司（例如 Stripe, Anthropic 等）的估值或 DCF，請以專業投資銀行分析師的口吻回答：
      - 自然說明該公司尚未公開 IPO，無正式 SEC 財報可跑精確 DCF；
      - 主動調用 `search_financial_web` 搜尋最新一輪的**私募股權/次級市場 Tender Offer 估值**、預估營收/現金流與同業可比乘數（P/S 或 EV/Revenue），給出有實質價值的估值評估！
+- **動態延伸續問設計 (Context-Aware Follow-up Prompts)**:
+  在每次完整分析回答的最後，請根據本次對話的上下文深度、具體探討的標的或核心議題，量身設計 2 到 4 個最具針對性、非模板化、緊扣上下文的延伸續問建議（例如探討具體催化劑、風險盲點、供應鏈傳導或量化模型分析）。
+  請將這 2~4 個建議以 JSON 陣列格式包裹在 `[FOLLOWUPS]` 標籤中置於回覆最末尾，範例：
+  [FOLLOWUPS]
+  [
+    "📊 評估該標的在 2026 年的營收滲透率",
+    "💰 計算其五年 DCF 內在價值 (/val 標的代碼)",
+    "⚔️ 比較其與主要競爭對手的毛利率優勢"
+  ]
+  [/FOLLOWUPS]
 - 始終以繁體中文 (Traditional Chinese) 禮貌、客觀、條理清晰且精準地回答。
     """)
     
@@ -195,7 +205,15 @@ def synthesizer_node(state: MainAgentState):
 回覆規範：
 1. 請以繁體中文 (Traditional Chinese) 輸出結構清晰的分析報告。
 2. 包含核心結論、財務/市場指標數據、估值情境與風險提示。
-3. 嚴禁輸出 JSON 工具呼叫格式，直接輸出給使用者閱讀的 Markdown 文本。"""
+3. 嚴禁輸出 JSON 工具呼叫格式，直接輸出給使用者閱讀的 Markdown 文本。
+4. 【動態延伸續問】：在分析結論的最末尾，根據剛剛討論的深度與情境，量身設計 2 到 4 個緊扣上下文、非模板化的延伸續問建議，包裹在 `[FOLLOWUPS]` 標籤中：
+[FOLLOWUPS]
+[
+  "續問一 (10-25字)",
+  "續問二",
+  "續問三"
+]
+[/FOLLOWUPS]"""
 
     llm_without_tools = primary_llm.with_fallbacks([fallback_llm]) if FALLBACK_LLM_API_KEY else primary_llm
     response = llm_without_tools.invoke([HumanMessage(content=synthesis_prompt)])
@@ -363,3 +381,26 @@ async def clear_context(thread_id: str):
         
     session_last_active[thread_id] = dt.datetime.now()
     logger.info(f"Cleared {count} memory items for thread {thread_id}")
+
+
+def extract_followups_from_text(text: str) -> tuple[str, list[str]]:
+    """
+    Extracts [FOLLOWUPS]...[/FOLLOWUPS] from LLM response.
+    Returns (cleaned_markdown_text, followups_list).
+    """
+    if not text:
+        return "", []
+    m = re.search(r"\[FOLLOWUPS\](.*?)\[/FOLLOWUPS\]", text, re.DOTALL | re.IGNORECASE)
+    if m:
+        raw_json = m.group(1).strip()
+        followups = []
+        try:
+            parsed = json.loads(raw_json)
+            if isinstance(parsed, list):
+                followups = [str(x).strip() for x in parsed if str(x).strip()]
+        except Exception:
+            lines = [l.strip("-* 1234567890.\"'\t") for l in raw_json.splitlines() if l.strip()]
+            followups = [l for l in lines if l]
+        cleaned_text = text[:m.start()].rstrip()
+        return cleaned_text, followups
+    return text, []
