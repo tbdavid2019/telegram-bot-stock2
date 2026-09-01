@@ -47,7 +47,7 @@ LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-flash")
 # Fallback LLM (Groq)
 FALLBACK_LLM_API_KEY = os.getenv("FALLBACK_LLM_API_KEY", os.getenv("GROQ_API_KEY"))
 FALLBACK_LLM_BASE_URL = os.getenv("FALLBACK_LLM_BASE_URL", "https://api.groq.com/openai/v1")
-FALLBACK_LLM_MODEL = os.getenv("FALLBACK_LLM_MODEL", "openai/gpt-oss-120b")
+FALLBACK_LLM_MODEL = os.getenv("FALLBACK_LLM_MODEL", "openai/gpt-oss-20b")
 
 # Telegram Token
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
