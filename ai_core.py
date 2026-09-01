@@ -178,6 +178,14 @@ Specialized macro commands available for users:
     "⚔️ 比較其與主要競爭對手的毛利率優勢"
   ]
   [/FOLLOWUPS]
+- **📱 Telegram 專屬排版優化 (Telegram Formatting Guidelines)**:
+  1. **嚴禁使用 `###` 原生標題**（Telegram 無法渲染且極不美觀），請一律使用 Emoji + 粗體作為段落標題，例如：
+     - `💰 **【估值情境與內在價值】**`
+     - `⚠️ **【投資風險提示】**`
+     - `🎯 **【建議操作與行動】**`
+     - `📊 **【關鍵指標與籌碼評估】**`
+  2. **避免過多 `---` 水平線**，段落之間以空行或重點區塊區隔即可。
+  3. 關鍵代碼、數據與目標價請用反引號包裹（如 `TSLA`、`$250.00`、`+15.2%`）。
 - 始終以繁體中文 (Traditional Chinese) 禮貌、客觀、條理清晰且精準地回答。
     """)
     
@@ -207,8 +215,9 @@ def synthesizer_node(state: MainAgentState):
 回覆規範：
 1. 請以繁體中文 (Traditional Chinese) 輸出結構清晰的分析報告。
 2. 包含核心結論、財務/市場指標數據、估值情境與風險提示。
-3. 嚴禁輸出 JSON 工具呼叫格式，直接輸出給使用者閱讀的 Markdown 文本。
-4. 【動態延伸續問】：在分析結論的最末尾，根據剛剛討論的深度與情境，量身設計 2 到 4 個緊扣上下文、非模板化的延伸續問建議，包裹在 `[FOLLOWUPS]` 標籤中：
+3. 【排版規範】：嚴禁使用 `###` 標題與過多 `---` 水平線，請使用 Emoji + 粗體標題（例如：💰 **【估值情境】**、⚠️ **【風險提示】**、🎯 **【建議行動】**）。
+4. 嚴禁輸出 JSON 工具呼叫格式，直接輸出給使用者閱讀的 Markdown 文本。
+5. 【動態延伸續問】：在分析結論的最末尾，根據剛剛討論的深度與情境，量身設計 2 到 4 個緊扣上下文、非模板化的延伸續問建議，包裹在 `[FOLLOWUPS]` 標籤中：
 [FOLLOWUPS]
 [
   "續問一 (10-25字)",
@@ -387,15 +396,19 @@ async def clear_context(thread_id: str):
 
 def extract_followups_from_text(text: str) -> tuple[str, list[str]]:
     """
-    Extracts [FOLLOWUPS]...[/FOLLOWUPS] from LLM response.
+    Extracts follow-up prompt suggestions from LLM response (supports [FOLLOWUPS], <<<FOLLOWUPS>>>, and ### FOLLOWUPS).
+    Beautifies Markdown for Telegram by converting ### headers to Emoji + Bold and removing raw metadata tags.
     Returns (cleaned_markdown_text, followups_list).
     """
     if not text:
         return "", []
-    m = re.search(r"\[FOLLOWUPS\](.*?)\[/FOLLOWUPS\]", text, re.DOTALL | re.IGNORECASE)
+
+    followups = []
+
+    # Pattern 1: [FOLLOWUPS] ... [/FOLLOWUPS] or <<<FOLLOWUPS>>> ... <<<END_FOLLOWUPS>>>
+    m = re.search(r"(?:\[FOLLOWUPS\]|<<<FOLLOWUPS>>>)(.*?)(?:\[/FOLLOWUPS\]|<<<END_FOLLOWUPS>>>)", text, re.DOTALL | re.IGNORECASE)
     if m:
         raw_json = m.group(1).strip()
-        followups = []
         try:
             parsed = json.loads(raw_json)
             if isinstance(parsed, list):
@@ -403,6 +416,38 @@ def extract_followups_from_text(text: str) -> tuple[str, list[str]]:
         except Exception:
             lines = [l.strip("-* 1234567890.\"'\t") for l in raw_json.splitlines() if l.strip()]
             followups = [l for l in lines if l]
-        cleaned_text = text[:m.start()].rstrip()
-        return cleaned_text, followups
-    return text, []
+        text = text[:m.start()] + text[m.end():]
+
+    # Pattern 2: ### FOLLOWUPS / ### 延伸續問 / ### 相關問題
+    m2 = re.search(r"(?:###|\*\*)\s*(?:FOLLOWUPS|延伸續問|延伸提問|相關問題|推薦提問)[\s\S]*$", text, re.IGNORECASE)
+    if m2 and not followups:
+        raw_tail = text[m2.start():]
+        text = text[:m2.start()]
+        extracted = re.findall(r"[\"“](.*?)[\"”]", raw_tail)
+        if not extracted:
+            extracted = [l.strip("-* 1234567890.\"'\t#") for l in raw_tail.splitlines() if l.strip() and not any(k in l for k in ("FOLLOWUPS", "延伸", "提問"))]
+        followups = [x for x in extracted if len(x) >= 3]
+
+    # --- Markdown Beautification for Telegram ---
+    def header_replacer(match):
+        header_text = match.group(1).strip()
+        emoji = "📌"
+        if any(k in header_text for k in ("估值", "財務", "營收", "獲利", "DCF")): emoji = "💰"
+        elif any(k in header_text for k in ("風險", "注意", "警告", "缺點")): emoji = "⚠️"
+        elif any(k in header_text for k in ("建議", "行動", "操作", "結論", "策略")): emoji = "🎯"
+        elif any(k in header_text for k in ("技術", "指標", "K線", "均線", "SEPA")): emoji = "📊"
+        elif any(k in header_text for k in ("新聞", "消息", "動態", "快訊")): emoji = "📰"
+        elif any(k in header_text for k in ("籌碼", "法人", "外資", "投信")): emoji = "🏢"
+        elif any(k in header_text for k in ("總經", "傳導", "降息", "通膨")): emoji = "⛓️"
+        return f"{emoji} **【{header_text.replace('【','').replace('】','')}】**"
+
+    # Convert ### Header -> Emoji **【Header】**
+    text = re.sub(r"^#{1,4}\s*(.+)$", header_replacer, text, flags=re.MULTILINE)
+
+    # Clean redundant --- dividers
+    text = re.sub(r"^\s*---\s*$", "", text, flags=re.MULTILINE)
+    
+    # Collapse multiple blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+
+    return text, followups
