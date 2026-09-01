@@ -127,56 +127,286 @@ async def safe_reply_analysis(update: Update, text: str):
             await update.message.reply_text(chunk, disable_web_page_preview=True)
 
 
-def _format_analysis(title: str, result) -> str:
-    if isinstance(result, dict):
-        payload = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-    else:
-        payload = str(result)
-    return f"📊 **{title}**\n```json\n{payload}\n```"
+def format_sepa_card(res: dict) -> str:
+    stock_name = res.get("stock", "")
+    if "error" in res and not res.get("rules"):
+        err = res.get("error", "")
+        return f"❌ **【{stock_name}】SEPA 分析失敗**\n{err}"
+    
+    stage = res.get("stage", "未確認")
+    stage_emoji = "🟢" if "Stage 2" in stage else "🟡"
+    template_score = res.get("template_score", "0/8")
+    metrics = res.get("metrics", {})
+    price = metrics.get("price", 0)
+    ma50 = metrics.get("ma50", 0)
+    ma150 = metrics.get("ma150", 0)
+    ma200 = metrics.get("ma200", 0)
+    low52 = metrics.get("52_week_low", 0)
+    high52 = metrics.get("52_week_high", 0)
+    rel3m = metrics.get("relative_3m_return")
+    spy3m = metrics.get("spy_3m_return")
+
+    rules = res.get("rules", [])
+    stops = res.get("risk_stops", {})
+    pivot = res.get("pivot_entry", 0)
+    stop7 = stops.get("7_percent_stop", 0)
+    stop_atr = stops.get("2_atr_stop", 0)
+    vcp = res.get("vcp", {})
+
+    lines = [
+        f"📊 **【{stock_name}】Mark Minervini SEPA 趨勢與 VCP 分析**",
+        "━━━━━━━━━━━━━━━━━━━━",
+        f"{stage_emoji} **趨勢階段**：`{stage}` (符合度：`{template_score}`)",
+        f"💰 **最新股價**：`${price:,.2f}`",
+        f"📈 **均線系統**：MA50 `${ma50:,.2f}` | MA150 `${ma150:,.2f}` | MA200 `${ma200:,.2f}`",
+        f"🏔️ **52 週區間**：最低 `${low52:,.2f}` ~ 最高 `${high52:,.2f}`",
+    ]
+    if rel3m is not None:
+        lines.append(f"⚡ **近 3 月報酬 vs SPY**：`{rel3m}%` (SPY: `{spy3m}%`)")
+
+    lines.append("\n📋 **SEPA 8 項趨勢模板檢驗清單**：")
+    for r in rules:
+        status_icon = "✅" if r.get("passed") else "❌"
+        rule_num = r.get("rule")
+        crit = r.get("criterion")
+        lines.append(f"  {status_icon} Rule {rule_num}: {crit}")
+
+    lines.append("\n🎯 **關鍵進出場與風險控管**：")
+    lines.append(f"  • **突破買點 (Pivot Entry)**：`${pivot:,.2f}`")
+    lines.append(f"  • **7% 硬停損價位**：`${stop7:,.2f}`")
+    lines.append(f"  • **2 ATR 停損價位**：`${stop_atr:,.2f}`")
+
+    vcp_status = "✅ 偵測到波動度收縮 (VCP 特徵符合)" if vcp.get("detected") else "ℹ️ 未出現明顯 VCP 收縮 (需確認型態)"
+    lines.append(f"\n🌀 **VCP 波動收縮診斷**：{vcp_status}")
+    v_ratio = vcp.get("volume_10d_vs_50d")
+    if v_ratio is not None:
+        lines.append(f"  • 10日/50日量比：`{v_ratio}` (收縮量通常 < 1.0)")
+
+    return "\n".join(lines)
 
 
-async def _run_analysis_command(update: Update, tool_fn, args: dict, title: str):
-    await update.message.reply_text("⏳ 正在取得市場資料並計算，請稍候...")
-    try:
-        loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, tool_fn.invoke, args)
-        await safe_reply_analysis(update, _format_analysis(title, result))
-    except Exception as exc:
-        logger.error("%s command error: %s", title, exc)
-        await update.message.reply_text(f"❌ {title} 執行失敗：{exc}")
+def format_dcf_card(res: dict) -> str:
+    stock_name = res.get("stock", "")
+    if "error" in res and res.get("method") != "relative_revenue_fallback":
+        err = res.get("error", "")
+        return f"❌ **【{stock_name}】DCF 估值失敗**\n{err}"
+
+    price = res.get("current_price", 0)
+    if res.get("method") == "relative_revenue_fallback":
+        rev = res.get("revenue") or 0
+        ps = res.get("price_to_sales", 0)
+        err = res.get("error", "")
+        lim = res.get("limitation", "")
+        lines = [
+            f"💰 **【{stock_name}】估值分析報告 (相對營收倍數法)**",
+            "━━━━━━━━━━━━━━━━━━━━",
+            f"💵 **最新市價**：`${price:,.2f}`",
+            f"🏢 **年度營收**：`${rev/1e9:,.2f}B USD`",
+            f"📊 **市銷率 (P/S Multiple)**：`{ps:,.2f}x`",
+            "\n⚠️ **DCF 限制說明**：",
+            f"{err}",
+            f"💡 *{lim}*"
+        ]
+        return "\n".join(lines)
+
+    scenarios = res.get("projected_fair_value_per_share", {})
+    mos = res.get("margin_of_safety_at_base")
+    mos_text = f"`{mos:+,.1f}%`" if mos is not None else "N/A"
+    mos_emoji = "🟢" if (mos or 0) > 0 else "🔴"
+    wacc = res.get("wacc", 0)
+    rf = res.get("risk_free_rate", 0)
+    beta = res.get("beta", 0)
+    bear = scenarios.get("bear", 0)
+    base = scenarios.get("base", 0)
+    bull = scenarios.get("bull", 0)
+
+    lines = [
+        f"💰 **【{stock_name}】五年 FCFF 折現估值模型 (DCF)**",
+        "━━━━━━━━━━━━━━━━━━━━",
+        f"💵 **當前市價**：`${price:,.2f}`",
+        f"📈 **折現率 (WACC)**：`{wacc}%` (無風險利率: `{rf}%`, Beta: `{beta}`)",
+        "━━━━━━━━━━━━━━━━━━━━",
+        "🎯 **情境公允價值預估 (Fair Value)**：",
+        f"  🐻 **保守悲觀 (Bear)**：`${bear:,.2f}`",
+        f"  ⚖️ **基準中性 (Base)**：`${base:,.2f}`",
+        f"  🐂 **樂觀進取 (Bull)**：`${bull:,.2f}`",
+        f"\n{mos_emoji} **基準安全邊際 (Margin of Safety)**：{mos_text}",
+        "💡 *安全邊際為正代表目前市價低於基準內在價值，具備折價保護空間。*"
+    ]
+    return "\n".join(lines)
+
+
+def format_earn_card(res: dict) -> str:
+    stock_name = res.get("stock", "")
+    if "error" in res:
+        err = res.get("error", "")
+        return f"❌ **【{stock_name}】財報簡報失敗**\n{err}"
+
+    con = res.get("consensus", {})
+    hist = res.get("last_four_quarters", [])
+    beat_rate = res.get("beat_rate_last_four")
+    next_date = res.get("upcoming_earnings_date") or "即將公布"
+
+    lines = [
+        f"🗓️ **【{stock_name}】財報預期與盈餘驚喜簡報**",
+        "━━━━━━━━━━━━━━━━━━━━",
+        f"📅 **下次財報預計發布日**：`{next_date}`",
+    ]
+    if con.get("eps") is not None:
+        eps_val = con["eps"]
+        lines.append(f"🎯 **市場共識 EPS 預估**：`${eps_val:,.2f}`")
+    if con.get("revenue") is not None:
+        rev = con["revenue"]
+        rev_b = rev / 1e9 if rev > 1e6 else rev
+        lines.append(f"💰 **市場共識營收預估**：`${rev_b:,.2f}B`")
+    if con.get("analyst_target_mean") is not None:
+        mean_p = con["analyst_target_mean"]
+        low_p = con.get("analyst_target_low", 0)
+        high_p = con.get("analyst_target_high", 0)
+        lines.append(f"🎯 **分析師平均目標價**：`${mean_p:,.2f}` (區間: `${low_p:,.2f}` ~ `${high_p:,.2f}`)")
+
+    if beat_rate is not None:
+        lines.append(f"\n🔥 **過去四季擊敗預期率 (Beat Rate)**：`{beat_rate}%`")
+
+    if hist:
+        lines.append("\n📋 **最近季度財報驚喜紀錄**：")
+        for q in hist:
+            d = q.get("date") or "N/A"
+            rep_eps = q.get("reported_eps")
+            est_eps = q.get("eps_estimate")
+            surp = q.get("surprise_percent")
+            surp_text = f"{surp:+.1f}%" if surp is not None else "N/A"
+            icon = "🟢" if (surp or 0) > 0 else "🔴"
+            lines.append(f"  • `{d}`: EPS `${rep_eps}` (預估: `${est_eps}`) ➔ {icon} 驚喜度 `{surp_text}`")
+
+    return "\n".join(lines)
+
+
+def format_corr_card(res: dict) -> str:
+    if "error" in res:
+        err = res.get("error", "")
+        return f"❌ **多股相關性分析失敗**\n{err}"
+
+    tickers = res.get("tickers", [])
+    obs = res.get("observations", 0)
+    matrix = res.get("correlation_matrix", {})
+    betas = res.get("spy_beta", {})
+
+    lines = [
+        "🔗 **多股 90 日日報酬相關性與 SPY Beta**",
+        f"📅 **樣本期間**：最近 `{obs}` 個交易日",
+        "━━━━━━━━━━━━━━━━━━━━",
+        "📊 **相關係數矩陣 (Correlation Matrix)**："
+    ]
+    header = "標的\t" + "\t".join(tickers)
+    lines.append(f"`{header}`")
+    for t1 in tickers:
+        row_vals = [f"{matrix.get(t1, {}).get(t2, 0):.2f}" for t2 in tickers]
+        lines.append(f"`{t1}\t" + "\t".join(row_vals) + "`")
+
+    lines.append("\n📈 **相對於 S&P 500 (SPY) 的市場波動 Beta**：")
+    for t, b in betas.items():
+        desc = "波動大於大盤" if (b or 0) > 1 else "波動小於大盤"
+        lines.append(f"  • **{t}**：`{b}` ({desc})")
+
+    lines.append("\n💡 *解讀*：相關係數 > 0.7 為高度正相關（同向波動），< 0.3 具備良好資產分散效益。")
+    return "\n".join(lines)
 
 
 async def sepa_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("❌ 請提供股票代碼，例如：/sepa TSLA")
         return
+    ticker = context.args[0].strip().split()[0].upper()
+    processing_msg = await update.message.reply_text(f"⏳ 正在分析 {ticker} 之 SEPA 趨勢與 VCP 型態，請稍候...")
     from tools.stock_analysis import get_sepa_analysis
-    await _run_analysis_command(update, get_sepa_analysis, {"ticker": context.args[0]}, "SEPA 趨勢與 VCP 分析")
+    loop = asyncio.get_running_loop()
+    try:
+        res = await loop.run_in_executor(None, get_sepa_analysis.invoke, {"ticker": ticker})
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await safe_reply_analysis(update, format_sepa_card(res))
+    except Exception as exc:
+        logger.error("SEPA command error: %s", exc)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ SEPA 分析失敗：{exc}")
 
 
 async def valuation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("❌ 請提供股票代碼，例如：/val AAPL")
         return
+    ticker = context.args[0].strip().split()[0].upper()
+    processing_msg = await update.message.reply_text(f"⏳ 正在計算 {ticker} 之 DCF 折現估值模型，請稍候...")
     from tools.stock_analysis import get_dcf_valuation
-    await _run_analysis_command(update, get_dcf_valuation, {"ticker": context.args[0]}, "DCF 內在價值分析")
+    loop = asyncio.get_running_loop()
+    try:
+        res = await loop.run_in_executor(None, get_dcf_valuation.invoke, {"ticker": ticker})
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await safe_reply_analysis(update, format_dcf_card(res))
+    except Exception as exc:
+        logger.error("DCF command error: %s", exc)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ DCF 估值失敗：{exc}")
 
 
 async def earnings_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("❌ 請提供股票代碼，例如：/earn NVDA")
         return
+    ticker = context.args[0].strip().split()[0].upper()
+    processing_msg = await update.message.reply_text(f"⏳ 正在整理 {ticker} 之財報預期與盈餘簡報，請稍候...")
     from tools.stock_analysis import get_earnings_briefing
-    await _run_analysis_command(update, get_earnings_briefing, {"ticker": context.args[0]}, "財報與盈餘簡報")
+    loop = asyncio.get_running_loop()
+    try:
+        res = await loop.run_in_executor(None, get_earnings_briefing.invoke, {"ticker": ticker})
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await safe_reply_analysis(update, format_earn_card(res))
+    except Exception as exc:
+        logger.error("Earn command error: %s", exc)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 財報簡報失敗：{exc}")
 
 
 async def correlation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2 and "," not in "".join(context.args):
         await update.message.reply_text("❌ 請提供 2 至 5 個代碼，例如：/corr TSLA,NVDA,AAPL")
         return
-    from tools.stock_analysis import get_correlation_analysis
     symbols = ",".join(context.args)
-    await _run_analysis_command(update, get_correlation_analysis, {"tickers": symbols}, "多股相關性與 SPY Beta")
+    processing_msg = await update.message.reply_text("⏳ 正在計算多股相關係數與 SPY Beta，請稍候...")
+    from tools.stock_analysis import get_correlation_analysis
+    loop = asyncio.get_running_loop()
+    try:
+        res = await loop.run_in_executor(None, get_correlation_analysis.invoke, {"tickers": symbols})
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await safe_reply_analysis(update, format_corr_card(res))
+    except Exception as exc:
+        logger.error("Corr command error: %s", exc)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 相關性分析失敗：{exc}")
 
 async def stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:

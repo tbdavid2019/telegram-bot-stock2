@@ -13,6 +13,7 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
   - **外資持股比重**：取得全體外資及陸資總持股比例 (%) 與持股張數。
 - **本地磁碟快取與多執行緒加速**：建置 `data/cache/institutional/` 磁碟快取機制，搭配 `ThreadPoolExecutor` 平行擷取歷史交易日，實現毫秒級響應並避免頻繁請求官方 API 遭遇 Rate Limit。
 - **新增 `/chip <股票代碼>` 指令**：支援一鍵產出三大法人籌碼日報卡片（例如 `/chip 2330.TW`、`/chip 3293.TWO`、`/chip 2603`）。
+- **量化指令排版全面卡片化**：徹底移除 `/sepa`、`/val`、`/earn`、`/corr` 之原始 JSON 格式傾倒，全面升級為排版優美、富含 Emoji 與關鍵指標診斷的 Telegram Markdown 卡片，並修復快捷鍵盤指令提取邏輯。
 - **LangGraph 主對話 Agent 深度整合**：註冊 `get_tw_institutional_analysis` 工具，支援自然語言直接詢問台股法人籌碼動態。
 
 ---

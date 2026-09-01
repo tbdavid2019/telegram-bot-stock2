@@ -43,11 +43,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("/chain 聯準會降息 傳導鏈分析"), KeyboardButton("/hot 即時重大快訊")],
-            [KeyboardButton("/chip 2330.TW 三大法人籌碼"), KeyboardButton("/ff NVDA 多因子風險歸因")],
-            [KeyboardButton("/sepa TSLA SEPA趨勢分析"), KeyboardButton("/val AAPL DCF估值計算")],
-            [KeyboardButton("/ai2 NVDA 14大師圓桌辯論"), KeyboardButton("/s 2330.TW 查詢K線圖")],
-            [KeyboardButton("分析 2330.TW 基本面與技術面"), KeyboardButton("/p META Prophet預測")]
+            [KeyboardButton("/chain 聯準會降息"), KeyboardButton("/hot")],
+            [KeyboardButton("/chip 2330.TW"), KeyboardButton("/ff NVDA")],
+            [KeyboardButton("/sepa TSLA"), KeyboardButton("/val AAPL")],
+            [KeyboardButton("/earn NVDA"), KeyboardButton("/s 2330.TW")],
+            [KeyboardButton("/ai2 NVDA"), KeyboardButton("/p META")]
         ],
         resize_keyboard=True
     )
