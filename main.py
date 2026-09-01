@@ -2,9 +2,16 @@
 import logging
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 from config import TELEGRAM_BOT_TOKEN
-from handlers.general import start, new_conversation_handler, tools_help, default_message_handler, reset_commands
+from handlers.general import (
+    start,
+    new_conversation_handler,
+    tools_help,
+    default_message_handler,
+    callback_prompt_handler,
+    reset_commands
+)
 from handlers.stock_cmds import (
     stock_info,
     stock_news,
@@ -75,6 +82,9 @@ def main():
     
     # Default handler for non-commands
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, default_message_handler))
+    
+    # Callback query handler for dynamic follow-up prompt buttons
+    app.add_handler(CallbackQueryHandler(callback_prompt_handler))
 
     logger.info("🚀 Bot started successfully with concurrent_updates=True (non-blocking mode)...")
     app.run_polling()

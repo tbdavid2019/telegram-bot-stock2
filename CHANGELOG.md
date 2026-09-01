@@ -2,6 +2,18 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.10.0] - 2026-09-01
+
+### 💬 Telegram 動態主動續問按鈕 (Dynamic Follow-up Prompts)
+- **情境智慧按鈕生成 (`generate_followup_keyboard`)**：當 LLM 完成對話回覆後，系統會自動提煉對話中的個股標的（如 `2330`、`TSLA`、`NVDA`、`台積電`）或總體經濟主題（如 `降息`、`通膨`、`關稅`），在訊息底部動態附帶 2~4 個高關聯度的一鍵續問按鈕（如 `[🏢 查三大法人籌碼]`、`[💰 計算 DCF 合理價]`、`[📐 檢驗 SEPA 趨勢]`、`[🏛️ 召開 14 大師圓桌辯論]`）。
+- **`CallbackQueryHandler` 無縫事件分發**：點擊按鈕即可立即觸發量化運算或下一輪對話，實現連續探索式的流暢人機互動體驗。
+
+### 🔄 yfinance 每日自動追版與全自動 CI/CD 流水線
+- **新增 `.github/workflows/auto-update-yfinance.yml`**：每日台灣時間早上 08:30 自動向 PyPI 查詢 `yfinance` 最新版本。
+- **自動化依賴升級與映像檔建置**：一旦發現新版本，自動更新 `requirements.txt`、提交 Git Commit 並推送到 `master`，無縫觸發 Docker Multi-Arch Build 並推送到 Docker Hub。
+
+---
+
 ## [2.9.0] - 2026-09-01
 
 ### 📰 台美股智慧新聞路由整併 (`/n` 支援代碼與中文名)

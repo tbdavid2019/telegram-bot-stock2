@@ -1,0 +1,72 @@
+name: Auto Check & Bump yfinance Version
+
+on:
+  schedule:
+    # Run daily at 00:30 UTC (08:30 Taiwan Time)
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-and-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check latest yfinance on PyPI & Bump requirements.txt
+        id: bump
+        run: |
+          set -e
+          python3 - << 'PY'
+          import json, urllib.request, re, os
+
+          # 1. Fetch PyPI latest version
+          url = "https://pypi.org/pypi/yfinance/json"
+          req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+          with urllib.request.urlopen(req, timeout=10) as resp:
+              data = json.loads(resp.read().decode("utf-8"))
+          latest_ver = data["info"]["version"].strip()
+
+          # 2. Read requirements.txt
+          with open("requirements.txt", "r", encoding="utf-8") as f:
+              content = f.read()
+
+          m = re.search(r"yfinance==([0-9a-zA-Z\.\-]+)", content)
+          current_ver = m.group(1).strip() if m else "none"
+
+          print(f"Current yfinance: {current_ver}")
+          print(f"Latest PyPI yfinance: {latest_ver}")
+
+          if current_ver != latest_ver:
+              new_content = re.sub(r"yfinance(==[0-9a-zA-Z\.\-]+)?", f"yfinance=={latest_ver}", content)
+              with open("requirements.txt", "w", encoding="utf-8") as f:
+                  f.write(new_content)
+              
+              with open(os.environ["GITHUB_OUTPUT"], "a") as gh_out:
+                  gh_out.write(f"updated=true\n")
+                  gh_out.write(f"old_version={current_ver}\n")
+                  gh_out.write(f"new_version={latest_ver}\n")
+          else:
+              print("yfinance is already up to date!")
+              with open(os.environ["GITHUB_OUTPUT"], "a") as gh_out:
+                  gh_out.write("updated=false\n")
+          PY
+
+      - name: Commit and Push Changes
+        if: steps.bump.outputs.updated == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add requirements.txt
+          git commit -m "chore(deps): bump yfinance from ${{ steps.bump.outputs.old_version }} to ${{ steps.bump.outputs.new_version }}"
+          git push origin master

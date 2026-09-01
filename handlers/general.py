@@ -1,10 +1,108 @@
-from telegram import Update, BotCommand, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ContextTypes, Application
+import re
 import logging
+from telegram import (
+    Update,
+    BotCommand,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
+from telegram.ext import ContextTypes, Application
+from ai_core import clear_context, process_chat_message
 
 logger = logging.getLogger(__name__)
 
-from ai_core import clear_context
+
+def extract_primary_subject(user_input: str, response_text: str = "") -> dict:
+    """Extract primary stock ticker or macro topic from input/response."""
+    text = (user_input + " " + (response_text[:300] if response_text else "")).strip()
+
+    # 1. Match Taiwan stock codes (e.g. 2330, 2330.TW, 3293.TWO)
+    tw_match = re.search(r"\b(\d{4,6}(?:\.TW|\.TWO)?)\b", text, re.IGNORECASE)
+    if tw_match:
+        code = tw_match.group(1).upper()
+        return {"type": "stock", "ticker": code}
+
+    # 2. Match US tickers (2-5 uppercase letters)
+    us_match = re.search(r"\b([A-Z]{2,5})\b", user_input)
+    if us_match and us_match.group(1) not in (
+        "AI", "DCF", "PE", "EPS", "WACC", "FCF", "SEPA", "VCP", "SPY", "USD", "TOC", "API"
+    ):
+        return {"type": "stock", "ticker": us_match.group(1)}
+
+    # 3. Match known Chinese company names
+    company_map = {
+        "台積電": "2330.TW", "聯發科": "2454.TW", "鴻海": "2317.TW", "長榮": "2603.TW",
+        "鈊象": "3293.TWO", "元太": "8069.TWO", "特斯拉": "TSLA", "輝達": "NVDA", "蘋果": "AAPL",
+        "微軟": "MSFT", "谷歌": "GOOGL", "亞馬遜": "AMZN", "博通": "AVGO", "超微": "AMD"
+    }
+    for name, sym in company_map.items():
+        if name in text:
+            return {"type": "stock", "ticker": sym, "name": name}
+
+    # 4. Match macro keywords
+    macro_keywords = ["降息", "升息", "通膨", "聯準會", "關稅", "非農", "地緣政治", "油價", "美債", "日圓", "AI產業"]
+    for kw in macro_keywords:
+        if kw in text:
+            return {"type": "macro", "topic": kw}
+
+    return {"type": "general"}
+
+
+def generate_followup_keyboard(user_input: str, response_text: str = "") -> InlineKeyboardMarkup:
+    """Dynamically generate 2-4 contextual prompt suggestion buttons."""
+    subj = extract_primary_subject(user_input, response_text)
+    buttons = []
+
+    if subj["type"] == "stock":
+        sym = subj["ticker"]
+        is_tw = ".TW" in sym or ".TWO" in sym or sym.isdigit()
+        clean_code = sym.replace(".TW", "").replace(".TWO", "")
+
+        if is_tw:
+            buttons.append([
+                InlineKeyboardButton(f"🏢 查 {clean_code} 三大法人籌碼", callback_data=f"prompt:/chip {sym}"),
+                InlineKeyboardButton(f"💰 計算 {clean_code} DCF 合理價", callback_data=f"prompt:/val {sym}")
+            ])
+            buttons.append([
+                InlineKeyboardButton(f"📐 檢驗 {clean_code} SEPA 趨勢", callback_data=f"prompt:/sepa {sym}"),
+                InlineKeyboardButton(f"🏛️ 14 大師圓桌辯論", callback_data=f"prompt:/ai2 {sym}")
+            ])
+        else:
+            buttons.append([
+                InlineKeyboardButton(f"💰 計算 {sym} DCF 內在價值", callback_data=f"prompt:/val {sym}"),
+                InlineKeyboardButton(f"📐 檢驗 {sym} SEPA 趨勢", callback_data=f"prompt:/sepa {sym}")
+            ])
+            buttons.append([
+                InlineKeyboardButton(f"📊 {sym} 多因子風險歸因", callback_data=f"prompt:/ff {sym}"),
+                InlineKeyboardButton(f"🏛️ 14 大師圓桌辯論", callback_data=f"prompt:/ai2 {sym}")
+            ])
+
+    elif subj["type"] == "macro":
+        topic = subj["topic"]
+        buttons.append([
+            InlineKeyboardButton(f"⛓️ 分析「{topic}」金融傳導鏈", callback_data=f"prompt:/chain {topic}"),
+            InlineKeyboardButton("🔥 查看全球重大快訊", callback_data="prompt:/hot")
+        ])
+        buttons.append([
+            InlineKeyboardButton("🏢 查台積電 2330 法人籌碼", callback_data="prompt:/chip 2330.TW"),
+            InlineKeyboardButton("📊 輝達 NVDA 多因子模型", callback_data="prompt:/ff NVDA")
+        ])
+
+    else:
+        buttons.append([
+            InlineKeyboardButton("🔥 查看即時重大快訊", callback_data="prompt:/hot"),
+            InlineKeyboardButton("🏢 台積電 2330 法人籌碼", callback_data="prompt:/chip 2330.TW")
+        ])
+        buttons.append([
+            InlineKeyboardButton("📊 輝達 NVDA 多因子歸因", callback_data="prompt:/ff NVDA"),
+            InlineKeyboardButton("💰 特斯拉 TSLA DCF估值", callback_data="prompt:/val TSLA")
+        ])
+
+    return InlineKeyboardMarkup(buttons)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Reset conversation context
     thread_id = str(update.effective_chat.id)
@@ -53,6 +151,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(help_message, reply_markup=keyboard, parse_mode="Markdown")
 
+
 async def new_conversation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /new and /clear command to reset conversation memory."""
     thread_id = str(update.effective_chat.id)
@@ -61,6 +160,7 @@ async def new_conversation_handler(update: Update, context: ContextTypes.DEFAULT
         "🧹 **對話記憶已清空，為您開啟全新對話！**\n\n您可以隨時開始輸入股票代碼、量化問題或財經話題。",
         parse_mode="Markdown"
     )
+
 
 async def tools_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = (
@@ -73,12 +173,10 @@ async def tools_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message, parse_mode="Markdown")
 
 
-from ai_core import process_chat_message
-
 async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle regular text messages by passing them to the Main LLM Agent.
-    This enables natural language interaction (e.g., 'How is TSLA doing?').
+    This enables natural language interaction with dynamic follow-up prompt buttons.
     """
     user_input = update.message.text
     if not user_input:
@@ -87,12 +185,12 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
     # Notify user that bot is typing and send temporary status message
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     processing_msg = await update.message.reply_text("⏳ 思考與處理中，請稍候...")
-    
+
     try:
         # Process message via Main Agent with conversation memory
         thread_id = str(update.effective_chat.id)
         response = await process_chat_message(user_input, thread_id=thread_id)
-        
+
         # Delete the temporary processing message
         try:
             await processing_msg.delete()
@@ -102,10 +200,11 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
         if not response or not str(response).strip():
             response = "⚠️ 系統分析完成，但未生成文字回覆，請嘗試重新提問或使用專屬指令（如 /val、/sepa、/chain）。"
 
+        followup_markup = generate_followup_keyboard(user_input, response)
         try:
-            await update.message.reply_text(response, parse_mode="Markdown")
+            await update.message.reply_text(response, reply_markup=followup_markup, parse_mode="Markdown")
         except Exception:
-            await update.message.reply_text(response)
+            await update.message.reply_text(response, reply_markup=followup_markup)
     except Exception as e:
         logger.error(f"Default message handler error: {e}")
         try:
@@ -113,6 +212,82 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
         await update.message.reply_text(f"❌ 處理訊息時發生錯誤：{str(e)}")
+
+
+async def callback_prompt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle clicks on dynamic follow-up prompt buttons.
+    Executes the command or feeds the prompt back to the conversational agent.
+    """
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data or ""
+    if not data.startswith("prompt:"):
+        return
+
+    prompt_text = data[len("prompt:"):].strip()
+    if not prompt_text:
+        return
+
+    # Dispatch commands
+    parts = prompt_text.split()
+    cmd = parts[0].lower()
+    args = parts[1:]
+    context.args = args
+
+    # Match command handlers
+    if cmd == "/chip":
+        from handlers.stock_cmds import institutional_chip_analysis
+        await institutional_chip_analysis(update, context)
+    elif cmd == "/val":
+        from handlers.stock_cmds import valuation_analysis
+        await valuation_analysis(update, context)
+    elif cmd == "/sepa":
+        from handlers.stock_cmds import sepa_analysis
+        await sepa_analysis(update, context)
+    elif cmd == "/earn":
+        from handlers.stock_cmds import earnings_briefing
+        await earnings_briefing(update, context)
+    elif cmd == "/corr":
+        from handlers.stock_cmds import correlation_analysis
+        await correlation_analysis(update, context)
+    elif cmd == "/ff":
+        from handlers.stock_cmds import fama_french_analysis
+        await fama_french_analysis(update, context)
+    elif cmd == "/ai2":
+        from handlers.ai_cmds import ai2_analysis
+        await ai2_analysis(update, context)
+    elif cmd == "/chain":
+        from handlers.stock_cmds import chain_analysis
+        await chain_analysis(update, context)
+    elif cmd == "/hot":
+        from handlers.stock_cmds import hot_news_query
+        await hot_news_query(update, context)
+    elif cmd == "/n" or cmd == "/ny":
+        from handlers.stock_cmds import stock_news
+        await stock_news(update, context)
+    else:
+        # Pass natural language prompt to default handler
+        thread_id = str(update.effective_chat.id)
+        processing_msg = await query.message.reply_text(f"💬 *已選擇續問：* `{prompt_text}`\n⏳ 處理中，請稍候...", parse_mode="Markdown")
+        try:
+            response = await process_chat_message(prompt_text, thread_id=thread_id)
+            try:
+                await processing_msg.delete()
+            except Exception:
+                pass
+            followup_markup = generate_followup_keyboard(prompt_text, response)
+            try:
+                await query.message.reply_text(response, reply_markup=followup_markup, parse_mode="Markdown")
+            except Exception:
+                await query.message.reply_text(response, reply_markup=followup_markup)
+        except Exception as e:
+            try:
+                await processing_msg.delete()
+            except Exception:
+                pass
+            await query.message.reply_text(f"❌ 處理續問時發生錯誤：{str(e)}")
 
 
 async def reset_commands(application: Application):

@@ -103,9 +103,9 @@
 
 詳細架構設計與 14 位 Persona 規範請參閱 [AGENTS.md](AGENTS.md)。
 
-- **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發)
-- **Agent 與工具鏈**：`LangGraph` (具備 `synthesizer_node` 兩階段收斂架構), `LangChain`
-- **市場數據與備援**：`yfinance` (1.6.0+), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
+- **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發、`InlineKeyboardMarkup` 動態主動續問按鈕)
+- **Agent 與工具鏈**：`LangGraph` (具備 `synthesizer_node` 兩階段收斂架構、3 天 72h Session TTL 記憶管理), `LangChain`
+- **市場數據與自動追版**：`yfinance` (自動 GitHub Actions 每日追版 CI/CD), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
 - **台股官方籌碼**：台灣證交所 (**TWSE T86 / MI_QFIIS**)、櫃買中心 (**TPEX 3itrade**)、`data/cache/institutional/` 磁碟快取
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
 - **金融邏輯與傳導鏈**：DeepEar Lite API、NewsNow API (財聯社/華爾街見聞/雪球)
