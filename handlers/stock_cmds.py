@@ -408,110 +408,115 @@ async def correlation_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
         await update.message.reply_text(f"❌ 相關性分析失敗：{exc}")
 
-async def stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/n TSLA 或 /n NVDA")
-        return
-        
-    stock_code = context.args[0].upper()
-    await update.message.reply_text(f"🔍 正在為您檢索 {stock_code} 最新美股新聞...")
-    
-    try:
-        from tools.news import fetch_2md_news, get_financial_news
-        loop = asyncio.get_running_loop()
-        
-        def get_us_news():
-            # 1. Try 2MD Search
-            news_items = fetch_2md_news(f"{stock_code} stock market news", limit=5)
-            if not news_items:
-                # 2. Fallback to general tool
-                tool_res = get_financial_news.invoke({"ticker": stock_code})
-                news_items = tool_res.get('news', [])
-            return news_items
+def is_taiwan_stock(symbol: str, query: str) -> bool:
+    s = symbol.upper()
+    if s.endswith(".TW") or s.endswith(".TWO"):
+        return True
+    if re.fullmatch(r"\d{4,6}", s):
+        return True
+    if any("\u4e00" <= c <= "\u9fff" for c in query):
+        tw_keywords = ["台積電", "聯發科", "鴻海", "長榮", "廣達", "富邦金", "國泰金", "台股", "鈊象", "元太", "大立光", "欣興", "技嘉"]
+        if any(k in query for k in tw_keywords):
+            return True
+    return False
 
-        news_list = await loop.run_in_executor(None, get_us_news)
+
+async def stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Unified smart stock news handler (/n).
+    Automatically routes Taiwan (2330, 台積電, 2330.TW) vs US/Global (TSLA, 特斯拉, IBM, NVDA).
+    """
+    if not context.args:
+        await update.message.reply_text("💡 請提供股票代碼或公司名稱，例如：`/n 2330`、`/n 台積電`、`/n TSLA` 或 `/n 特斯拉`", parse_mode="Markdown")
+        return
+
+    raw_query = " ".join(context.args).strip()
+    processing_msg = await update.message.reply_text(f"🔍 正在為您智慧檢索 【{raw_query}】 即時財經新聞...")
+
+    from tools.stock import resolve_ticker
+    from tools.news import fetch_2md_news, get_financial_news
+
+    loop = asyncio.get_running_loop()
+
+    def fetch_news():
+        resolved = resolve_ticker(raw_query)
+        is_tw = is_taiwan_stock(resolved, raw_query)
         
+        # 1. 2MD Fast Multi-Endpoint Search
+        if is_tw:
+            search_query = f"{raw_query} {resolved} 台灣 股票 新聞 財經"
+        else:
+            search_query = f"{resolved} {raw_query} stock news 財經 新聞"
+
+        items = fetch_2md_news(search_query, limit=5)
+        if items:
+            return resolved, is_tw, items[:5]
+
+        # 2. Fallbacks
+        if is_tw:
+            url = f"https://tw.news.yahoo.com/search?p={raw_query}"
+            try:
+                r = requests.get(url, timeout=6)
+                soup = BeautifulSoup(r.text, "html.parser")
+                news_links = []
+                for item in soup.find_all("a", href=True):
+                    href = item["href"]
+                    if href.startswith("/"):
+                        full_url = f"https://tw.news.yahoo.com{href}"
+                        title = item.get_text(strip=True)
+                        if title and full_url not in news_links:
+                            news_links.append({"title": title, "link": full_url})
+                tw_news = [it for it in news_links if "news" in it["link"]][:5]
+                if tw_news:
+                    return resolved, is_tw, tw_news
+            except Exception:
+                pass
+
+        # US / General fallback
+        tool_res = get_financial_news.invoke({"ticker": resolved})
+        return resolved, is_tw, tool_res.get("news", [])[:5]
+
+    try:
+        resolved_ticker, is_tw, news_list = await loop.run_in_executor(None, fetch_news)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
         if not news_list:
-            await update.message.reply_text(f"⚠️ 找不到 {stock_code} 的相關新聞。")
+            await update.message.reply_text(f"⚠️ 找不到 【{raw_query}】 的相關新聞。")
             return
-            
-        reply_text = f"📰 **{stock_code} 美股即時新聞**：\n━━━━━━━━━━━━━━━━━━━━\n"
+
+        market_label = "台股" if is_tw else "美股/全球"
+        display_name = f"{raw_query} ({resolved_ticker})" if raw_query.upper() != resolved_ticker.upper() else resolved_ticker
+        reply_text = f"📰 **【{display_name}】{market_label}即時財經新聞**：\n━━━━━━━━━━━━━━━━━━━━\n"
+        
         for idx, item in enumerate(news_list[:5]):
-            title = item.get('title', '新聞連結').replace("[", "(").replace("]", ")")
-            link = item.get('link') or item.get('url') or '#'
-            desc = item.get('description', '').strip()
-            
+            title = item.get("title", "新聞連結").replace("[", "(").replace("]", ")")
+            link = item.get("link") or item.get("url") or "#"
+            desc = item.get("description", "").strip()
+
             reply_text += f"{idx+1}. [{title}]({link})\n"
             if desc and len(desc) > 10:
                 short_desc = desc[:120] + "..." if len(desc) > 120 else desc
                 reply_text += f"   _{short_desc}_\n\n"
             else:
                 reply_text += "\n"
-        
+
         await safe_reply_news(update, reply_text)
 
     except Exception as e:
-        logger.error(f"News error: {e}")
+        logger.error(f"Unified stock news error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
         await update.message.reply_text(f"❌ 查詢新聞時發生錯誤：{str(e)}")
 
+
 async def taiwan_stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/ny 2330.TW 或 /ny 2002.TW")
-        return
-
-    stock_code = context.args[0].upper()
-    await update.message.reply_text(f"🔍 正在為您檢索 {stock_code} 最新台股中文新聞...")
-    
-    loop = asyncio.get_running_loop()
-    
-    def get_tw_news():
-        from tools.news import fetch_2md_news
-        # 1. Try 2MD Search for Taiwan Stock News
-        tw_items = fetch_2md_news(f"{stock_code} 台灣 股票 新聞", limit=5)
-        if tw_items:
-            return tw_items
-            
-        # 2. Fallback to direct Yahoo News Scraper
-        url = f"https://tw.news.yahoo.com/search?p={stock_code}"
-        try:
-            r = requests.get(url, timeout=8)
-            soup = BeautifulSoup(r.text, "html.parser")
-            news_links = []
-            for item in soup.find_all("a", href=True):
-                href = item["href"]
-                if href.startswith("/"):
-                    full_url = f"https://tw.news.yahoo.com{href}"
-                    title = item.get_text(strip=True)
-                    if title and full_url not in news_links:
-                        news_links.append({"title": title, "link": full_url})
-            return [it for it in news_links if "news" in it["link"]][:5]
-        except Exception as e:
-            logger.error(f"Yahoo scraping fallback error: {e}")
-            return []
-
-    try:
-        valid_news = await loop.run_in_executor(None, get_tw_news)
-        if not valid_news:
-            await update.message.reply_text(f"⚠️ 找不到 {stock_code} 的相關新聞。")
-            return
-            
-        reply_text = f"📰 **{stock_code} 台股即時新聞**：\n━━━━━━━━━━━━━━━━━━━━\n"
-        for idx, item in enumerate(valid_news[:5]):
-            title = item.get('title', '新聞連結').replace("[", "(").replace("]", ")")
-            link = item.get('link') or item.get('url') or '#'
-            desc = item.get('description', '').strip()
-            
-            reply_text += f"{idx+1}. [{title}]({link})\n"
-            if desc and len(desc) > 10:
-                short_desc = desc[:120] + "..." if len(desc) > 120 else desc
-                reply_text += f"   _{short_desc}_\n\n"
-            else:
-                reply_text += "\n"
-                
-        await safe_reply_news(update, reply_text)
-    except Exception as e:
-        logger.error(f"TW News error: {e}")
-        await update.message.reply_text(f"❌ 抓取新聞時發生錯誤：{str(e)}")
+    """Legacy alias: forward /ny to unified smart news /n."""
+    await stock_news(update, context)
 
 # Prophet prediction (Simplified - imports inside to avoid overhead if not used)
 async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):

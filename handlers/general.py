@@ -36,8 +36,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/ai2 股票代碼` - 🏛️ 14 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA`)\n"
         "• `/s 股票代碼` - 📈 查詢即時股價與 日/週/月 K 線圖 (範例：`/s 2330.TW`)\n"
         "• `/p 股票代碼` - 🔮 Prophet 時間序列預測未來 5 天股價區間 (範例：`/p META`)\n"
-        "• `/n 股票代碼` - 📰 查詢美股即時英文新聞 (範例：`/n AAPL`)\n"
-        "• `/ny 股票代碼` - 📰 查詢台股即時中文新聞 (範例：`/ny 2330.TW`)\n"
+        "• `/n 股票代碼或公司名` - 📰 智慧檢索台美股即時財經新聞 (範例：`/n 2330`、`/n 台積電`、`/n TSLA`、`/n 特斯拉`)\n"
         "• `/new` 或 `/clear` - 🧹 清空對話記憶開啟全新對話 (3 天無互動亦會自動重置)\n"
         "• `/h` - 🛠️ 顯示其他外部量化預測工具連結\n"
         "• `/start` 或 `/help` - 🔄 重置記憶並顯示此說明選單"
@@ -132,8 +131,8 @@ async def reset_commands(application: Application):
         BotCommand("val", "五年 DCF 內在價值與 WACC 敏感度"),
         BotCommand("earn", "財報日期與四季盈餘驚喜簡報"),
         BotCommand("corr", "多股相關係數與 S&P 500 Beta"),
-        BotCommand("n", "查詢美股即時新聞"),
-        BotCommand("ny", "查詢台股即時新聞"),
+        BotCommand("n", "智慧檢索台美股即時財經新聞 (支援代碼與中文名)"),
+        BotCommand("ny", "智慧檢索台股即時財經新聞 (別名)"),
         BotCommand("h", "顯示量化預測工具連結"),
         BotCommand("help", "顯示完整功能說明與指令表")
     ]
