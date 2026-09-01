@@ -2,6 +2,21 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.7.0] - 2026-09-01
+
+### 🏢 台灣證交所 (TWSE) 與 櫃買中心 (TPEX) 三大法人官方籌碼整合
+- **新增 `tools/tw_institutional.py`**：直接串接台灣證券交易所（TWSE T86 買賣超明細報表、MI_QFIIS 外資持股統計）與證券櫃檯買賣中心（TPEX 3itrade 上櫃三大法人買賣超）官方開放 REST API。
+- **張數精確統計與籌碼指標計算**：
+  - **當日籌碼明細**：外資（含陸資）、投信、自營商（自行買賣與避險）精確買賣超「張數」與三大法人合計。
+  - **連買連賣指標**：追蹤外資與投信連續買超/賣超天數（連買天數、連賣天數）。
+  - **多日累計籌碼**：計算近 5 日、10 日、20 日外資、投信與三大法人累計買賣超張數。
+  - **外資持股比重**：取得全體外資及陸資總持股比例 (%) 與持股張數。
+- **本地磁碟快取與多執行緒加速**：建置 `data/cache/institutional/` 磁碟快取機制，搭配 `ThreadPoolExecutor` 平行擷取歷史交易日，實現毫秒級響應並避免頻繁請求官方 API 遭遇 Rate Limit。
+- **新增 `/chip <股票代碼>` 指令**：支援一鍵產出三大法人籌碼日報卡片（例如 `/chip 2330.TW`、`/chip 3293.TWO`、`/chip 2603`）。
+- **LangGraph 主對話 Agent 深度整合**：註冊 `get_tw_institutional_analysis` 工具，支援自然語言直接詢問台股法人籌碼動態。
+
+---
+
 ## [2.6.0] - 2026-08-31
 
 ### 📊 台股每日全市場資料庫整合 (`voidful/tw_stocker`)

@@ -55,7 +55,14 @@
 - `/earn 股票代碼`：整理下一次財報日期、EPS/營收共識、分析師目標價與最近四季 beat/miss 驚喜紀錄。
 - `/corr 股票1,股票2,...`：以最近 90 個交易日計算 2 至 5 檔股票的日報酬相關矩陣及相對 SPY Beta。
 
-### 8. 🧭 Smart Money 與散戶市場情報（自然語言調用）
+### 8. 🏢 台股三大法人籌碼分析 (`/chip 股票代碼`)
+- **官方 API 直連**：串接台灣證券交易所 (**TWSE T86** 買賣超明細報表、**MI_QFIIS** 外資持股統計) 與證券櫃檯買賣中心 (**TPEX 3itrade** 上櫃三大法人)。
+- **精確到張數**：外資（含陸資）、投信、自營商（自行買賣與避險）精確買賣超張數與三大法人合計。
+- **連買連賣指標**：自動計算外資與投信連續買超或賣超天數（連買天數、連賣天數），快速識別法人認養股。
+- **累計買賣超與外資持股**：近 5 日、10 日、20 日累計買賣超張數，以及外資總持股比例 (%) 變化。
+- **多執行緒與本地磁碟快取**：內建 `data/cache/institutional/` 磁碟快取與 `ThreadPoolExecutor` 平行擷取，毫秒級極速回傳。
+
+### 9. 🧭 Smart Money 與散戶市場情報（自然語言調用）
 - 13F：透過 2MD 三節點備援讀取 Dataroma/WhaleWisdom 公開資料，整理超級投資人買入、賣出或持有摘錄。
 - Form 4：透過 2MD 讀取 OpenInsider、Finviz/SEC 公開頁面，區分公開市場買賣與 option/grant。
 - Short squeeze：整合 yfinance short float、days to cover 與 2MD 借券費率摘錄。
@@ -63,7 +70,7 @@
 
 以上情報工具可直接用自然語言提問，例如「整理 TSLA 最近的 13F 與內部人交易」或「分析 GME 的 short squeeze 風險」。搜尋結果不足時會保留資料限制，不以猜測補值。
 
-### 9. 🛠️ 其他量化工具連結 (`/h`)
+### 10. 🛠️ 其他量化工具連結 (`/h`)
 - 提供台股 LSTM 預測、潛力股預測模型與 HuggingFace 空間快速入口。
 
 ---
@@ -72,10 +79,11 @@
 
 | 指令 | 說明 | 範例 |
 | :--- | :--- | :--- |
-| **直接傳送文字** | 💬 智能金融助理自由問答 (整合量化模型、2MD 全網情報、傳導鏈、快訊、Fama-French 與 Wiki 發布) | `分析 2330.TW 基本面與技術指標` 或 `中東局勢升溫對台股有何傳導鏈影響？` |
+| **直接傳送文字** | 💬 智能金融助理自由問答 (整合量化模型、2MD 全網情報、傳導鏈、快訊、三大法人籌碼、Fama-French 與 Wiki 發布) | `分析 2330.TW 基本面與技術指標` 或 `台積電 2330 最近投信連買幾天？` |
 | `/start` | 🔄 啟動機器人並重置對話記憶 | `/start` |
 | `/chain` | ⛓️ 金融邏輯傳導鏈分析與因果流程圖 | `/chain 聯準會降息` 或 `/chain 輝達財報` |
 | `/hot` | 🔥 財聯社/華爾街見聞/雪球即時快訊 | `/hot` 或 `/hot wallstreetcn` |
+| `/chip` | 🏢 台股三大法人買賣超、連買連賣與外資持股 | `/chip 2330.TW` 或 `/chip 3293.TWO` |
 | `/ff` | 📊 Fama-French 多因子風險歸因與 Alpha | `/ff NVDA` 或 `/ff TSLA` |
 | `/ai2` | 🏛️ 14 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA` 或 `/ai2 2330.TW` |
 | `/s` | 📈 查詢即時股價與日/週/月 K 線圖 (支援 tw_stocker 零失敗備援) | `/s 2330.TW` |
@@ -95,8 +103,9 @@
 詳細架構設計與 14 位 Persona 規範請參閱 [AGENTS.md](AGENTS.md)。
 
 - **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發)
-- **Agent 與工具鏈**：`LangGraph`, `LangChain`
+- **Agent 與工具鏈**：`LangGraph` (具備 `synthesizer_node` 兩階段收斂架構), `LangChain`
 - **市場數據與備援**：`yfinance` (1.6.0+), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
+- **台股官方籌碼**：台灣證交所 (**TWSE T86 / MI_QFIIS**)、櫃買中心 (**TPEX 3itrade**)、`data/cache/institutional/` 磁碟快取
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
 - **金融邏輯與傳導鏈**：DeepEar Lite API、NewsNow API (財聯社/華爾街見聞/雪球)
 - **2MD 財經即時搜尋 (Web Reader & SERP)**：

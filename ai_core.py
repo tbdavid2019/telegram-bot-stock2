@@ -30,6 +30,7 @@ from tools.market_intel import (
 from tools.news import get_financial_news, search_financial_web, get_hot_news_flash
 from tools.transmission import analyze_market_transmission_chain
 from tools.us_fddk import get_fama_french_factor_analysis, get_us_fddk_live_benchmarks
+from tools.tw_institutional import get_tw_institutional_analysis
 from tools.wiki import publish_to_wiki
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ main_agent_tools = [
     search_financial_web,
     get_hot_news_flash,
     analyze_market_transmission_chain,
+    get_tw_institutional_analysis,
     get_fama_french_factor_analysis,
     get_us_fddk_live_benchmarks,
     get_sepa_analysis,
@@ -127,6 +129,7 @@ Specialized macro commands available for users:
 - **/ai2 <ticker>**: AI Hedge Fund 14 Legend Investor Committee & Round Table debate. If a user asks for multi-analyst debate or Warren Buffett / Cathie Wood committee opinions, guide them to try `/ai2 <ticker>`.
 - **/chain <事件/主題>**: Financial logic transmission chain analysis (e.g. `/chain 聯準會降息` or `/chain 地緣政治升溫`) with Mermaid causal flowcharts.
 - **/hot [cls|wallstreetcn|xueqiu]**: Real-time breaking financial news headlines from 財聯社, 華爾街見聞, or 雪球.
+- **/chip <ticker>**: Taiwan stock institutional investors (TWSE/TPEX 三大法人) breakdown, foreign & trust streaks (連買/連賣天數), and 5-day accumulation (e.g. `/chip 2330.TW`, `/chip 3293`).
 - **/ff <ticker>**: Fama-French multi-factor risk attribution & Alpha estimation (e.g. `/ff NVDA`).
 - **/s <ticker>**: Generates Day/Week/Month K-line charts.
 - **/p <ticker>**: Computes 5-day Prophet time-series forecast.

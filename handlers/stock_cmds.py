@@ -481,3 +481,87 @@ async def fama_french_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text(f"❌ 計算因子模型時發生錯誤：{str(e)}")
 
 
+from tools.tw_institutional import get_tw_institutional_analysis
+
+async def institutional_chip_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handler for /chip command.
+    Fetches TWSE/TPEX institutional investor breakdown (Foreign, Trust, Dealer),
+    streaks (連買/連賣天數), and 5d accumulation.
+    """
+    if not context.args:
+        await update.message.reply_text("💡 請提供台股代碼，例如：`/chip 2330.TW` 或 `/chip 3293.TWO` 或 `/chip 2603`", parse_mode="Markdown")
+        return
+
+    raw_ticker = context.args[0].strip().upper()
+    processing_msg = await update.message.reply_text(f"⏳ 正在向證交所/櫃買中心取得 {raw_ticker} 三大法人籌碼資料，請稍候...")
+
+    loop = asyncio.get_running_loop()
+
+    def run_chip():
+        return get_tw_institutional_analysis.invoke({"ticker": raw_ticker})
+
+    try:
+        res = await loop.run_in_executor(None, run_chip)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        if "error" in res:
+            await update.message.reply_text(f"❌ {res['error']}")
+            return
+
+        ld = res.get("latest_day", {})
+        f_lots = ld.get("foreign_lots", 0)
+        t_lots = ld.get("trust_lots", 0)
+        d_lots = ld.get("dealer_lots", 0)
+        d_self = ld.get("dealer_self_lots", 0)
+        d_hedge = ld.get("dealer_hedge_lots", 0)
+        total_lots = ld.get("total_lots", 0)
+        f_ratio = ld.get("foreign_ratio")
+
+        streaks = res.get("streaks", {})
+        acc5 = res.get("accumulated_5d", {})
+
+        def fmt_lot(val):
+            if val is None:
+                return "0 張"
+            sign = "+" if val > 0 else ""
+            return f"{sign}{val:,.1f} 張"
+
+        reply_text = (
+            f"📊 **【{res['stock']}】三大法人籌碼日報**\n"
+            f"📅 **最新交易日**：`{res['latest_date']}` ({res['market']})\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏢 **外資法人**：`{fmt_lot(f_lots)}` ({streaks.get('foreign', '持平')})\n"
+            f"🏛️ **投信基金**：`{fmt_lot(t_lots)}` ({streaks.get('trust', '持平')})\n"
+            f"🏦 **自營商總計**：`{fmt_lot(d_lots)}` (自行: `{fmt_lot(d_self)}` | 避險: `{fmt_lot(d_hedge)}`)\n"
+            f"🎯 **三大法人合計**：`{fmt_lot(total_lots)}`\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+        )
+        if f_ratio is not None:
+            reply_text += f"📈 **外資總持股比例**：`{f_ratio:.2f}%`\n"
+
+        reply_text += (
+            f"🗓️ **近 5 日累計買賣超**：\n"
+            f"  • 外資：`{fmt_lot(acc5.get('foreign_lots', 0))}`\n"
+            f"  • 投信：`{fmt_lot(acc5.get('trust_lots', 0))}`\n"
+            f"  • 合計：`{fmt_lot(acc5.get('total_lots', 0))}`\n\n"
+            f"💡 **籌碼評估**：{res.get('sentiment_evaluation', '中性觀望')}"
+        )
+
+        try:
+            await update.message.reply_text(reply_text, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(reply_text)
+
+    except Exception as e:
+        logger.error(f"Institutional chip handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 查詢籌碼資料時發生錯誤：{str(e)}")
+
+
