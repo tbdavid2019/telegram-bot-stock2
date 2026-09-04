@@ -110,7 +110,7 @@ You have access to dynamic real-time tools:
 - `get_stock_prices`: Real-time stock prices & technical indicators (RSI, Stochastic, MACD, VWAP).
 - `get_financial_metrics`: Key fundamental financial ratios (P/E, revenue growth, profit margins, debt-to-equity, current ratio).
 - `get_financial_news`: Live ticker news from 2MD search and Yahoo/Google fallbacks.
-- `get_hot_news_flash`: Real-time breaking financial headlines from 財聯社 (cls), 華爾街見聞 (wallstreetcn), and 雪球 (xueqiu).
+- `get_hot_news_flash`: Real-time breaking financial headlines from 財聯社 (cls), 華爾街見聞 (wallstreetcn), 雪球 (xueqiu), and Investing.com (investing_hk, investing, investing_commodities, investing_bonds).
 - `analyze_market_transmission_chain`: Multi-tier financial logic transmission chain analysis (Macro -> Industry -> Benefited/Impacted Tickers) with DeepEar signals and Mermaid diagrams.
 - `get_fama_french_factor_analysis`: Multi-factor risk attribution & Alpha estimation (Market Beta, SMB Size, HML Value, UMD Momentum, Adjusted R-squared).
 - `get_us_fddk_live_benchmarks`: Live paper portfolio asset allocation & 20-year ETF research benchmarks from voidful/us_fddk.

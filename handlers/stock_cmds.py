@@ -624,10 +624,33 @@ async def chain_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Real-time Breaking Financial News (/hot)
 async def hot_news_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Fetch top breaking news from 財聯社 (cls), 華爾街見聞 (wallstreetcn), or 雪球 (xueqiu)."""
-    source_id = context.args[0].lower() if context.args else "cls"
-    if source_id not in ["cls", "wallstreetcn", "xueqiu"]:
-        source_id = "cls"
+    """Fetch top breaking news from 財聯社 (cls), 華爾街見聞 (wallstreetcn), 雪球 (xueqiu), or Investing.com."""
+    raw_source = context.args[0].lower() if context.args else "cls"
+    # Friendly alias mapping
+    source_map = {
+        "cls": "cls",
+        "wallstreetcn": "wallstreetcn",
+        "wcn": "wallstreetcn",
+        "xueqiu": "xueqiu",
+        "xq": "xueqiu",
+        "investing": "investing",
+        "inv": "investing",
+        "investing_hk": "investing_hk",
+        "inv_hk": "investing_hk",
+        "hk": "investing_hk",
+        "commodities": "investing_commodities",
+        "oil": "investing_commodities",
+        "gold": "investing_commodities",
+        "investing_commodities": "investing_commodities",
+        "bonds": "investing_bonds",
+        "bond": "investing_bonds",
+        "rates": "investing_bonds",
+        "rate": "investing_bonds",
+        "investing_bonds": "investing_bonds",
+        "forex": "investing_forex",
+        "fx": "investing_forex"
+    }
+    source_id = source_map.get(raw_source, "cls")
 
     from tools.news import get_hot_financial_news, NEWSNOW_SOURCES
     source_name = NEWSNOW_SOURCES.get(source_id, source_id)
@@ -643,13 +666,13 @@ async def hot_news_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for item in items:
         rank = item.get("rank", "")
         title = item.get("title", "")
-        url = item.get("url", "")
+        url = item.get("url") or item.get("link", "")
         if url:
             reply_text += f"{rank}. [{title}]({url})\n\n"
         else:
             reply_text += f"{rank}. {title}\n\n"
             
-    reply_text += "💡 *輸入 `/hot cls`、`/hot wallstreetcn` 或 `/hot xueqiu` 切換不同快訊來源*"
+    reply_text += "💡 *來源切換：`/hot cls`、`/hot wallstreetcn`、`/hot investing_hk` (繁中焦點)、`/hot commodities` (大宗商品)、`/hot bonds` (美債利率)*"
     
     try:
         await update.message.reply_text(reply_text, parse_mode="Markdown", disable_web_page_preview=True)

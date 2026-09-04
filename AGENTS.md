@@ -109,16 +109,20 @@ telegram-bot-stock2/
   ```
 - Always ensure Series are coerced to numeric (`pd.to_numeric(..., errors='coerce')`) before calculating indicators or sending to `matplotlib`.
 
-### 5. 🌐 2MD Web Reader & Financial Search Architecture
+### 5. 🌐 2MD Web Reader, Financial Search & Anti-Thundering-Herd Architecture
 - **Purpose**: High-speed, rate-limit resilient news search & reader service for financial queries.
 - **Endpoints Strategy**:
   - **Primary**: `https://2md.aiurl.tw/`
   - **Backup 1**: `https://2md.glsoft.ai/`
   - **Backup 2**: `https://create360.ai/`
-- **Usage**:
-  - Search: `GET {endpoint}/search?q={query}` with `headers={"Accept": "application/json"}`
-  - Single page Markdown reader: `GET {endpoint}/{URL}` with `headers={"Accept": "text/plain"}`
-- **Fallback Sequence**: Always prioritize 2MD Search -> yfinance news API -> Yahoo Finance direct scraper -> Google News.
+- **Timeouts & Resilience**:
+  - Search: Timeout set to **8.5s** (provides sufficient headroom for SERP retrieval).
+  - Reader: Timeout set to **12.0s**.
+- **Anti-Thundering-Herd & Caching Policy (`tools/cache_util.py`)**:
+  - **SingleFlight (Request Coalescing)**: Any 2MD or external query must pass through `SingleFlight` to ensure concurrent identical queries share a single execution rather than bombarding upstreams.
+  - **Tiered TTLCache**: News searches (10m), full-text articles (1h), 13F holdings (2h), Form 4 (30m), short squeeze (20m).
+  - **Stale-While-Revalidate**: If all 2MD endpoints timeout, return stale cache data if present to prevent cascading failures to scraping fallbacks.
+- **Fallback Sequence**: Always prioritize 2MD Search -> Investing.com RSS -> yfinance news API -> Yahoo Finance direct scraper -> Google News.
 
 ### 6. 💬 Telegram Message Length & Markdown Fallback
 - Telegram enforces a strict **4096 character limit** per message.

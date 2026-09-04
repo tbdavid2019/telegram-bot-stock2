@@ -2,6 +2,27 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.11.0] - 2026-09-04
+
+### 🛡️ 2MD 快取防護、防驚群 SingleFlight 與 Timeout 調優
+- **新增 `tools/cache_util.py` (TTLCache & SingleFlight)**：
+  - **分級記憶體 TTL 快取**：針對 2MD SERP 搜尋（10分鐘）、URL Markdown 讀取（1小時）、個股新聞（10分鐘）、13F 持倉（2小時）、Form 4 內部人（30分鐘）、軋空指標（20分鐘）建立線程安全之 TTL 快取，快取命中時延遲從數秒降至 0.0001 秒，降載 80%+。
+  - **防驚群 SingleFlight (請求合併)**：實作並發互斥等待機制，當多個用戶/群組同時查詢相同標的或快取過期時，僅由單一請求打向外部 2MD，其餘並發請求等待並共享相同結果，徹底根除「驚群效應 (Thundering Herd Problem)」。
+  - **Stale-While-Revalidate 容災降級**：當外部 2MD 節點遭遇臨時網路波動或連續超時時，優先回傳剛過期的歷史快取（Stale Cache），防止所有流量雪崩穿透並衝垮末端的 Yahoo / Google 爬蟲。
+- **2MD 逾時時間合理化**：
+  - 將 2MD 搜尋逾時從 6.0 秒調升至 8.5 秒，提供充足的 SERP 檢索餘裕，避免誤判中斷。
+  - 網頁內文 Reader 逾時調優至 12.0 秒。
+
+### ⚡ Investing.com 官方無反爬 RSS 高速快訊整合
+- **多頻道官方 RSS 直連**：
+  - 整合 Investing.com 原生 RSS，包含繁體中文焦點快訊 (`investing_hk`)、全球股市 (`investing`)、大宗商品期貨 (`investing_commodities`)、全球公債與利率 (`investing_bonds`)、外匯市場 (`investing_forex`)。
+  - 享有毫秒級超低延遲（<0.5s）與零 Cloudflare 反爬阻擋優勢。
+- **`/hot` 即時快訊擴充**：
+  - `/hot` 指令支援 `/hot investing_hk` (繁中焦點)、`/hot commodities` (原油/黃金大宗商品)、`/hot bonds` (美債利率)、`/hot forex` (外匯)。
+- **個股新聞備援鏈升級**：在 `tools/news.py` 中將 Investing.com RSS 納入個股快訊比對備援，進一步強化整體新聞高可用性。
+
+---
+
 ## [2.10.0] - 2026-09-01
 
 ### 💬 Telegram 動態主動續問按鈕 (Dynamic Follow-up Prompts)

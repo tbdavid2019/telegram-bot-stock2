@@ -35,10 +35,10 @@
 ### 4. 🔮 Prophet 股價時間序列預測 (`/p 股票代碼`)
 - 採用 Facebook Prophet 模型預測未來 5 個交易日之價格趨勢走勢圖與信賴區間數據。
 
-### 5. 📰 即時美股、台股與重大盤中快訊 (`/n` / `/ny` / `/hot`)
-- `/n 股票代碼`：查詢美股最新即時英文財經新聞。
-- `/ny 股票代碼`：查詢 Yahoo 台灣最新即時中文新聞。
-- `/hot [cls|wallstreetcn|xueqiu]`：即時抓取 **財聯社 (CLS 盤中快訊)**、**華爾街見聞 (全球宏觀)** 或 **雪球 (熱門討論榜)** 頭條。
+### 5. 📰 即時美股、台股、Investing.com 與重大盤中快訊 (`/n` / `/ny` / `/hot`)
+- `/n 股票代碼`：查詢美股或台股即時財經新聞（支援代碼如 `2330`、`TSLA` 或中文名稱如 `台積電`、`特斯拉`）。
+- `/ny 股票代碼`：查詢台股即時新聞（相容別名）。
+- `/hot [cls|wallstreetcn|xueqiu|investing_hk|commodities|bonds]`：即時抓取 **財聯社 (CLS 盤中快訊)**、**華爾街見聞 (全球宏觀)**、**雪球 (熱門討論榜)** 或 **Investing.com 官方 RSS**（繁中焦點快訊、原油/黃金大宗商品、美債殖利率）。
 
 ### 6. ⛓️ 金融邏輯傳導鏈分析 (`/chain 事件或主題`)
 - 整合 **DeepEar Lite** 即時市場信號與傳導鏈推導引擎。
@@ -83,7 +83,7 @@
 | `/start` | 🔄 啟動機器人並重置對話記憶 | `/start` |
 | `/new` / `/clear` | 🧹 手動清空對話記憶開啟全新對話 (3 天無互動自動重置) | `/new` 或 `/clear` |
 | `/chain` | ⛓️ 金融邏輯傳導鏈分析與因果流程圖 | `/chain 聯準會降息` 或 `/chain 輝達財報` |
-| `/hot` | 🔥 財聯社/華爾街見聞/雪球即時快訊 | `/hot` 或 `/hot wallstreetcn` |
+| `/hot` | 🔥 即時快訊：財聯社/華爾街見聞/雪球/Investing.com (繁中焦點、大宗商品、美債利率) | `/hot`、`/hot investing_hk` 或 `/hot commodities` |
 | `/chip` | 🏢 台股三大法人買賣超、連買連賣與外資持股 | `/chip 2330.TW` 或 `/chip 3293.TWO` |
 | `/ff` | 📊 Fama-French 多因子風險歸因與 Alpha | `/ff NVDA` 或 `/ff TSLA` |
 | `/ai2` | 🏛️ 14 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA` 或 `/ai2 2330.TW` |
@@ -108,9 +108,10 @@
 - **市場數據與自動追版**：`yfinance` (自動 GitHub Actions 每日追版 CI/CD), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
 - **台股官方籌碼**：台灣證交所 (**TWSE T86 / MI_QFIIS**)、櫃買中心 (**TPEX 3itrade**)、`data/cache/institutional/` 磁碟快取
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
-- **金融邏輯與傳導鏈**：DeepEar Lite API、NewsNow API (財聯社/華爾街見聞/雪球)
-- **2MD 財經即時搜尋 (Web Reader & SERP)**：
-  - 主力：`https://2md.aiurl.tw/`
+- **金融邏輯與傳導鏈**：DeepEar Lite API、NewsNow API (財聯社/華爾街見聞/雪球)、Investing.com 官方無反爬 RSS (繁中焦點/商品/美債利率)
+- **2MD 財經即時搜尋 (Web Reader & SERP) 與防驚群快取**：
+  - **SingleFlight 併發合併與多層級 TTLCache**：內建 `tools/cache_util.py`，阻絕驚群效應 (Thundering Herd)，命中時延遲 0.0001s，具備 Stale-While-Revalidate 容災降級保護。
+  - 主力端點：`https://2md.aiurl.tw/` (Timeout 8.5s/12.0s)
   - 備援 1：`https://2md.glsoft.ai/`
   - 備援 2：`https://create360.ai/`
 - **David888 Wiki 發布引擎**：`https://wiki.david888.com` (支援 `claude-canvas` 主題、`[TOC]`、雙架構分享)
