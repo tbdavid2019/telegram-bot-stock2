@@ -70,7 +70,19 @@
 
 以上情報工具可直接用自然語言提問，例如「整理 TSLA 最近的 13F 與內部人交易」或「分析 GME 的 short squeeze 風險」。搜尋結果不足時會保留資料限制，不以猜測補值。
 
-### 10. 🛠️ 其他量化工具連結 (`/h`)
+### 10. 📂 智慧文件與對帳單解析（Google Magika 驅動）
+- **直接上傳檔案與對話結合**：在聊天室直接發送文件並可附帶說明文字（例如「*幫我分析這份季報的營收與毛利趨勢*」或「*這是我的美股對帳單，請檢視集中度風險*」）。
+- **Google Magika 100% 本地深度學習辨識**：
+  - 映像檔內建 1MB ONNX 模型，運行時於本機 CPU 推論（延遲僅 ~5ms，零外部連網與 API 依賴）。
+  - **深層安全攔截**：主動阻絕可執行檔（ELF、PEbin）、腳本（Shell、Batch）與惡意偽裝副檔名。
+- **多格式智慧解析與數據提取**：
+  - **PDF 財務/研究報告 (`pypdf`)**：自動萃取前 20 頁數位文字層（上限 15,000 字元）。
+  - **CSV / TSV 投資數據與對帳單 (`pandas`)**：支援 UTF-8、Big5、CP950 多編碼，解析總筆數、欄位清單、前 15 筆表格預覽與數值統計 (`describe`)。
+  - **Excel 財務試算表 (`openpyxl`)**：自動遍歷活頁簿工作表並擷取預覽表格。
+  - **TXT / Markdown / JSON 筆記**：文字清洗與上下文注入。
+- **AI 專家交叉驗證**：自動將結構化文字注入 LangGraph 主 Agent，AI 專家可主動調用即時報價、DCF 與估值工具進行對照分析。
+
+### 11. 🛠️ 其他量化工具連結 (`/h`)
 - 提供台股 LSTM 預測、潛力股預測模型與 HuggingFace 空間快速入口。
 
 ---
@@ -80,6 +92,7 @@
 | 指令 | 說明 | 範例 |
 | :--- | :--- | :--- |
 | **直接傳送文字** | 💬 智能金融助理自由問答 (整合量化模型、2MD 全網情報、傳導鏈、快訊、三大法人籌碼、Fama-French 與 Wiki 發布) | `分析 2330.TW 基本面與技術指標` 或 `台積電 2330 最近投信連買幾天？` |
+| **直接傳送文件/檔案** | 📂 智慧文件與對帳單解析 (Google Magika 本地識別、PDF 財報、CSV/Excel 數據、安全檢測) | 發送 `tsmc_q3.pdf` 附文字「*分析毛利率展望*」或發送 `portfolio.csv` |
 | `/start` | 🔄 啟動機器人並重置對話記憶 | `/start` |
 | `/new` / `/clear` | 🧹 手動清空對話記憶開啟全新對話 (3 天無互動自動重置) | `/new` 或 `/clear` |
 | `/chain` | ⛓️ 金融邏輯傳導鏈分析與因果流程圖 | `/chain 聯準會降息` 或 `/chain 輝達財報` |
@@ -104,6 +117,7 @@
 詳細架構設計與 14 位 Persona 規範請參閱 [AGENTS.md](AGENTS.md)。
 
 - **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發、`InlineKeyboardMarkup` 動態主動續問按鈕)
+- **文件識別與解析**：`Google Magika` (原生 1MB ONNX 本地 CPU 推論、Docker 內建模型、安全防護), `pypdf`, `openpyxl`
 - **Agent 與工具鏈**：`LangGraph` (具備 `synthesizer_node` 兩階段收斂架構、3 天 72h Session TTL 記憶管理), `LangChain`
 - **市場數據與自動追版**：`yfinance` (自動 GitHub Actions 每日追版 CI/CD), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
 - **台股官方籌碼**：台灣證交所 (**TWSE T86 / MI_QFIIS**)、櫃買中心 (**TPEX 3itrade**)、`data/cache/institutional/` 磁碟快取

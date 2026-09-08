@@ -2,6 +2,29 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.12.0] - 2026-09-08
+
+### 📂 Google Magika 本地深度學習檔案類型識別與安全防護
+- **全面整合 Google Magika (`tools/file_intel.py`)**：
+  - **100% 本地 CPU 推論**：採用內建的 1MB ONNX 模型與 `onnxruntime`，單檔識別延遲僅約 5ms，零網路傳輸與外部 API 依賴。
+  - **Docker Build 映像檔原生內建**：依賴直接納入 `requirements.txt`，映像檔打包階段即自帶完整模型檔，啟動即用。
+  - **深層雙重安全過濾 (Security Gate)**：
+    1. **副檔名主動防禦**：阻截 `.exe`、`.sh`、`.bat`、`.ps1`、`.apk` 等潛在危險副檔名。
+    2. **Magika 內容深度學習審查**：防止惡意執行檔（ELF、PEbin、Mach-O）或 Shell 腳本偽裝成 `.txt`/`.csv`，保障伺服器安全。
+
+### 📊 財務研報 (PDF) 與投資對帳單 (CSV / Excel) 智慧解析路由
+- **Telegram Document 檔案上傳無縫處理 (`MessageHandler(filters.Document.ALL)`)**：
+  - 支援使用者在聊天室直接發送文件，並可附帶說明文字（如「*請分析這份台積電財報的毛利率展望*」或「*這是我的持股對帳單，請評估集中度風險*」）。
+  - **PDF 財務與投資研報 (`pypdf`)**：自動讀取並萃取前 20 頁文字（上限 15,000 字元），標註文字層完整度。
+  - **CSV / TSV 投資數據與對帳單 (`pandas`)**：自適應多編碼（UTF-8、Big5、CP950），解析數據維度、欄位清單、前 15 筆表格預覽與數值統計摘要 (`describe()`)。
+  - **Excel 財務試算表 (`openpyxl`)**：支援多工作表掃描、結構解析與表格預覽。
+  - **TXT / Markdown / JSON 筆記**：安全編碼解碼與上下文長度適配。
+- **AI 專家智慧串接與 Telegram 4096 字元安全分段**：
+  - 將萃取出的結構化數據注入 LangGraph 主 Agent，AI 專家可主動調用即時行情（`get_stock_prices`）、估值（`get_dcf_valuation`）等工具進行交叉驗證。
+  - 實作 `split_telegram_text` 與 `safe_reply_chunks`，長篇分析自動切分發送，避免超過 Telegram 單則 4096 字元限制。
+
+---
+
 ## [2.11.0] - 2026-09-04
 
 ### 🛡️ 2MD 快取防護、防驚群 SingleFlight 與 Timeout 調優

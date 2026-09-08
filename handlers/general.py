@@ -2,6 +2,7 @@ import re
 import json
 import hashlib
 import logging
+import asyncio
 from telegram import (
     Update,
     BotCommand,
@@ -12,6 +13,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes, Application
 from ai_core import clear_context, process_chat_message, extract_followups_from_text
+from tools.file_intel import process_uploaded_document
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +161,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  • 🕵️ *「查詢 TSLA 最近的高階經理人內部人買賣 (Form 4)」*\n"
         "  • 🚀 *「分析 GME 的做空比率與軋空 (Short Squeeze) 風險」*\n"
         "  • 📰 *「台積電 2330.TW 最近有什麼重大新聞與基本面評估」*\n\n"
+        "📎 **智慧文件與對帳單解析（Google Magika 驅動）**：\n"
+        "直接在聊天室發送 **PDF 財報/研報**、**CSV/Excel 投資對帳單與數據表** 或 **TXT 文件**（可附帶文字備註）：\n"
+        "  • 🛡️ 透過 **Google Magika** 進行 100% 本地深層格式識別與安全檢測，阻截可執行檔偽裝。\n"
+        "  • 🤖 AI 專家將為您自動萃取報表數據，深度解析財務體質、營運亮點與資產配置建議！\n\n"
         "📌 **專屬量化與委員會指令速查**：\n"
         "• `/chain 事件或主題` - ⛓️ 金融邏輯傳導鏈分析與因果流程圖 (範例：`/chain 聯準會降息`)\n"
         "• `/hot [來源]` - 🔥 財聯社/華爾街見聞/雪球即時快訊 (範例：`/hot` 或 `/hot wallstreetcn`)\n"
@@ -210,6 +216,46 @@ async def tools_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message, parse_mode="Markdown")
 
 
+def split_telegram_text(text: str, limit: int = 3900) -> list[str]:
+    """Split long output into chunks strictly within Telegram 4096 char limit."""
+    if len(text) <= limit:
+        return [text]
+    chunks = []
+    remaining = text
+    while len(remaining) > limit:
+        split_at = remaining.rfind("\n\n", 0, limit)
+        if split_at < limit // 2:
+            split_at = remaining.rfind("\n", 0, limit)
+        if split_at < limit // 2:
+            split_at = limit
+        chunks.append(remaining[:split_at].rstrip())
+        remaining = remaining[split_at:].lstrip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks
+
+
+async def safe_reply_chunks(message, text: str, reply_markup=None):
+    """Safely reply with text chunks, attaching reply_markup to the final message."""
+    chunks = split_telegram_text(text)
+    for i, chunk in enumerate(chunks):
+        is_last = (i == len(chunks) - 1)
+        markup = reply_markup if is_last else None
+        try:
+            await message.reply_text(
+                chunk,
+                reply_markup=markup,
+                parse_mode="Markdown",
+                disable_web_page_preview=True
+            )
+        except Exception:
+            await message.reply_text(
+                chunk,
+                reply_markup=markup,
+                disable_web_page_preview=True
+            )
+
+
 async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle regular text messages by passing them to the Main LLM Agent.
@@ -240,10 +286,7 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
         clean_response, followups = extract_followups_from_text(raw_response)
         followup_markup = generate_followup_keyboard(user_input, clean_response, dynamic_followups=followups)
 
-        try:
-            await update.message.reply_text(clean_response, reply_markup=followup_markup, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(clean_response, reply_markup=followup_markup)
+        await safe_reply_chunks(update.message, clean_response, reply_markup=followup_markup)
     except Exception as e:
         logger.error(f"Default message handler error: {e}")
         try:
@@ -251,6 +294,131 @@ async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
         await update.message.reply_text(f"❌ 處理訊息時發生錯誤：{str(e)}")
+
+
+async def document_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle uploaded files (PDF, CSV, Excel, TXT, JSON) via Google Magika & LLM Agent.
+    
+    1. Downloads file stream from Telegram (<= 20MB limit).
+    2. Runs Google Magika deep learning identification (100% local CPU ONNX runtime).
+    3. Blocks malicious executables, binaries, or dangerous scripts.
+    4. Safely parses content (PDF pages, CSV/Excel tables, text feeds).
+    5. Injects structured extraction & user caption into LLM Agent for comprehensive financial analysis.
+    """
+    message = update.message
+    if not message or not message.document:
+        return
+
+    doc = message.document
+    file_name = doc.file_name or "uploaded_file"
+    file_size = doc.file_size or 0
+    user_caption = (message.caption or "").strip()
+
+    # Telegram Bot API enforces a 20MB limit for get_file()
+    if file_size > 20 * 1024 * 1024:
+        await message.reply_text(
+            f"⚠️ **檔案過大（{file_size / (1024*1024):.1f} MB）**\n\n"
+            f"Telegram 官方限制機器人單次下載上限為 20MB，請壓縮或上傳小於 20MB 的檔案。"
+        )
+        return
+
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    status_msg = await message.reply_text(
+        f"📥 **接收檔案中**：`{file_name}` ({file_size / 1024:.1f} KB)\n"
+        f"🔍 調用 Google Magika 進行本地深度格式識別與安全檢測..."
+    )
+
+    try:
+        # Download file bytes from Telegram
+        tg_file = await doc.get_file()
+        file_bytes = await tg_file.download_as_bytearray()
+
+        # Run CPU-bound Magika identification and document parsing in thread executor
+        loop = asyncio.get_running_loop()
+        res = await loop.run_in_executor(
+            None,
+            process_uploaded_document,
+            bytes(file_bytes),
+            file_name
+        )
+
+        # 1. Security check
+        if not res.get("is_safe", False):
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+            await message.reply_text(res.get("error", "檔案安全檢驗未通過。"))
+            return
+
+        # 2. Parsing check
+        if not res.get("success", False):
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+            await message.reply_text(f"❌ **檔案解析未完成**\n\n{res.get('error', '無法擷取有效文字或數據內容')}")
+            return
+
+        # 3. Extract metadata and prepare LLM prompt
+        detection = res.get("detection", {})
+        label = detection.get("label", "unknown")
+        score = detection.get("score", 1.0)
+        doc_type = res.get("doc_type", label)
+        extracted_text = res.get("extracted_text", "")
+        file_size_kb = file_size / 1024
+
+        try:
+            await status_msg.edit_text(
+                f"✅ **Google Magika 辨識完成**：`{doc_type}`（識別標籤 `{label}`，置信度 {score:.1%}）\n"
+                f"🤖 AI 投研專家正在為您進行深度剖析與洞察，請稍候..."
+            )
+        except Exception:
+            pass
+
+        full_prompt = (
+            f"【使用者上傳財務/投資檔案】\n"
+            f"- 檔案名稱：`{file_name}`\n"
+            f"- 檔案格式：{doc_type}（Google Magika 辨識標籤：`{label}`，置信度：{score:.1%}）\n"
+            f"- 檔案大小：{file_size_kb:.1f} KB\n\n"
+            f"【使用者指定分析需求】：\n"
+            f"{user_caption if user_caption else '（使用者未輸入文字備註。請主動對本文件進行專業投資與財務分析，整理關鍵財務指標、營運亮點、數據洞察與風險評估）'}\n\n"
+            f"【文件擷取內容】：\n"
+            f"{extracted_text}\n"
+        )
+
+        thread_id = str(update.effective_chat.id)
+        raw_response = await process_chat_message(full_prompt, thread_id=thread_id)
+
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+
+        if not raw_response or not str(raw_response).strip():
+            raw_response = "⚠️ 系統分析完成，但未生成文字回覆，請嘗試重新提問。"
+
+        clean_response, followups = extract_followups_from_text(raw_response)
+        followup_markup = generate_followup_keyboard(user_caption or file_name, clean_response, dynamic_followups=followups)
+
+        # Prepend file inspection badge at top of clean_response
+        file_badge = (
+            f"📂 **【Google Magika 檔案解析報告】**\n"
+            f"• 檔案：`{file_name}` ({file_size_kb:.1f} KB)\n"
+            f"• 格式：`{doc_type}` (信心度: `{score:.1%}`)\n\n"
+        )
+        final_reply = file_badge + clean_response
+
+        await safe_reply_chunks(message, final_reply, reply_markup=followup_markup)
+
+    except Exception as e:
+        logger.error(f"Document message handler error: {e}", exc_info=True)
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+        await message.reply_text(f"❌ 處理上傳檔案時發生錯誤：{str(e)}")
 
 
 async def callback_prompt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

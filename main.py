@@ -9,6 +9,7 @@ from handlers.general import (
     new_conversation_handler,
     tools_help,
     default_message_handler,
+    document_message_handler,
     callback_prompt_handler,
     reset_commands
 )
@@ -80,9 +81,12 @@ def main():
     app.add_handler(CommandHandler("h", tools_help))
     app.add_handler(CommandHandler("help", start))
     
-    # Default handler for non-commands
+    # Default handler for non-commands (text)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, default_message_handler))
     
+    # Document upload handler (Google Magika file detection & financial parsing)
+    app.add_handler(MessageHandler(filters.Document.ALL, document_message_handler))
+
     # Callback query handler for dynamic follow-up prompt buttons
     app.add_handler(CallbackQueryHandler(callback_prompt_handler))
 

@@ -26,6 +26,7 @@ telegram-bot-stock2/
 │   ├── stock_cmds.py         # Handlers for /s (K-lines), /n (US news), /ny (TW news), /p (Prophet)
 │   └── general.py            # Handlers for /start (memory reset + keyboard), /h (tools help), text routing
 ├── tools/
+│   ├── file_intel.py         # Google Magika local file identification & parser (PDF, CSV, Excel, TXT)
 │   ├── stock.py              # LangChain tools: get_stock_prices, get_financial_metrics
 │   ├── stock_analysis.py     # Quant tools: SEPA, DCF valuation, earnings briefing, correlation
 │   ├── market_intel.py       # Smart money & sentiment: 13F, Form 4, short squeeze, retail sentiment

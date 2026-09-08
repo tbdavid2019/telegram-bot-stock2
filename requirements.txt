@@ -11,3 +11,6 @@ langgraph
 langchain_openai
 httpx
 beautifulsoup4
+magika>=1.0.0
+pypdf>=5.0.0
+openpyxl>=3.1.0
