@@ -34,21 +34,30 @@ def _init_tw_registry():
         return
     _REGISTRY_INITIALIZED = True
     
-    # Common high-frequency Taiwan company names
-    common_names = {
-        "儒鴻": "1476.TW", "台積電": "2330.TW", "鴻海": "2317.TW", "聯發科": "2454.TW",
-        "聯電": "2303.TW", "長榮": "2603.TW", "陽明": "2609.TW", "萬海": "2615.TW",
-        "廣達": "2382.TW", "緯創": "3231.TW", "技嘉": "2376.TW", "微星": "2377.TW",
-        "華碩": "2357.TW", "大立光": "3008.TW", "欣興": "3037.TW", "富邦金": "2881.TW",
-        "國泰金": "2882.TW", "中信金": "2891.TW", "兆豐金": "2886.TW", "玉山金": "2884.TW",
-        "鈊象": "3293.TWO", "元太": "8069.TWO", "譜瑞": "4966.TWO", "信驊": "5274.TWO",
-        "力旺": "3529.TWO", "環球晶": "6488.TWO", "群聯": "8299.TWO", "中光電": "5371.TWO",
-        "穩懋": "3105.TWO", "雙鴻": "3324.TWO", "弘塑": "3131.TWO", "家登": "3680.TWO"
-    }
-    _NAME_TO_CODE.update(common_names)
-    
-    # Load from institutional cache if present
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # Tier 1 (Permanent Bundled Local Cache): Zero network dependency, guaranteed offline fallback
+    bundled_file = os.path.join(base_dir, "data", "tw_stock_registry.json")
+    if os.path.exists(bundled_file):
+        try:
+            with open(bundled_file, "r", encoding="utf-8") as f:
+                reg = json.load(f)
+                stocks = reg.get("stocks", {})
+                for code, info in stocks.items():
+                    c = code.strip().upper()
+                    market = info.get("market", "TWSE")
+                    name = info.get("name", "").strip()
+                    suffix = info.get("suffix", ".TW" if market == "TWSE" else ".TWO")
+                    if market == "TWSE":
+                        _TWSE_REGISTRY[c] = name
+                    else:
+                        _TPEX_REGISTRY[c] = name
+                    if name:
+                        _NAME_TO_CODE[name] = f"{c}{suffix}"
+        except Exception as e:
+            pass
+
+    # Tier 2 (Dynamic Daily Cache Overwrite): Merge newly listed or updated stocks from institutional cache
     cache_dir = os.path.join(base_dir, "data", "cache", "institutional")
     twse_files = sorted(glob.glob(os.path.join(cache_dir, "*_twse_t86.json")), reverse=True)
     tpex_files = sorted(glob.glob(os.path.join(cache_dir, "*_tpex.json")), reverse=True)
