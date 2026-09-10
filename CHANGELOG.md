@@ -2,6 +2,15 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.14.4] - 2026-09-10
+
+### 🛡️ 全架構離線韌性、災備降級與多級快取體系 (Full-Architecture Data Resilience)
+- **888 Stock Quant 全量化指令全面接入 Stale-While-Revalidate 災備降級 (`tools/stockdata_quant.py`)**：
+  - 為 `/macro`（總經風控）、`/pick`（共振強勢選股）、`/tfm`（TimesFM 時序預測）、`/xt`（玄鐵回檔選股）、`/broker`（主力分點籌碼）以及 `/cal`（全球總經與美股重磅行事曆）全面補強 `_cache.get_stale()` 容錯降級機制。
+  - 當上游伺服器維護、網路瞬斷或 API 超時時，自動無縫回傳最後已知有效數據（Stale Cache），並於日誌標註降級事件，確保 Telegram Bot 永不中斷服務。
+- **全庫數據依賴模組離線生存能力盤點與架構統一**：
+  - 嚴格落實「內建靜態底座 (Tier-1) ➔ 本機持久化快取 (Tier-2) ➔ 多節點分散式探測 (Tier-3) ➔ 過期平滑降級 (Tier-4)」的四層韌性架構。
+
 ## [2.14.3] - 2026-09-10
 
 ### 🛡️ 台股智慧代碼解析、Prophet 5日時序預測升級與產業幻覺根除

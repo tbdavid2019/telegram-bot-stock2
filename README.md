@@ -202,7 +202,15 @@
 - **時區與午夜邊界防禦 (Midnight Boundary Defense)**：全面導入 IANA 標準時區（`Asia/Taipei` 與 `America/New_York`）與 `tzdata`，修復 `yf.download` 跨日 exclusive 截斷、台股 15:30 盤前籌碼時間閘門與美股盤後財報 UTC 錯位，確保跨日臨界點零數據遺失與零無效請求。
 - **台股官方籌碼**：台灣證交所 (**TWSE T86 / MI_QFIIS**)、櫃買中心 (**TPEX 3itrade**)、`data/cache/institutional/` 磁碟快取
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
-- **888 Stock Quant 核心運算引擎**：`https://stockdata.david888.com` (Google TimesFM 2.5 500M 基礎模型推論、四維共振飆股篩選、宏觀體制部位指引、玄鐵重劍均線回測、券商分點與結構化財經日曆)
+- **888 Stock Quant 核心運算引擎與 Stale 容災降級**：`https://stockdata.david888.com` (Google TimesFM 2.5 500M 基礎模型推論、四維共振飆股篩選、宏觀體制部位指引、玄鐵重劍均線回測、券商分點與結構化財經日曆)，全面配置 `SingleFlight` 併發收斂與 `get_stale()` 容災平滑降級，上游中斷時自動回傳最後已知有效數據。
+- **全架構離線生存與多級快取體系 (Data Resilience & Offline Fallbacks)**：
+  1. **台股全市場清冊 (`tools/stock.py`)**：內建 `data/tw_stock_registry.json`（2,234 檔 TWSE/TPEx 清冊），100% 離線打包無網路可啟動；執行時以本機靜態 ➔ 法人動態快取 ➔ 2MD 即時檢索三級備援自動映射代碼與產業。
+  2. **三大法人籌碼 (`tools/tw_institutional.py`)**：日度持久化 JSON 落地至 `data/cache/institutional/`，同日請求零網路調用，網路中斷仍可讀取磁碟快取。
+  3. **行情數據雙軌容錯 (`tools/tw_stocker.py`)**：GitHub 全市場歷史資料庫雙軌備援，遇 Yahoo Finance 連線受阻或限流時秒級切換。
+  4. **新聞與情報 (`tools/news.py`)**：三節點容錯集群 (`2md.aiurl.tw` ➔ `2md.glsoft.ai` ➔ `create360.ai`) + Stale-While-Revalidate + Investing.com RSS / Yahoo Finance 備援。
+  5. **預測市場機率 (`tools/polymarket.py`)**：2MD 代理集群穿透台灣 ISP DNS 阻斷 + `SingleFlight` + 5 分鐘 TTLCache 本機快取。
+  6. **主力籌碼與市場情緒 (`tools/market_intel.py`)**：13F (2h)、Form 4 (30m)、空頭擠壓 (20m) 分級快取 + `SingleFlight` 併發合併。
+  7. **檔案解析引擎 (`tools/file_intel.py`)**：100% 本地 CPU 推論（Google Magika ONNX 模型、PyPDF、openpyxl、xlrd），零外部網路相依。
 - **金融邏輯與傳導鏈**：DeepEar Lite API、NewsNow API (財聯社/華爾街見聞/雪球)、Investing.com 官方無反爬 RSS (繁中焦點/商品/美債利率)
 - **2MD 財經即時搜尋 (Web Reader & SERP) 與防驚群快取**：
   - **SingleFlight 併發合併與多層級 TTLCache**：內建 `tools/cache_util.py`，阻絕驚群效應 (Thundering Herd)，命中時延遲 0.0001s，具備 Stale-While-Revalidate 容災降級保護。

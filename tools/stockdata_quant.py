@@ -87,6 +87,10 @@ def fetch_macro_regime(market: str = "tw") -> Dict[str, Any]:
                 )
             _macro_cache.set(cache_key, res)
             return res
+        stale = _macro_cache.get_stale(cache_key)
+        if stale:
+            logger.info(f"StockData macro API unavailable; serving stale cache for {m_code}")
+            return stale
         return {}
 
     return _sd_singleflight.run(cache_key, _fetch)
@@ -158,6 +162,10 @@ def fetch_resonance_picks(index_name: str = "台灣50", limit: int = 12) -> List
             items = res["data"]
             _resonance_cache.set(cache_key, items)
             return items
+        stale = _resonance_cache.get_stale(cache_key)
+        if stale:
+            logger.info(f"StockData resonance API unavailable; serving stale cache for {index_name}")
+            return stale
         return []
 
     return _sd_singleflight.run(cache_key, _fetch)
@@ -300,6 +308,10 @@ def fetch_timesfm_predictions(
                 items.sort(key=_timesfm_timestamp_key, reverse=True)
             _timesfm_cache.set(cache_key, items)
             return items
+        stale = _timesfm_cache.get_stale(cache_key)
+        if stale:
+            logger.info(f"StockData timesfm API unavailable; serving stale cache for {clean_ticker or action}")
+            return stale
         return []
 
     return _sd_singleflight.run(cache_key, _fetch)
@@ -360,6 +372,10 @@ def fetch_xuantie_pullbacks(index_name: str = "台灣50", limit: int = 10) -> Li
             items = res["data"]
             _xuantie_cache.set(cache_key, items)
             return items
+        stale = _xuantie_cache.get_stale(cache_key)
+        if stale:
+            logger.info(f"StockData xuantie API unavailable; serving stale cache for {index_name}")
+            return stale
         return []
 
     return _sd_singleflight.run(cache_key, _fetch)
@@ -423,6 +439,10 @@ def fetch_broker_summary(ticker: str, days: int = 20) -> Dict[str, Any]:
         if res and isinstance(res, dict) and "top_buyers" in res:
             _broker_cache.set(cache_key, res)
             return res
+        stale = _broker_cache.get_stale(cache_key)
+        if stale:
+            logger.info(f"StockData broker API unavailable; serving stale cache for {clean_ticker}")
+            return stale
         return {}
 
     return _sd_singleflight.run(cache_key, _fetch)
@@ -525,8 +545,14 @@ def fetch_calendar_data(category: str = "all") -> Dict[str, Any]:
             if comm_data and comm_data.get("success"):
                 result["commodities"] = comm_data.get("data", {})
 
-        _calendar_cache.set(cache_key, result)
-        return result
+        if result:
+            _calendar_cache.set(cache_key, result)
+            return result
+        stale = _calendar_cache.get_stale(cache_key)
+        if stale:
+            logger.info(f"StockData calendar API unavailable; serving stale cache for {category}")
+            return stale
+        return {}
 
     return _sd_singleflight.run(cache_key, _fetch)
 
