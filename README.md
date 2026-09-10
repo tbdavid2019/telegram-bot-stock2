@@ -204,12 +204,14 @@
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
 - **888 Stock Quant 核心運算引擎與 Stale 容災降級**：`https://stockdata.david888.com` (Google TimesFM 2.5 500M 基礎模型推論、四維共振飆股篩選、宏觀體制部位指引、玄鐵重劍均線回測、券商分點與結構化財經日曆)，全面配置 `SingleFlight` 併發收斂與 `get_stale()` 容災平滑降級，上游中斷時自動回傳最後已知有效數據。
 - **全架構離線生存與多級快取體系 (Data Resilience & Offline Fallbacks)**：
-  1. **全球五大主流市場官方清冊全量整合 (`tools/stock.py`)**：
+  1. **全球七大主流市場官方清冊全量整合 (`tools/stock.py`)（總量突破 32,050 檔）**：
      - **🇹🇼 台股清冊 (`data/tw_stock_registry.json`)**：內建 2,234 檔 TWSE/TPEx 官方股票清冊與中英文全名。
      - **🇺🇸 美股全市場 (`data/us_stock_registry.json`)**：內建 10,407 檔 SEC EDGAR 官方全市場（NASDAQ、NYSE、AMEX、ARCA、BATS、IEX）上市公司、ETF 與 ADR，附帶 80+ 檔高頻中文別名庫（蘋果、微軟、輝達、特斯拉、波克夏、SpaceX 等）。
      - **🇭🇰 港股清冊 (`data/hk_stock_registry.json`)**：內建 3,237 檔 HKEX 官方主板/GEM 股本證券、ETF 與 REITs 清冊，含原生繁體中文名稱、每手股數與 ISIN 碼。
      - **🇯🇵 日股清冊 (`data/jpx_stock_registry.json`)**：內建 4,003 檔 JPX 東證 Prime/Standard/Growth/ETF 標的，含日文名、33 業種與別名庫（豐田、索尼、任天堂、軟銀等）。
      - **🇨🇳 陸股 A 股 (`data/cn_stock_registry.json`)**：內建 2,009 檔上交所 (SSE) 與深交所 (SZSE) 主板與科創板標的（貴州茅台、寧德時代、比亞迪A股等）。
+     - **🇬🇧 英股清冊 (`data/lse_stock_registry.json`)**：內建 6,319 檔 LSE 倫敦證券交易所官方週度公開名冊（SETS、SETSqx CCP/Non-CCP、EQS），含 Mnemonic、ISIN 與熱門藍籌別名（匯豐控股、殼牌、阿斯利康、英國石油、聯合利華、勞斯萊斯等）。
+     - **🇪🇺 泛歐清冊 (`data/euronext_stock_registry.json`)**：內建 3,841 檔 Euronext 官方全市場產品目錄股票（涵蓋巴黎、阿姆斯特丹、布魯塞爾、里斯本、都柏林、米蘭、奧斯陸 7 大交易所），含歐洲藍籌別名（LVMH、愛馬仕、歐萊雅、道達爾、空中巴士、艾司摩爾歐股等）。
      - **台北跨日首查觸發更新 (Lazy On-Demand Refresh with Daily Gate)**：以每日 `00:00 (Asia/Taipei)` 為日界線，跨日後當天第一次有人查詢時才發動更新；當天後續查詢全域共用同一份 24h 快取；並發請求透過 `SingleFlight` 合併；若上游異常自動返回上一份資料並標註 `stale: true`。
   2. **三大法人籌碼 (`tools/tw_institutional.py`)**：日度持久化 JSON 落地至 `data/cache/institutional/`，同日請求零網路調用，網路中斷仍可讀取磁碟快取。
   3. **行情數據雙軌容錯 (`tools/tw_stocker.py`)**：GitHub 全市場歷史資料庫雙軌備援，遇 Yahoo Finance 連線受阻或限流時秒級切換。

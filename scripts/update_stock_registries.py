@@ -6,6 +6,10 @@ Fetches and normalizes official stock registries for:
 1. US Stocks: SEC EDGAR official company_tickers.json (~10,400 stocks) + curated Chinese alias map
 2. Hong Kong Stocks: HKEX official ListOfSecurities_c.xlsx (~3,200 equities/ETFs)
 3. Taiwan Stocks: TWSE/TPEx registries (~2,234 stocks)
+4. Japan Stocks: JPX official data_j.xlsx (~4,000 stocks)
+5. China A-Shares: SSE & SZSE official stock directories (~2,000 stocks)
+6. UK Stocks: LSE official weekly securities lists (SETS, SETSqx CCP/Non-CCP, EQS, ~6,300 securities)
+7. European Stocks: Euronext official Product Directory (~3,800 equities across Paris, Amsterdam, Brussels, Lisbon, Dublin, Milan, Oslo)
 """
 
 import os
@@ -465,12 +469,229 @@ def update_cn_stock_registry():
     return True
 
 
+def update_lse_stock_registry():
+    """Fetch LSE official UK and European securities lists (SETS, SETSqx CCP/Non-CCP, EQS) and compile LSE registry."""
+    print("⏳ [LSE] Fetching LSE official securities lists from London Stock Exchange...")
+    api_url = "https://api.londonstockexchange.com/api/v1/pages?path=equities-trading/asset-classes/shares-trading/uk-and-european-securities"
+    req = urllib.request.Request(api_url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as e:
+        print(f"⚠️ [LSE] Failed to fetch LSE page API: {e}")
+        return False
+
+    html_str = json.dumps(data)
+    xlsx_links = list(set(re.findall(r'https://docs\.londonstockexchange\.com/[^\s\"\']+\.xlsx', html_str)))
+    print(f"ℹ️ [LSE] Found {len(xlsx_links)} LSE official XLSX download links")
+
+    try:
+        import openpyxl
+    except ImportError:
+        print("⚠️ [LSE] openpyxl not installed in current environment, skipping XLSX parsing.")
+        return False
+
+    stocks = {}
+    name_to_code = {}
+
+    for link in xlsx_links:
+        try:
+            r = urllib.request.Request(link, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(r, timeout=30) as f:
+                wb = openpyxl.load_workbook(io.BytesIO(f.read()))
+                sheet = wb.active
+                rows = list(sheet.iter_rows(values_only=True))
+                header_idx = -1
+                for i, row in enumerate(rows[:10]):
+                    if any(str(c).strip() == "Mnemonic" for c in row if c):
+                        header_idx = i
+                        break
+                if header_idx == -1:
+                    continue
+                header = [str(c).strip() if c else "" for c in rows[header_idx]]
+                m_idx = header.index("Mnemonic")
+                isin_idx = header.index("ISIN") if "ISIN" in header else -1
+                name_idx = header.index("Issuer Name") if "Issuer Name" in header else -1
+                type_idx = header.index("Security Type") if "Security Type" in header else -1
+                curr_idx = header.index("Currency") if "Currency" in header else -1
+
+                for row in rows[header_idx + 1:]:
+                    if len(row) > m_idx and row[m_idx]:
+                        mne = str(row[m_idx]).strip().upper()
+                        if not mne or len(mne) > 10:
+                            continue
+                        isin = str(row[isin_idx]).strip() if isin_idx != -1 and row[isin_idx] else ""
+                        name = str(row[name_idx]).strip() if name_idx != -1 and row[name_idx] else ""
+                        stype = str(row[type_idx]).strip() if type_idx != -1 and row[type_idx] else ""
+                        curr = str(row[curr_idx]).strip() if curr_idx != -1 and row[curr_idx] else "GBp"
+                        ticker = f"{mne}.L"
+                        stocks[mne] = {
+                            "code": mne,
+                            "ticker": ticker,
+                            "name": name,
+                            "isin": isin,
+                            "market": "LSE (倫敦證券交易所)",
+                            "security_type": stype,
+                            "currency": curr
+                        }
+                        if name:
+                            name_to_code[name] = ticker
+                            name_to_code[name.upper()] = ticker
+        except Exception as e:
+            print(f"⚠️ [LSE] Error processing {link}: {e}")
+
+    lse_aliases = {
+        "匯豐": "HSBA.L", "匯豐控股": "HSBA.L", "滙豐": "HSBA.L", "滙豐控股": "HSBA.L", "HSBC": "HSBA.L",
+        "殼牌": "SHEL.L", "殼牌石油": "SHEL.L", "SHELL": "SHEL.L",
+        "阿斯利康": "AZN.L", "阿斯特捷利康": "AZN.L", "ASTRAZENECA": "AZN.L",
+        "英國石油": "BP.L", "BP": "BP.L",
+        "聯合利華": "ULVR.L", "UNILEVER": "ULVR.L",
+        "葛蘭素史克": "GSK.L", "GSK": "GSK.L",
+        "力拓": "RIO.L", "RIO TINTO": "RIO.L",
+        "必和必拓": "BHP.L", "BHP": "BHP.L",
+        "英美煙草": "BATS.L", "帝亞吉歐": "DGE.L", "DIAGEO": "DGE.L",
+        "巴克萊": "BARC.L", "巴克萊銀行": "BARC.L", "BARCLAYS": "BARC.L",
+        "勞埃德": "LLOY.L", "勞埃德銀行": "LLOY.L",
+        "渣打": "STAN.L", "渣打銀行": "STAN.L", "渣打集團": "STAN.L", "STANDARD CHARTERED": "STAN.L",
+        "倫敦證交所": "LSEG.L", "倫敦證券交易所": "LSEG.L", "LSEG": "LSEG.L",
+        "勞斯萊斯": "RR.L", "羅爾斯羅伊斯": "RR.L", "ROLLS ROYCE": "RR.L",
+        "洲際酒店": "IHG.L", "洲際酒店集團": "IHG.L",
+        "保誠": "PRU.L", "英國保誠": "PRU.L",
+        "嘉能可": "GLEN.L", "GLENCORE": "GLEN.L",
+        "安格魯美洲": "AAL.L", "英美資源": "AAL.L",
+        "沃達豐": "VOD.L", "VODAFONE": "VOD.L"
+    }
+    for alias, ticker in lse_aliases.items():
+        name_to_code[alias] = ticker
+
+    out_data = {
+        "updated_at": datetime.date.today().isoformat(),
+        "source": "LSE Official Weekly Securities Lists (SETS, SETSqx CCP/Non-CCP, EQS)",
+        "total": len(stocks),
+        "stocks": stocks,
+        "aliases": name_to_code
+    }
+
+    out_file = os.path.join(DATA_DIR, "lse_stock_registry.json")
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(out_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ [LSE] Successfully saved {len(stocks)} LSE securities and {len(name_to_code)} names/aliases to {out_file}")
+    return True
+
+
+def update_euronext_stock_registry():
+    """Fetch Euronext official Product Directory equities and compile Euronext registry."""
+    print("⏳ [Euronext] Fetching Euronext official Product Directory list...")
+    import csv
+    url = "https://live.euronext.com/product_directory/data/stocks-all-places/download?mics=ALXB%2CALXL%2CALXP%2CBGEM%2CENXB%2CENXL%2CETLX%2CEXGM%2CMERK%2CMIVX%2CMLXB%2CMTAA%2CMTAH%2CTNLA%2CTNLB%2CXAMC%2CXAMS%2CXATL%2CXBRU%2CXESM%2CXLDN%2CXLIS%2CXMLI%2CXMSM%2CXOAS%2CXOSL%2CXPAR%2CXPMC"
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            text = resp.read().decode("utf-8", errors="ignore")
+    except Exception as e:
+        print(f"⚠️ [Euronext] Failed to fetch Euronext download: {e}")
+        return False
+
+    reader = csv.reader(text.splitlines(), delimiter=";")
+    stocks = {}
+    name_to_code = {}
+
+    def get_suffix(market_str):
+        m = market_str.lower()
+        if "paris" in m:
+            return ".PA"
+        elif "amsterdam" in m:
+            return ".AS"
+        elif "brussels" in m:
+            return ".BR"
+        elif "lisbon" in m:
+            return ".LS"
+        elif "dublin" in m:
+            return ".IR"
+        elif "milan" in m:
+            return ".MI"
+        elif "oslo" in m or "børs" in m:
+            return ".OL"
+        return ""
+
+    header = None
+    for row in reader:
+        if not row:
+            continue
+        if "ISIN" in row and "Symbol" in row:
+            header = row
+            continue
+        if header and len(row) >= 4:
+            name = row[0].strip()
+            isin = row[1].strip()
+            symbol = row[2].strip().upper()
+            market = row[3].strip()
+            curr = row[4].strip() if len(row) > 4 else "EUR"
+            if not symbol or not isin:
+                continue
+            suffix = get_suffix(market)
+            ticker = f"{symbol}{suffix}" if suffix else symbol
+            stock_key = f"{symbol}_{market}"
+            stocks[stock_key] = {
+                "symbol": symbol,
+                "ticker": ticker,
+                "name": name,
+                "isin": isin,
+                "market": f"Euronext ({market})",
+                "currency": curr
+            }
+            if name:
+                name_to_code[name] = ticker
+                name_to_code[name.upper()] = ticker
+            if symbol and suffix:
+                name_to_code[symbol] = ticker
+
+    euronext_aliases = {
+        "LVMH": "MC.PA", "路易威登": "MC.PA", "酩悅軒尼詩": "MC.PA",
+        "愛馬仕": "RMS.PA", "HERMES": "RMS.PA",
+        "萊雅": "OR.PA", "歐萊雅": "OR.PA", "LOREAL": "OR.PA",
+        "道達爾": "TTE.PA", "道達爾能源": "TTE.PA", "TOTALENERGIES": "TTE.PA",
+        "空中巴士": "AIR.PA", "AIRBUS": "AIR.PA",
+        "賽諾菲": "SAN.PA", "SANOFI": "SAN.PA",
+        "開雲": "KER.PA", "開雲集團": "KER.PA", "KERING": "KER.PA",
+        "施耐德": "SU.PA", "施耐德電氣": "SU.PA", "SCHNEIDER": "SU.PA",
+        "艾司摩爾歐股": "ASML.AS",
+        "喜力": "HEIA.AS", "海尼根": "HEIA.AS", "HEINEKEN": "HEIA.AS",
+        "荷蘭國際": "INGA.AS", "ING": "INGA.AS",
+        "普羅蘇斯": "PRX.AS", "PROSUS": "PRX.AS",
+        "阿迪恩": "ADYEN.AS", "ADYEN": "ADYEN.AS",
+        "法拉利": "RACE.MI", "FERRARI": "RACE.MI",
+        "斯特蘭蒂斯": "STLAM.MI", "STELLANTIS": "STLAM.MI",
+        "意法半導體": "STMMI.MI", "STM": "STMMI.MI",
+        "百威英博": "ABI.BR", "AB INBEV": "ABI.BR",
+        "挪威國家石油": "EQNR.OL", "EQUINOR": "EQNR.OL"
+    }
+    for alias, ticker in euronext_aliases.items():
+        name_to_code[alias] = ticker
+
+    out_data = {
+        "updated_at": datetime.date.today().isoformat(),
+        "source": "Euronext Official Product Directory",
+        "total": len(stocks),
+        "stocks": stocks,
+        "aliases": name_to_code
+    }
+
+    out_file = os.path.join(DATA_DIR, "euronext_stock_registry.json")
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(out_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ [Euronext] Successfully saved {len(stocks)} Euronext stocks and {len(name_to_code)} names/aliases to {out_file}")
+    return True
+
+
 if __name__ == "__main__":
     us_ok = update_us_stock_registry()
     hk_ok = update_hk_stock_registry()
     jpx_ok = update_jpx_stock_registry()
     cn_ok = update_cn_stock_registry()
-    if us_ok and hk_ok and jpx_ok and cn_ok:
+    lse_ok = update_lse_stock_registry()
+    euronext_ok = update_euronext_stock_registry()
+    if us_ok and hk_ok and jpx_ok and cn_ok and lse_ok and euronext_ok:
         print("🎉 All global stock registries successfully updated!")
     else:
         print("⚠️ Some stock registries failed to update.")

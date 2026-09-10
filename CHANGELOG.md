@@ -2,6 +2,30 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.15.2] - 2026-09-10
+
+### 🇬🇧 倫敦證交所 (LSE) 與 🇪🇺 泛歐證交所 (Euronext) 官方清冊全量整合，全球 7 大交易所 32,000+ 檔大滿貫
+- **LSE (倫敦證券交易所) 官方週度證券名冊全量整合 (`data/lse_stock_registry.json`)**：
+  - 深入實踐倫敦證交所公開官方管道，透過公開頁面 CMS API 直接檢索並下載每週官方發布之 4 大類 XLSX 證券清冊（SETS、SETSqx CCP、SETSqx Non-CCP、EQS），全量收錄 **6,319 檔** 倫敦上市公司、國際 ADR、ETP 與各類股本證券。
+  - 解析 Mnemonic（代號）、ISIN 國際證券識別碼、Issuer Name（發行機構名稱）、Security Type（證券類別）與 Currency（計價幣別），代號自動映射 Yahoo Finance 標準 `.L` 後綴（如 `SHEL.L`、`AZN.L`、`BP.L`、`HSBA.L`、`ULVR.L`、`BARC.L`、`LSEG.L`）。
+  - 內建英國富時指數成分股高頻中文別名映射（匯豐控股 `HSBA.L`、殼牌 `SHEL.L`、阿斯利康 `AZN.L`、英國石油 `BP.L`、聯合利華 `ULVR.L`、葛蘭素史克 `GSK.L`、力拓 `RIO.L`、巴克萊 `BARC.L`、渣打 `STAN.L`、勞斯萊斯 `RR.L`、倫敦證交所 `LSEG.L` 等）。
+- **Euronext (泛歐證券交易所) 官方全市場產品目錄清冊整合 (`data/euronext_stock_registry.json`)**：
+  - 串接泛歐交易所 (Euronext) 官方 Product Directory 數據端點，收錄巴黎 (Paris)、阿姆斯特丹 (Amsterdam)、布魯塞爾 (Brussels)、里斯本 (Lisbon)、都柏林 (Dublin)、米蘭 (Milan)、奧斯陸 (Oslo) 共 7 大歐洲核心金融市場 **3,841 檔** 股票。
+  - 依據交易市場自動精準映射 Yahoo Finance 交易所後綴：巴黎 `.PA`、阿姆斯特丹 `.AS`、布魯塞爾 `.BR`、里斯本 `.LS`、都柏林 `.IR`、米蘭 `.MI`、奧斯陸 `.OL`。
+  - 內建歐洲藍籌巨頭中文別名（LVMH `MC.PA`、愛馬仕 `RMS.PA`、歐萊雅 `OR.PA`、道達爾 `TTE.PA`、空中巴士 `AIR.PA`、艾司摩爾歐股 `ASML.AS`、海尼根 `HEIA.AS`、法拉利 `RACE.MI`、挪威國家石油 `EQNR.OL` 等）。
+- **全球 7 大主流交易所清冊大滿貫（官方清冊總量突破 32,050 檔）**：
+  - 1. 🇹🇼 台股 TWSE / TPEx：2,234 檔
+  - 2. 🇺🇸 美股 6 大交易所 (SEC EDGAR)：10,407 檔
+  - 3. 🇭🇰 港股 HKEX：3,237 檔
+  - 4. 🇯🇵 日股 JPX：4,003 檔
+  - 5. 🇨🇳 陸股 A 股 SSE / SZSE：2,009 檔
+  - 6. 🇬🇧 英股 LSE：6,319 檔
+  - 7. 🇪🇺 歐股 Euronext：3,841 檔
+- **跨市場解析引擎架構優化 (`tools/stock.py`)**：
+  - 抽象出 `_get_market_and_display_name` 統一跨市場識別函式，精確輸出官方交易所全稱與中英雙語公司名。
+  - 全面支援 `LSE:`、`EURONEXT:`、`UK:`、`EU:` 前綴，以及 `.L`、`.PA`、`.AS`、`.BR`、`.LS`、`.IR`、`.MI`、`.OL` 等國際後綴。
+  - 嚴格遵守「台北跨日首查觸發 (Asia/Taipei 00:00)」+「SingleFlight 併發防驚群」+「Stale-While-Revalidate 災備平滑降級」體系。
+
 ## [2.15.1] - 2026-09-10
 
 ### 🌍 全球主流交易所清冊全量整合與「台北跨日首查觸發 (Lazy On-Demand)」每日更新體系
