@@ -26,6 +26,7 @@ from handlers.stock_cmds import (
     hot_news_query,
     fama_french_analysis,
     institutional_chip_analysis,
+    polymarket_query,
 )
 from handlers.ai_cmds import ai_query, ai2_analysis, llm_query
 
@@ -68,6 +69,7 @@ def main():
     app.add_handler(CommandHandler("ny", taiwan_stock_news))
     app.add_handler(CommandHandler("hot", hot_news_query))
     app.add_handler(CommandHandler("chain", chain_analysis))
+    app.add_handler(CommandHandler("pm", polymarket_query))
     app.add_handler(CommandHandler("chip", institutional_chip_analysis))
     app.add_handler(CommandHandler("ff", fama_french_analysis))
     app.add_handler(CommandHandler("p", prophet_predict))

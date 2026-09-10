@@ -823,3 +823,61 @@ async def institutional_chip_analysis(update: Update, context: ContextTypes.DEFA
         await update.message.reply_text(f"❌ 查詢籌碼資料時發生錯誤：{str(e)}")
 
 
+async def polymarket_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /pm [keyword] command: Polymarket prediction market odds."""
+    keyword = " ".join(context.args).strip() if context.args else ""
+    target_desc = f"（搜尋：`{keyword}`）" if keyword else "（熱門總經合約）"
+    processing_msg = await update.message.reply_text(
+        f"🔮 正在透過 2MD 專屬代理連接 Polymarket 預測市場{target_desc}..."
+    )
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.polymarket import fetch_polymarket_markets, format_polymarket_markdown
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.general import cache_prompt
+
+        markets = await loop.run_in_executor(None, fetch_polymarket_markets, keyword, 5)
+        title = f"🔮 **Polymarket 預測市場：{keyword if keyword else '全球總經與利率前瞻'}**"
+        reply_text = format_polymarket_markdown(markets, title=title)
+
+        buttons = [
+            [
+                InlineKeyboardButton("🔮 聯準會利率路徑", callback_data=cache_prompt("/pm fed")),
+                InlineKeyboardButton("🔮 2026 經濟衰退", callback_data=cache_prompt("/pm recession"))
+            ],
+            [
+                InlineKeyboardButton("🔮 AI 與科技催化劑", callback_data=cache_prompt("/pm ai")),
+                InlineKeyboardButton("⛓️ 利率傳導鏈分析", callback_data=cache_prompt("/chain 聯準會降息"))
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        try:
+            await update.message.reply_text(
+                reply_text,
+                parse_mode="Markdown",
+                reply_markup=reply_markup,
+                disable_web_page_preview=True
+            )
+        except Exception:
+            await update.message.reply_text(
+                reply_text,
+                reply_markup=reply_markup,
+                disable_web_page_preview=True
+            )
+
+    except Exception as e:
+        logger.error(f"Polymarket handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 查詢 Polymarket 預測市場時發生錯誤：{str(e)}")
+
+

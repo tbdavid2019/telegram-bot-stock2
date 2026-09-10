@@ -70,9 +70,26 @@ def analyze_market_transmission_chain(topic_or_event: str) -> Dict[str, Any]:
         if any(kw in full_text for kw in keywords if len(kw) >= 2):
             matched_signals.append(s)
 
+    # Enrich with Polymarket forward crowd-implied probabilities
+    polymarket_odds = []
+    try:
+        from tools.polymarket import fetch_polymarket_markets
+        pm_markets = fetch_polymarket_markets(topic_or_event, limit=3)
+        if pm_markets:
+            for m in pm_markets:
+                polymarket_odds.append({
+                    "question": m["question"],
+                    "outcomes": [f"{o['name']}: {o['probability_pct']}" for o in m.get("outcomes", [])],
+                    "volume_24h": m.get("volume_24h_str"),
+                    "url": m.get("url")
+                })
+    except Exception as err:
+        logger.debug(f"Polymarket enrichment in transmission chain skipped: {err}")
+
     result = {
         "query": topic_or_event,
         "matched_deepear_signals": matched_signals,
+        "polymarket_implied_probabilities": polymarket_odds,
         "all_active_signals_summary": [
             {"title": s.get("title"), "category": s.get("category", "市場熱點")}
             for s in signals[:5]
@@ -83,7 +100,8 @@ def analyze_market_transmission_chain(topic_or_event: str) -> Dict[str, Any]:
             "2. 🔄 二級產業鏈傳導 (Industry Transmission: 成本轉嫁、庫存、產能利用率)\n"
             "3. 🎯 三級受惠與受害標的 (Benefited vs Impacted Stocks: 具體台股/美股代號如 2330.TW, NVDA, 2603.TW)\n"
             "4. ⚖️ 邏輯證偽條件 (Falsification Criteria: 什麼指標或數據出現時此邏輯失效)\n"
-            "5. 📊 請在回覆中繪製標準 Mermaid 流程圖 (語法如: ```mermaid\nflowchart LR\nA[\"事件\"] --> B[\"影響\"]\n```)"
+            "5. 🔮 若有 Polymarket 預測市場機率，請引用該市場共識機率進行情境加權分析\n"
+            "6. 📊 請在回覆中繪製標準 Mermaid 流程圖 (語法如: ```mermaid\nflowchart LR\nA[\"事件\"] --> B[\"影響\"]\n```)"
         )
     }
     return result

@@ -31,6 +31,7 @@ telegram-bot-stock2/
 │   ├── stock_analysis.py     # Quant tools: SEPA, DCF valuation, earnings briefing, correlation
 │   ├── market_intel.py       # Smart money & sentiment: 13F, Form 4, short squeeze, retail sentiment
 │   ├── transmission.py       # Transmission chain & DeepEar signals: analyze_market_transmission_chain
+│   ├── polymarket.py         # Polymarket Gamma/CLOB crowd odds & macro predictions via 2MD
 │   ├── tw_stocker.py         # Taiwan stock full history DB loader & yfinance fallback (voidful/tw_stocker)
 │   ├── tw_institutional.py   # TWSE/TPEX institutional investors (T86/QFIIS/3itrade) official chip tracker
 │   ├── us_fddk.py            # Fama-French multi-factor analysis & ETF live paper benchmarks (voidful/us_fddk)
@@ -144,6 +145,22 @@ telegram-bot-stock2/
 - **URL Handling**:
   - Always extract and return `data.shareUrl` (public read-only URL) to users.
   - **NEVER** give the internal edit `url` to users.
+
+### 9. 🔮 Polymarket Prediction Markets & Taiwan DNS Sinkhole Mitigation
+- **Keyless Public REST Endpoints**:
+  - Discovery & Metadata: Gamma API (`gamma-api.polymarket.com/markets` & `/events`).
+  - Order Book & Spread: CLOB API (`clob.polymarket.com/book`).
+- **Mandatory 2MD Proxy Routing (Taiwan ISP Sinkhole)**:
+  - Taiwan ISPs (Chunghwa Telecom, etc.) sinkhole `polymarket.com` to `182.173.0.181` (triggering SSL self-signed cert Error 60).
+  - **ALWAYS** route Polymarket requests through the 2MD proxy cluster (`https://2md.aiurl.tw` / `https://create360.ai`).
+  - Automatically filter out regional block pages (`법적 사유로 이용 불가`).
+- **Zero Heavy Web3 Dependencies**:
+  - **NEVER** add `web3`, `eth-account`, or `py_clob_client`. All read operations must remain pure lightweight HTTP REST.
+- **Anti-Thundering-Herd & Caching**:
+  - Wrapped in `tools/cache_util.py` 5-minute `TTLCache` and `SingleFlight` request coalescing.
+- **Compliance & Disclaimer**:
+  - Data is strictly for market sentiment, crowd consensus, and macroeconomic forward-looking intelligence.
+  - Never provide order-execution, betting, or account-binding features. Always attach the disclaimer.
 
 ---
 

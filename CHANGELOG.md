@@ -2,6 +2,36 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.13.0] - 2026-09-10
+
+### 🔮 Polymarket 預測市場前瞻情報與總經政策定價導入
+- **全新工具模組 `tools/polymarket.py`**：
+  - **100% 免 API Key 直連**：串接 Polymarket Gamma API 與 CLOB API 公開端點，讀取市場元數據、即時賠率定價（`outcomePrices`）、24小時成交額（`volume24hr`）、總流動性（`liquidityNum`）與結算日期。
+  - **真金白銀市場共識定價**：提供傳統新聞與社交情緒缺乏的「前瞻真實機率（Skin-in-the-game Forward Odds）」，涵蓋聯準會降息/升息幅度分布、美國經濟衰退、全球關稅政策、大選與重要科技催化劑（OpenAI、IPO 等）。
+  - **文字進度條與排版美化**：輸出直觀的 ASCII/Unicode 百分比進度條（如 `[████░░░░] 45.5%`），清晰標註 24h 成交額與流動性深度。
+- **專屬指令 `/pm [關鍵字]` 與快捷互動**：
+  - `/pm` 或 `/pm top`：自動掃描全球總經、利率政策與商業科技最熱門的高流動性預測合約，並過濾純體育賽事雜訊。
+  - `/pm fed` / `/pm recession` / `/pm ai`：依關鍵字與 Polymarket Tag 智能檢索指定主題的精確機率。
+  - 隨附動態 Inline Keyboard（`[🔮 聯準會利率路徑]`、`[🔮 2026 經濟衰退]`、`[🔮 AI 與科技催化劑]`、`[⛓️ 利率傳導鏈分析]`）。
+
+### 🛡️ 台灣 ISP DNS 劫持防禦與 2MD 集群穿透架構
+- **徹底避開 182.173.0.181 污染 Sinkhole**：
+  - 實測發現台灣主要 ISP（如中華電信）因預測市場法規監管，會以 DNS 污染將 `polymarket.com` 導向警政警示 IP `182.173.0.181`，引發 `SSL: self-signed certificate (Error 60)`。
+  - 全面將 Polymarket 請求導向現有 2MD 代理集群（`https://2md.aiurl.tw` / `https://create360.ai`），以純 REST 模式在海外節點解析轉發，100% 毫秒級通暢直達。
+  - **自動排除區域封鎖節點**：智能識別並跳過南韓 IP 封鎖頁面（`법적 사유로 이용 불가`），確保高可用性。
+- **零額外依賴與極致輕量化**：
+  - 拒絕引入需要編譯的龐大 `py_clob_client` / `web3` / `eth-account` 套件，純 HTTP REST + `requests`/`aiohttp` 實現，保證 Docker 映像檔輕量與快速建置。
+  - 內建 `tools/cache_util.py` 5 分鐘 `TTLCache` 與 `SingleFlight` 防驚群請求合併。
+
+### ⛓️ 金融邏輯傳導鏈 (`/chain`) 與 LangGraph Agent 深度賦能
+- **傳導鏈定量機率加權 (`tools/transmission.py`)**：
+  - `/chain` 在推導總經與地緣事件時，自動呼叫 Polymarket 提取當前鏈上機率共識，將原本純「定性因果推導」升級為「定量情境加權評估」。
+- **LangGraph 主 Agent (`ai_core.py`) 雙工具注入**：
+  - 註冊 `get_polymarket_predictions` 與 `get_polymarket_macro_sentiment` 工具。
+  - 自然語言對話支援（如「*Polymarket 現在對聯準會 9 月降息的機率是多少？*」），AI 自動調用即時市場定價並進行專業分析。
+
+---
+
 ## [2.12.0] - 2026-09-08
 
 ### 📂 Google Magika 本地深度學習檔案類型識別與安全防護

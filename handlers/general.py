@@ -122,21 +122,21 @@ def generate_followup_keyboard(
         topic = subj["topic"]
         buttons.append([
             InlineKeyboardButton(f"⛓️ 分析「{topic}」金融傳導鏈", callback_data=cache_prompt(f"/chain {topic}")),
-            InlineKeyboardButton("🔥 查看全球重大快訊", callback_data=cache_prompt("/hot"))
+            InlineKeyboardButton(f"🔮 Polymarket「{topic}」預測", callback_data=cache_prompt(f"/pm {topic}"))
         ])
         buttons.append([
-            InlineKeyboardButton("🏢 查台積電 2330 法人籌碼", callback_data=cache_prompt("/chip 2330.TW")),
-            InlineKeyboardButton("📊 輝達 NVDA 多因子模型", callback_data=cache_prompt("/ff NVDA"))
+            InlineKeyboardButton("🔥 查看全球重大快訊", callback_data=cache_prompt("/hot")),
+            InlineKeyboardButton("🏢 查台積電 2330 法人籌碼", callback_data=cache_prompt("/chip 2330.TW"))
         ])
 
     else:
         buttons.append([
             InlineKeyboardButton("🔥 查看即時重大快訊", callback_data=cache_prompt("/hot")),
-            InlineKeyboardButton("🏢 台積電 2330 法人籌碼", callback_data=cache_prompt("/chip 2330.TW"))
+            InlineKeyboardButton("🔮 Polymarket 總經預測", callback_data=cache_prompt("/pm top"))
         ])
         buttons.append([
-            InlineKeyboardButton("📊 輝達 NVDA 多因子歸因", callback_data=cache_prompt("/ff NVDA")),
-            InlineKeyboardButton("💰 特斯拉 TSLA DCF估值", callback_data=cache_prompt("/val TSLA"))
+            InlineKeyboardButton("🏢 台積電 2330 法人籌碼", callback_data=cache_prompt("/chip 2330.TW")),
+            InlineKeyboardButton("📊 輝達 NVDA 多因子歸因", callback_data=cache_prompt("/ff NVDA"))
         ])
 
     return InlineKeyboardMarkup(buttons)
@@ -160,12 +160,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  • 🏛️ *「巴菲特和段永平最近有買進或加減持哪檔股票？(13F持倉)」*\n"
         "  • 🕵️ *「查詢 TSLA 最近的高階經理人內部人買賣 (Form 4)」*\n"
         "  • 🚀 *「分析 GME 的做空比率與軋空 (Short Squeeze) 風險」*\n"
+        "  • 🔮 *「Polymarket 現在對聯準會 9 月降息的真實機率是多少？」*\n"
         "  • 📰 *「台積電 2330.TW 最近有什麼重大新聞與基本面評估」*\n\n"
         "📎 **智慧文件與對帳單解析（Google Magika 驅動）**：\n"
         "直接在聊天室發送 **PDF 財報/研報**、**CSV/Excel 投資對帳單與數據表** 或 **TXT 文件**（可附帶文字備註）：\n"
         "  • 🛡️ 透過 **Google Magika** 進行 100% 本地深層格式識別與安全檢測，阻截可執行檔偽裝。\n"
         "  • 🤖 AI 專家將為您自動萃取報表數據，深度解析財務體質、營運亮點與資產配置建議！\n\n"
         "📌 **專屬量化與委員會指令速查**：\n"
+        "• `/pm [關鍵字]` - 🔮 Polymarket 預測市場前瞻機率與總經政策定價 (範例：`/pm fed`、`/pm recession`、`/pm ai`)\n"
         "• `/chain 事件或主題` - ⛓️ 金融邏輯傳導鏈分析與因果流程圖 (範例：`/chain 聯準會降息`)\n"
         "• `/hot [來源]` - 🔥 財聯社/華爾街見聞/雪球即時快訊 (範例：`/hot` 或 `/hot wallstreetcn`)\n"
         "• `/chip 股票代碼` - 🏢 台股三大法人買賣超、連買連賣與外資持股 (範例：`/chip 2330.TW`)\n"
@@ -184,10 +186,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton("/chain 聯準會降息"), KeyboardButton("/hot")],
-            [KeyboardButton("/chip 2330.TW"), KeyboardButton("/ff NVDA")],
-            [KeyboardButton("/sepa TSLA"), KeyboardButton("/val AAPL")],
-            [KeyboardButton("/earn NVDA"), KeyboardButton("/s 2330.TW")],
+            [KeyboardButton("/pm fed"), KeyboardButton("/chain 聯準會降息")],
+            [KeyboardButton("/hot"), KeyboardButton("/chip 2330.TW")],
+            [KeyboardButton("/ff NVDA"), KeyboardButton("/val AAPL")],
+            [KeyboardButton("/sepa TSLA"), KeyboardButton("/s 2330.TW")],
             [KeyboardButton("/new"), KeyboardButton("/ai2 NVDA")]
         ],
         resize_keyboard=True
@@ -538,6 +540,7 @@ async def reset_commands(application: Application):
         BotCommand("new", "清空對話記憶開啟全新對話"),
         BotCommand("clear", "清空對話記憶開啟全新對話"),
         BotCommand("chain", "金融邏輯傳導鏈分析 (因果流程圖)"),
+        BotCommand("pm", "Polymarket 預測市場前瞻機率與總經定價"),
         BotCommand("hot", "即時重大財經快訊 (財聯社/華爾街見聞)"),
         BotCommand("chip", "台股三大法人買賣超與連買連賣籌碼分析"),
         BotCommand("ff", "Fama-French 多因子風險歸因與 Alpha"),

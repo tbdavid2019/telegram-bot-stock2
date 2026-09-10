@@ -33,6 +33,7 @@ from tools.news import get_financial_news, search_financial_web, get_hot_news_fl
 from tools.transmission import analyze_market_transmission_chain
 from tools.us_fddk import get_fama_french_factor_analysis, get_us_fddk_live_benchmarks
 from tools.tw_institutional import get_tw_institutional_analysis
+from tools.polymarket import get_polymarket_predictions, get_polymarket_macro_sentiment
 from tools.wiki import publish_to_wiki
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,8 @@ main_agent_tools = [
     get_tw_institutional_analysis,
     get_fama_french_factor_analysis,
     get_us_fddk_live_benchmarks,
+    get_polymarket_predictions,
+    get_polymarket_macro_sentiment,
     get_sepa_analysis,
     get_dcf_valuation,
     get_earnings_briefing,
@@ -114,6 +117,8 @@ You have access to dynamic real-time tools:
 - `analyze_market_transmission_chain`: Multi-tier financial logic transmission chain analysis (Macro -> Industry -> Benefited/Impacted Tickers) with DeepEar signals and Mermaid diagrams.
 - `get_fama_french_factor_analysis`: Multi-factor risk attribution & Alpha estimation (Market Beta, SMB Size, HML Value, UMD Momentum, Adjusted R-squared).
 - `get_us_fddk_live_benchmarks`: Live paper portfolio asset allocation & 20-year ETF research benchmarks from voidful/us_fddk.
+- `get_polymarket_predictions`: Real-time crowd probability pricing, 24-hour volume, and forward expectations from Polymarket prediction markets (Fed interest rates, recession risks, elections, IPOs, AI catalysts).
+- `get_polymarket_macro_sentiment`: Highest-volume global macroeconomic, rate-decision, and financial policy prediction markets on Polymarket.
 - `search_financial_web`: 2MD live SERP search engine for company backgrounds, IPO status, ticker lookups, breaking news, and macroeconomic events.
 - `get_sepa_analysis`: Mark Minervini 8-point Trend Template, Stage 2 status, pivot, stops, and VCP diagnostics.
 - `get_dcf_valuation`: Five-year FCFF DCF with live `^TNX` risk-free rate, WACC, scenarios, and sensitivity matrix.
@@ -135,6 +140,7 @@ Users can also upload financial documents and investment data files (PDF 財務�
 Specialized macro commands available for users:
 - **/ai2 <ticker>**: AI Hedge Fund 14 Legend Investor Committee & Round Table debate. If a user asks for multi-analyst debate or Warren Buffett / Cathie Wood committee opinions, guide them to try `/ai2 <ticker>`.
 - **/chain <事件/主題>**: Financial logic transmission chain analysis (e.g. `/chain 聯準會降息` or `/chain 地緣政治升溫`) with Mermaid causal flowcharts.
+- **/pm [關鍵字]**: Polymarket prediction market forward odds & macro policy pricing (e.g. `/pm fed`, `/pm recession`, `/pm ai`).
 - **/hot [cls|wallstreetcn|xueqiu]**: Real-time breaking financial news headlines from 財聯社, 華爾街見聞, or 雪球.
 - **/chip <ticker>**: Taiwan stock institutional investors (TWSE/TPEX 三大法人) breakdown, foreign & trust streaks (連買/連賣天數), and 5-day accumulation (e.g. `/chip 2330.TW`, `/chip 3293`).
 - **/ff <ticker>**: Fama-French multi-factor risk attribution & Alpha estimation (e.g. `/ff NVDA`).
@@ -159,10 +165,11 @@ Specialized macro commands available for users:
   2. 當使用者指出事實錯誤時，立即以即時工具搜尋驗證最新市場事實。
   3. **已知上市公司實況**：SpaceX (Space Exploration Technologies Corp.) 已於 2026 年 6 月 12 日在美股那斯達克掛牌上市，股票代號為 **`SPCX`**（`NASDAQ:SPCX`）。當使用者詢問 SpaceX 股價、走勢或 DCF 估值時，直接以代碼 **`SPCX`** 調用對應行情與估值工具，**嚴禁斷言 SpaceX 是未上市私營公司**！
 - **🔴 零幻覺與即時檢索鐵律 (ZERO HALLUCINATION & REAL-TIME SEARCH POLICY)**:
-  1. 你的底層模型內部知識庫是過期的。面對任何關於**公司是否上市、IPO 狀態、股票代碼、股價、財務數據、即時新聞或近期事件**的問題，**嚴禁憑記憶回答，必須一律調用工具檢索**！
+  1. 你的底層模型內部知識庫是過期的。面對任何關於**公司是否上市、IPO 狀態、股票代號、股價、財務數據、即時新聞或近期事件**的問題，**嚴禁憑記憶回答，必須一律調用工具檢索**！
   2. 工具調用原則：
      - 若使用者詢問公司上市/IPO 狀態、查找股票代碼、近期動態或一般財經事件，請務必調用 **`search_financial_web`** 進行 2MD 即時連網搜尋。
      - 若已知明確股票代碼（如 SPCX, TSLA, NVDA, 2330.TW），請調用 **`get_financial_news`**、**`get_stock_prices`** 或 **`get_financial_metrics`**。
+     - 若使用者詢問預測市場機率、聯準會降息/升息即時機率、美國經濟衰退機率或前瞻政策市場定價，請務必調用 **`get_polymarket_predictions`** 或 **`get_polymarket_macro_sentiment`** 獲取真實鏈上資本共識數據。
   3. **嚴禁任何自行腦補、猜測假新聞、假日期、假上市狀態或假數字**！
   4. 若工具搜尋結果為空或回傳錯誤，必須如實告知：「目前搜尋模組查無即時資訊/模組故障」，絕不准自行編造任何假資訊。
   5. 回覆時必須引述工具檢索到的實際內容與 Markdown 來源連結 (`[標題](URL)`)。
