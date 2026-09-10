@@ -270,10 +270,208 @@ def update_hk_stock_registry():
     return True
 
 
+def update_jpx_stock_registry():
+    """Fetch JPX official stock list (Excel) and compile JPX registry."""
+    print("⏳ [JPX] Fetching JPX official data_j.xlsx...")
+    url = "https://www.jpx.co.jp/markets/statistics-equities/misc/tvdivq0000001vg2-att/data_j.xlsx"
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            content = resp.read()
+    except Exception as e:
+        print(f"❌ [JPX] Failed to fetch JPX Excel: {e}")
+        return False
+
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(content))
+        sheet = wb.active
+    except Exception as e:
+        print(f"❌ [JPX] Failed to parse JPX Excel: {e}")
+        return False
+
+    stocks = {}
+    name_to_code = {}
+
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        if not row or len(row) < 4:
+            continue
+        code_raw = str(row[1] or "").strip()
+        name_raw = str(row[2] or "").strip()
+        market_raw = str(row[3] or "").strip()
+        industry_raw = str(row[5] or "").strip() if len(row) > 5 else ""
+
+        if not code_raw or not code_raw.isdigit():
+            continue
+
+        ticker = f"{code_raw}.T"
+        stocks[code_raw] = {
+            "code": code_raw,
+            "ticker": ticker,
+            "name": name_raw,
+            "market": market_raw,
+            "industry": industry_raw
+        }
+        if name_raw:
+            name_to_code[name_raw] = ticker
+
+    jpx_aliases = {
+        "豐田": "7203.T",
+        "豐田汽車": "7203.T",
+        "TOYOTA": "7203.T",
+        "索尼": "6758.T",
+        "SONY": "6758.T",
+        "軟銀": "9984.T",
+        "軟銀集團": "9984.T",
+        "SOFTBANK": "9984.T",
+        "任天堂": "7974.T",
+        "NINTENDO": "7974.T",
+        "東京威力科創": "8035.T",
+        "TEL": "8035.T",
+        "愛德萬測試": "6857.T",
+        "日立": "6501.T",
+        "HITACHI": "6501.T",
+        "三菱日聯": "8306.T",
+        "MUFG": "8306.T",
+        "優衣庫": "9983.T",
+        "迅銷": "9983.T",
+        "FAST RETAILING": "9983.T",
+        "基恩斯": "6861.T",
+        "KEYENCE": "6861.T",
+        "信越化學": "4063.T",
+        "本田": "7267.T",
+        "本田汽車": "7267.T",
+        "HONDA": "7267.T"
+    }
+    for alias, ticker in jpx_aliases.items():
+        name_to_code[alias] = ticker
+
+    out_data = {
+        "updated_at": datetime.date.today().isoformat(),
+        "source": "JPX data_j.xlsx",
+        "total": len(stocks),
+        "stocks": stocks,
+        "aliases": name_to_code
+    }
+
+    out_file = os.path.join(DATA_DIR, "jpx_stock_registry.json")
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(out_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ [JPX] Successfully saved {len(stocks)} JPX stocks and {len(name_to_code)} names/aliases to {out_file}")
+    return True
+
+
+def update_cn_stock_registry():
+    """Fetch SSE and SZSE official stock lists and compile CN A-shares registry."""
+    print("⏳ [CN] Fetching SSE & SZSE official A-share lists...")
+    stocks = {}
+    name_to_code = {}
+
+    # 1. SSE Main Board + STAR Market
+    sse_types = [("1", "上交所主板"), ("8", "科創板")]
+    for stype, mname in sse_types:
+        sse_url = f"http://query.sse.com.cn/security/stock/downloadStockListFile.do?csrcCode=&stockCode=&areaName=&stockType={stype}"
+        req = urllib.request.Request(sse_url, headers={
+            "User-Agent": USER_AGENT,
+            "Referer": "http://www.sse.com.cn/"
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                raw_text = resp.read().decode("gbk", errors="ignore")
+                for line in raw_text.splitlines():
+                    parts = [p.strip() for p in line.split("\t") if p.strip()]
+                    if len(parts) >= 4 and parts[0].isdigit() and len(parts[0]) == 6:
+                        code = parts[0]
+                        name = parts[1]
+                        ticker = f"{code}.SS"
+                        stocks[code] = {
+                            "code": code,
+                            "ticker": ticker,
+                            "name": name,
+                            "market": "SSE (上海證券交易所)",
+                            "sub_market": mname
+                        }
+                        if name:
+                            name_to_code[name] = ticker
+        except Exception as e:
+            print(f"⚠️ [CN] SSE type {stype} fetch warning: {e}")
+
+    # 2. SZSE Main Board + ChiNext
+    szse_url = "http://www.szse.cn/api/report/ShowReport?SHOWTYPE=xlsx&CATALOGID=1110&TABKEY=tab1"
+    req = urllib.request.Request(szse_url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            content = resp.read()
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(content))
+        sheet = wb.active
+        for row in sheet.iter_rows(min_row=2, values_only=True):
+            if not row or len(row) < 5:
+                continue
+            board = str(row[0] or "").strip()
+            full_name = str(row[1] or "").strip()
+            code_raw = str(row[4] or "").strip()
+            if not code_raw.isdigit() or len(code_raw) != 6:
+                continue
+            ticker = f"{code_raw}.SZ"
+            stocks[code_raw] = {
+                "code": code_raw,
+                "ticker": ticker,
+                "name": full_name,
+                "market": "SZSE (深圳證券交易所)",
+                "sub_market": board
+            }
+            if full_name:
+                name_to_code[full_name] = ticker
+    except Exception as e:
+        print(f"⚠️ [CN] SZSE fetch warning: {e}")
+
+    cn_aliases = {
+        "貴州茅台": "600519.SS",
+        "茅台": "600519.SS",
+        "寧德時代": "300750.SZ",
+        "比亞迪A股": "002594.SZ",
+        "五糧液": "000858.SZ",
+        "招商銀行": "600036.SS",
+        "中國平安": "601318.SS",
+        "中芯國際A股": "688981.SS",
+        "長江電力": "600900.SS",
+        "海康威視": "002415.SZ",
+        "立訊精密": "002475.SZ",
+        "邁瑞醫療": "300760.SZ",
+        "東方財富": "300059.SZ",
+        "紫金礦業": "601899.SS",
+        "北方華創": "002371.SZ",
+        "中微公司": "688012.SS",
+        "海光信息": "688041.SS",
+        "寒武紀": "688256.SS",
+        "中興通訊": "000063.SZ"
+    }
+    for alias, ticker in cn_aliases.items():
+        name_to_code[alias] = ticker
+
+    out_data = {
+        "updated_at": datetime.date.today().isoformat(),
+        "source": "SSE & SZSE Official",
+        "total": len(stocks),
+        "stocks": stocks,
+        "aliases": name_to_code
+    }
+
+    out_file = os.path.join(DATA_DIR, "cn_stock_registry.json")
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(out_data, f, ensure_ascii=False, indent=2)
+    print(f"✅ [CN] Successfully saved {len(stocks)} CN A-shares and {len(name_to_code)} names/aliases to {out_file}")
+    return True
+
+
 if __name__ == "__main__":
     us_ok = update_us_stock_registry()
     hk_ok = update_hk_stock_registry()
-    if us_ok and hk_ok:
-        print("🎉 All stock registries successfully updated!")
+    jpx_ok = update_jpx_stock_registry()
+    cn_ok = update_cn_stock_registry()
+    if us_ok and hk_ok and jpx_ok and cn_ok:
+        print("🎉 All global stock registries successfully updated!")
     else:
-        sys.exit(1)
+        print("⚠️ Some stock registries failed to update.")
+
