@@ -6,7 +6,7 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 
 ### 🛠️ 量化指令與外部 API 相容性修復
 - 修正 `/pm top` 被當成一般關鍵字而回傳空結果的問題，並確保熱門市場備援列表仍會排除體育賽事。
-- 修正 `/tfm <ticker>`：改讀取 888 Stock Quant 的單一標的預測歷史，只保留依標準化時間（ISO 8601／Unix 秒／Unix 毫秒）倒序排列的 TimesFM 項目；`/tfm top` 維持排行榜模式。
+- 修正 `/tfm <ticker>`：改讀取 888 Stock Quant 的單一標的預測歷史，只保留依標準化時間（ISO 8601／Unix 秒／Unix 毫秒／斜線日期）倒序排列的 TimesFM 項目，缺少時間欄位時安全排到末端；`/tfm top` 維持排行榜模式。
 - 支援行事曆別名 `/cal macro`、`/cal economic`、`/cal rate`、`/cal commodities`，並修正 FedWatch API `target_rates/current_probability` 欄位映射。
 - `/macro` 顯示使用者要求的市場；若上游回傳市場代碼不一致，明確標示 API 契約警告。
 - `/chip` 同時附加近 20 日 Top 3 買超與賣超券商分點。

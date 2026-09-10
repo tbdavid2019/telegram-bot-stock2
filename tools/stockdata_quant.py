@@ -258,7 +258,8 @@ def _timesfm_timestamp_key(item: Dict[str, Any]) -> tuple:
 
     text_value = str(raw_value).strip()
     try:
-        iso_value = text_value[:-1] + "+00:00" if text_value.endswith("Z") else text_value
+        normalized_text = text_value.replace("/", "-")
+        iso_value = normalized_text[:-1] + "+00:00" if normalized_text.endswith("Z") else normalized_text
         parsed = datetime.fromisoformat(iso_value)
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)

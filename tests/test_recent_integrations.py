@@ -118,6 +118,23 @@ class RecentIntegrationTests(unittest.TestCase):
 
         self.assertEqual([item["potential"] for item in items], [3.0, 2.0, 1.0])
 
+    def test_timesfm_missing_and_slash_dates_are_sorted_safely(self):
+        response = {
+            "success": True,
+            "data": [
+                {"ticker": "2330.TW", "model_name": "TimesFM", "timestamp": "2026/09/11", "potential": 3.0},
+                {"ticker": "2330.TW", "model_name": "TimesFM", "timestamp": "2026-09-10", "potential": 2.0},
+                {"ticker": "2330.TW", "model_name": "TimesFM", "timestamp": None, "potential": 1.0},
+            ],
+        }
+        with mock.patch.object(stockdata_quant, "_get_json", return_value=response):
+            stockdata_quant._timesfm_cache.clear()
+            items = stockdata_quant.fetch_timesfm_predictions(
+                action="bullish", limit=10, ticker="2330.TW"
+            )
+
+        self.assertEqual([item["potential"] for item in items], [3.0, 2.0, 1.0])
+
     def test_macro_formatter_uses_requested_market_when_api_ignores_market(self):
         response = {
             "success": True,
