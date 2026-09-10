@@ -4,4 +4,6 @@ __pycache__/
 */__pycache__/
 *.pyc
 bot.log
+*.log
 .auto_update_yfinance.lock
+data/cache/
