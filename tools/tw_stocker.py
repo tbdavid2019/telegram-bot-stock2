@@ -54,6 +54,10 @@ def fetch_tw_stocker_df(ticker: str) -> Optional[pd.DataFrame]:
             return None
 
         df[date_col] = pd.to_datetime(df[date_col], errors='coerce', utc=True)
+        try:
+            df[date_col] = df[date_col].dt.tz_convert('Asia/Taipei')
+        except Exception:
+            pass
         df = df.dropna(subset=[date_col]).sort_values(by=date_col)
         
         # If intraday 5-min data, resample to daily OHLCV

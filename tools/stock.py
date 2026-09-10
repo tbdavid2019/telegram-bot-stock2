@@ -72,8 +72,7 @@ def get_stock_prices(ticker: str) -> Dict:
     try:
         data = yf.download(
             ticker,
-            start=dt.datetime.now() - dt.timedelta(weeks=13),
-            end=dt.datetime.now(),
+            period="3mo",
             interval='1d',
             progress=False
         )

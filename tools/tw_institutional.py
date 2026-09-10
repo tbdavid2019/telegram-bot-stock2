@@ -4,6 +4,11 @@ import json
 import ssl
 import logging
 import datetime as dt
+try:
+    from zoneinfo import ZoneInfo
+    TAIPEI_TZ = ZoneInfo("Asia/Taipei")
+except Exception:
+    TAIPEI_TZ = dt.timezone(dt.timedelta(hours=8))
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, List, Optional, Tuple
@@ -203,9 +208,15 @@ def fetch_tpex_daily(date_str: str) -> Dict[str, Dict[str, Any]]:
 
 
 def _get_recent_trading_dates(max_days: int = 15) -> List[str]:
-    """Generate candidate trading dates (YYYYMMDD), skipping weekends."""
+    """Generate candidate trading dates (YYYYMMDD), skipping weekends and unreleased today."""
     dates = []
-    curr = dt.date.today()
+    now_tw = dt.datetime.now(TAIPEI_TZ)
+    # TWSE/TPEX institutional data (T86/QFIIS) is published at ~15:30 Taipei time
+    if now_tw.time() < dt.time(15, 30):
+        curr = now_tw.date() - dt.timedelta(days=1)
+    else:
+        curr = now_tw.date()
+
     count = 0
     while len(dates) < max_days and count < 30:
         if curr.weekday() < 5:  # Monday to Friday

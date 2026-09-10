@@ -2,6 +2,15 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.14.2] - 2026-09-10
+
+### 🛡️ 全面修復午夜邊界問題 (Midnight Boundary Problem) 與時區臨界防禦
+- **`tools/stock.py`**：修復 `yf.download` 的 `end=dt.datetime.now()` 在午夜 00:00~00:05 區間調用時因左閉右開（exclusive）截斷而漏失前一日 K 線收盤數據的重大 Bug，改採 `period="3mo"` 安全週期。
+- **`tools/tw_institutional.py`**：修復伺服器 UTC 與台股台北時區午夜錯位問題。全面導入 `ZoneInfo("Asia/Taipei")`，並設置 15:30 證交所 T86/QFIIS 法人籌碼發布時間閘門，未滿 15:30 自動從前一交易日推算，杜絕盤前向證交所發送無效請求。
+- **`tools/stock_analysis.py`**：修復美股財報日程與 UTC 午夜邊界錯位。將 `get_earnings_briefing` 的比較基準日由 UTC 改為美東時間 `America/New_York`，防止美東晚間盤後 20:00 (EDT) 分析時因 UTC 跨入次日而誤將當天盤後剛發布的財報提早淘汰。
+- **`tools/tw_stocker.py`**：日線 Resample (`1D`) 聚合前明確轉換為 `Asia/Taipei` 台北標準時區，確保 Daily DatetimeIndex 錨定在台灣交易日午夜，避免被 UTC 00:00:00 邊界切割。
+- **`Dockerfile` & `requirements.txt`**：在容器中安裝 `tzdata` 並設置 `ENV TZ=Asia/Taipei`，確保底層 Debian 容器時區與系統日誌一律與台灣交易市場保持同步。
+
 ## [2.14.1] - 2026-09-10
 
 ### 🛠️ 量化指令與外部 API 相容性修復

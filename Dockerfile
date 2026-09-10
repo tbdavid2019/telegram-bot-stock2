@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # 設定工作目錄
@@ -18,8 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 複製專案文件
 COPY . .
 
-# 設定環境變數 (PYTHONUNBUFFERED=1 讓 Python 輸出不緩衝)
-ENV PYTHONUNBUFFERED=1
+# 設定環境變數 (PYTHONUNBUFFERED=1 讓 Python 輸出不緩衝，TZ 設定標準時區避免午夜邊界錯位)
+ENV PYTHONUNBUFFERED=1 \
+    TZ=Asia/Taipei
 
 # Watchtower 自動化更新標籤
 LABEL com.centurylinklabs.watchtower.enable="true"

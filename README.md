@@ -199,6 +199,7 @@
 - **文件識別與解析**：`Google Magika` (原生 1MB ONNX 本地 CPU 推論、Docker 內建模型、安全防護), `pypdf`, `openpyxl`, `xlrd`
 - **Agent 與工具鏈**：`LangGraph` (具備 `synthesizer_node` 兩階段收斂架構、3 天 72h Session TTL 記憶管理), `LangChain`
 - **市場數據與自動追版**：`yfinance` (自動 GitHub Actions 每日追版 CI/CD), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
+- **時區與午夜邊界防禦 (Midnight Boundary Defense)**：全面導入 IANA 標準時區（`Asia/Taipei` 與 `America/New_York`）與 `tzdata`，修復 `yf.download` 跨日 exclusive 截斷、台股 15:30 盤前籌碼時間閘門與美股盤後財報 UTC 錯位，確保跨日臨界點零數據遺失與零無效請求。
 - **台股官方籌碼**：台灣證交所 (**TWSE T86 / MI_QFIIS**)、櫃買中心 (**TPEX 3itrade**)、`data/cache/institutional/` 磁碟快取
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
 - **888 Stock Quant 核心運算引擎**：`https://stockdata.david888.com` (Google TimesFM 2.5 500M 基礎模型推論、四維共振飆股篩選、宏觀體制部位指引、玄鐵重劍均線回測、券商分點與結構化財經日曆)

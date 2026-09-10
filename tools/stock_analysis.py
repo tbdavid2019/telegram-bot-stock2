@@ -8,6 +8,11 @@ handlers call them through an executor (see ``handlers/stock_cmds.py``).
 from __future__ import annotations
 
 import datetime as dt
+try:
+    from zoneinfo import ZoneInfo
+    NY_TZ = ZoneInfo("America/New_York")
+except Exception:
+    NY_TZ = dt.timezone(dt.timedelta(hours=-4))
 import logging
 import math
 from typing import Any, Dict, Iterable, List, Optional
@@ -353,7 +358,7 @@ def get_earnings_briefing(ticker: str) -> Dict[str, Any]:
     stock = yf.Ticker(ticker)
     info = _info(ticker)
     rows = _earnings_rows(stock)
-    now = dt.datetime.now(dt.timezone.utc).date()
+    now = dt.datetime.now(NY_TZ).date()
     upcoming = [row for row in rows if row.get("date") and row["date"] >= now.isoformat()]
     historical = [row for row in rows if row not in upcoming and (row.get("reported_eps") is not None or row.get("surprise_percent") is not None)][:4]
     calendar_date = upcoming[0]["date"] if upcoming else None
