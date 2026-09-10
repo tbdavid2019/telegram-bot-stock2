@@ -6,11 +6,11 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 
 ### 🛠️ 量化指令與外部 API 相容性修復
 - 修正 `/pm top` 被當成一般關鍵字而回傳空結果的問題，並確保熱門市場備援列表仍會排除體育賽事。
-- 修正 `/tfm <ticker>`：改讀取 888 Stock Quant 的單一標的預測歷史，只保留依時間倒序排列的 TimesFM 項目；`/tfm top` 維持排行榜模式。
+- 修正 `/tfm <ticker>`：改讀取 888 Stock Quant 的單一標的預測歷史，只保留依標準化時間（ISO 8601／Unix 秒／Unix 毫秒）倒序排列的 TimesFM 項目；`/tfm top` 維持排行榜模式。
 - 支援行事曆別名 `/cal macro`、`/cal economic`、`/cal rate`、`/cal commodities`，並修正 FedWatch API `target_rates/current_probability` 欄位映射。
 - `/macro` 顯示使用者要求的市場；若上游回傳市場代碼不一致，明確標示 API 契約警告。
 - `/chip` 同時附加近 20 日 Top 3 買超與賣超券商分點。
-- 新增 `xlrd` 依賴以支援舊式 `.xls` 試算表；明確隔離 `XLRDError` 與一般解析例外，避免損毀檔案造成程序中斷；並限制上傳文件注入 LLM 的內容長度、隔離不可信文件指令。
+- 新增受約束的 `xlrd>=2.0.2,<3.0.0` 依賴以支援舊式 `.xls` 試算表；明確隔離 `XLRDError` 與一般解析例外，避免損毀檔案造成程序中斷；並限制上傳文件注入 LLM 的內容長度、隔離不可信文件指令。
 - 補上量化整合回歸測試，涵蓋外部 API 欄位與指令別名相容性。
 
 ## [2.14.0] - 2026-09-10

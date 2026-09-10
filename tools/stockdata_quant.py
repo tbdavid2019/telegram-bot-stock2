@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+from datetime import datetime, timezone
 from urllib.parse import quote
 from typing import Any, Dict, List, Optional
 
@@ -221,6 +223,49 @@ def format_resonance_markdown(picks: List[Dict[str, Any]], title: str = "") -> s
 # 3. Google TimesFM 5-Day Forecast (時序大模型)
 # ==========================================
 
+TIMESFM_TIMESTAMP_FIELDS = (
+    "timestamp",
+    "analysis_date",
+    "data_as_of",
+    "prediction_date",
+    "created_at",
+    "updated_at",
+    "date",
+)
+
+
+def _timesfm_timestamp_key(item: Dict[str, Any]) -> tuple:
+    """Return a comparable UTC key for ISO, Unix-second, or Unix-millisecond dates."""
+    raw_value = next(
+        (
+            item.get(field)
+            for field in TIMESFM_TIMESTAMP_FIELDS
+            if item.get(field) is not None and str(item.get(field)).strip()
+        ),
+        None,
+    )
+    if raw_value is None:
+        return (0, 0.0, "")
+
+    try:
+        numeric_value = float(raw_value)
+        if math.isfinite(numeric_value):
+            if abs(numeric_value) >= 100_000_000_000:
+                numeric_value /= 1000.0
+            return (2, numeric_value, "")
+    except (TypeError, ValueError):
+        pass
+
+    text_value = str(raw_value).strip()
+    try:
+        iso_value = text_value[:-1] + "+00:00" if text_value.endswith("Z") else text_value
+        parsed = datetime.fromisoformat(iso_value)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return (2, parsed.timestamp(), "")
+    except ValueError:
+        return (1, 0.0, text_value)
+
 def fetch_timesfm_predictions(
     action: str = "bullish",
     limit: int = 10,
@@ -249,26 +294,7 @@ def fetch_timesfm_predictions(
                     and str(item.get("model_name", "")).lower() == "timesfm"
                 ]
                 # History responses may contain multiple runs; show newest TimesFM first.
-                timestamp_fields = (
-                    "timestamp",
-                    "analysis_date",
-                    "data_as_of",
-                    "prediction_date",
-                    "created_at",
-                    "updated_at",
-                    "date",
-                )
-                items.sort(
-                    key=lambda item: next(
-                        (
-                            str(item.get(field)).strip()
-                            for field in timestamp_fields
-                            if item.get(field) is not None and str(item.get(field)).strip()
-                        ),
-                        "",
-                    ),
-                    reverse=True,
-                )
+                items.sort(key=_timesfm_timestamp_key, reverse=True)
             _timesfm_cache.set(cache_key, items)
             return items
         return []

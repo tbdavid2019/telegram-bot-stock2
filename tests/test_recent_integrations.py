@@ -86,6 +86,38 @@ class RecentIntegrationTests(unittest.TestCase):
         self.assertEqual([item["potential"] for item in items], [2.4, 1.2])
         self.assertTrue(all(item["model_name"] == "TimesFM" for item in items))
 
+    def test_timesfm_sort_normalizes_epoch_seconds_and_milliseconds(self):
+        response = {
+            "success": True,
+            "data": [
+                {
+                    "ticker": "2330.TW",
+                    "model_name": "TimesFM",
+                    "timestamp": "2026-09-10T00:00:00",
+                    "potential": 1.0,
+                },
+                {
+                    "ticker": "2330.TW",
+                    "model_name": "TimesFM",
+                    "timestamp": 1790000000,
+                    "potential": 2.0,
+                },
+                {
+                    "ticker": "2330.TW",
+                    "model_name": "TimesFM",
+                    "timestamp": 1791000000000,
+                    "potential": 3.0,
+                },
+            ],
+        }
+        with mock.patch.object(stockdata_quant, "_get_json", return_value=response):
+            stockdata_quant._timesfm_cache.clear()
+            items = stockdata_quant.fetch_timesfm_predictions(
+                action="bullish", limit=10, ticker="2330.TW"
+            )
+
+        self.assertEqual([item["potential"] for item in items], [3.0, 2.0, 1.0])
+
     def test_macro_formatter_uses_requested_market_when_api_ignores_market(self):
         response = {
             "success": True,
@@ -126,9 +158,7 @@ class RecentIntegrationTests(unittest.TestCase):
 
     def test_xls_support_is_declared(self):
         requirements = Path(__file__).parents[1] / "requirements.txt"
-        self.assertTrue(
-            any(line.strip().startswith("xlrd") for line in requirements.read_text().splitlines())
-        )
+        self.assertIn("xlrd>=2.0.2,<3.0.0", requirements.read_text())
 
     def test_corrupt_xls_is_returned_as_a_safe_parse_error(self):
         import xlrd
