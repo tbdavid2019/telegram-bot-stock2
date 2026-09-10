@@ -258,6 +258,8 @@ def _timesfm_timestamp_key(item: Dict[str, Any]) -> tuple:
 
     text_value = str(raw_value).strip()
     try:
+        # Slash-delimited dates are intentionally interpreted as YYYY/MM/DD;
+        # other locale orders fall back safely instead of being guessed.
         normalized_text = text_value.replace("/", "-")
         iso_value = normalized_text[:-1] + "+00:00" if normalized_text.endswith("Z") else normalized_text
         parsed = datetime.fromisoformat(iso_value)
