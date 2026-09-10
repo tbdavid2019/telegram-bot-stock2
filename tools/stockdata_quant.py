@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+from urllib.parse import quote
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -74,6 +75,14 @@ def fetch_macro_regime(market: str = "tw") -> Dict[str, Any]:
     def _fetch():
         res = _get_json("/api/v1/macro/latest", params={"market": m_code})
         if res and res.get("success"):
+            res = dict(res)
+            requested_market = m_code.upper()
+            actual_market = str(res.get("market", "")).upper()
+            res["requested_market"] = requested_market
+            if actual_market and actual_market != requested_market:
+                res["market_mismatch"] = (
+                    f"API 市場欄位不一致：請求 {requested_market}，回傳 {actual_market}"
+                )
             _macro_cache.set(cache_key, res)
             return res
         return {}
@@ -86,7 +95,8 @@ def format_macro_regime_markdown(data: Dict[str, Any]) -> str:
     if not data or not data.get("success"):
         return "⚠️ 目前暫時無法取得大盤風控資料，請稍後重試。"
 
-    m_name = "🇹🇼 台股市場" if data.get("market") == "TW" else "🇺🇸 美股市場"
+    market_code = str(data.get("requested_market") or data.get("market", "US")).upper()
+    m_name = "🇹🇼 台股市場" if market_code == "TW" else "🇺🇸 美股市場"
     regime = data.get("regime_name", "評估中")
     exposure = data.get("exposure", 0.0)
     exp_pct = int(round(exposure * 100))
@@ -113,6 +123,9 @@ def format_macro_regime_markdown(data: Dict[str, Any]) -> str:
         f"  • 費城半導體 (`^SOX`)：{sox_status}",
         f"  • VIX 恐慌指數：`{vix:.2f}`",
     ]
+
+    if data.get("market_mismatch"):
+        lines.insert(3, f"⚠️ **{data['market_mismatch']}**")
 
     warnings = data.get("warnings", [])
     if warnings:
@@ -208,10 +221,19 @@ def format_resonance_markdown(picks: List[Dict[str, Any]], title: str = "") -> s
 # 3. Google TimesFM 5-Day Forecast (時序大模型)
 # ==========================================
 
-def fetch_timesfm_predictions(action: str = "bullish", limit: int = 10) -> List[Dict[str, Any]]:
-    """Fetch TimesFM top bullish or bearish predictions with Risk/Reward ratios."""
-    ep = "/api/v1/predictions/timesfm/top-bearish" if "bear" in action.lower() or "跌" in action else "/api/v1/predictions/timesfm/top-bullish"
-    cache_key = f"timesfm:{action}:{limit}"
+def fetch_timesfm_predictions(
+    action: str = "bullish",
+    limit: int = 10,
+    ticker: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Fetch TimesFM leaderboard data or the latest prediction for one ticker."""
+    is_bearish = "bear" in action.lower() or "跌" in action
+    clean_ticker = ticker.strip().upper() if ticker else ""
+    if clean_ticker:
+        ep = f"/api/v1/predictions/history/{quote(clean_ticker, safe='')}"
+    else:
+        ep = "/api/v1/predictions/timesfm/top-bearish" if is_bearish else "/api/v1/predictions/timesfm/top-bullish"
+    cache_key = f"timesfm:{action}:{limit}:{clean_ticker}"
     cached = _timesfm_cache.get(cache_key)
     if cached is not None:
         return cached
@@ -220,6 +242,12 @@ def fetch_timesfm_predictions(action: str = "bullish", limit: int = 10) -> List[
         res = _get_json(ep, params={"limit": limit})
         if res and res.get("success") and "data" in res:
             items = res["data"]
+            if clean_ticker:
+                items = [
+                    item for item in items
+                    if str(item.get("ticker", "")).upper() == clean_ticker
+                    and str(item.get("model_name", "")).lower() == "timesfm"
+                ]
             _timesfm_cache.set(cache_key, items)
             return items
         return []
@@ -396,8 +424,30 @@ def format_broker_summary_markdown(data: Dict[str, Any]) -> str:
 # 6. Structural Calendars & Macro Catalysts
 # ==========================================
 
+CALENDAR_CATEGORY_ALIASES = {
+    "all": "all",
+    "earn": "earn",
+    "earnings": "earn",
+    "econ": "econ",
+    "economic": "econ",
+    "macro": "econ",
+    "fed": "fed",
+    "rate": "fed",
+    "rates": "fed",
+    "comm": "comm",
+    "commodity": "comm",
+    "commodities": "comm",
+}
+
+
+def normalize_calendar_category(category: str = "all") -> str:
+    """Normalize documented calendar aliases to the API fetch categories."""
+    return CALENDAR_CATEGORY_ALIASES.get(str(category).strip().lower(), "all")
+
+
 def fetch_calendar_data(category: str = "all") -> Dict[str, Any]:
     """Fetch structural investing calendars (earnings, economics, fed-rate, commodities)."""
+    category = normalize_calendar_category(category)
     cache_key = f"cal:{category}"
     cached = _calendar_cache.get(cache_key)
     if cached is not None:
@@ -440,10 +490,10 @@ def format_calendar_markdown(data: Dict[str, Any], cat: str = "all") -> str:
         lines.append("🏦 **CME FedWatch 官方聯準會利率路徑**：")
         lines.append(f"  • 下次會議日期：`{fed.get('meeting_date', '近期')}`")
         lines.append(f"  • 更新時間：`{fed.get('updated_at', '')}`")
-        probs = fed.get("probabilities", [])
+        probs = fed.get("probabilities") or fed.get("target_rates", [])
         for p in probs[:3]:
             rate = p.get("rate_range", "")
-            prob = p.get("probability", "")
+            prob = p.get("probability") or p.get("current_probability") or p.get("probability_value", "")
             lines.append(f"    - 利率區間 `{rate}`：**{prob}**")
         lines.append("")
 
@@ -543,8 +593,11 @@ def get_timesfm_predictions_tool(ticker_or_type: str = "bullish", limit: int = 8
     - '有哪些高勝率與高盈虧比的股票？'
     """
     logger.info(f"=== [Tool] get_timesfm_predictions_tool called for: {ticker_or_type} ===")
-    is_bear = "bear" in ticker_or_type.lower() or "跌" in ticker_or_type
-    items = fetch_timesfm_predictions("bearish" if is_bear else "bullish", limit)
+    raw_arg = ticker_or_type.strip()
+    is_bear = "bear" in raw_arg.lower() or "跌" in raw_arg
+    is_mode = raw_arg.lower() in {"", "bullish", "bearish", "top", "看漲", "看跌", "避險"}
+    ticker = None if is_mode or is_bear else raw_arg
+    items = fetch_timesfm_predictions("bearish" if is_bear else "bullish", limit, ticker)
     summary = format_timesfm_markdown(items, is_bearish=is_bear)
     return {
         "type": "bearish" if is_bear else "bullish",
@@ -609,8 +662,9 @@ def get_market_investing_calendars(category: str = "all") -> Dict[str, Any]:
     - '黃金與原油等大宗商品走勢'
     """
     logger.info(f"=== [Tool] get_market_investing_calendars called for: {category} ===")
-    data = fetch_calendar_data(category)
-    summary = format_calendar_markdown(data, cat=category)
+    normalized_category = normalize_calendar_category(category)
+    data = fetch_calendar_data(normalized_category)
+    summary = format_calendar_markdown(data, cat=normalized_category)
     return {
         "category": category,
         "data": data,

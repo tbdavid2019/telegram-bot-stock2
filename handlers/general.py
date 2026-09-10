@@ -13,7 +13,7 @@ from telegram import (
 )
 from telegram.ext import ContextTypes, Application
 from ai_core import clear_context, process_chat_message, extract_followups_from_text
-from tools.file_intel import process_uploaded_document
+from tools.file_intel import process_uploaded_document, build_document_analysis_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -389,15 +389,14 @@ async def document_message_handler(update: Update, context: ContextTypes.DEFAULT
         except Exception:
             pass
 
-        full_prompt = (
-            f"【使用者上傳財務/投資檔案】\n"
-            f"- 檔案名稱：`{file_name}`\n"
-            f"- 檔案格式：{doc_type}（Google Magika 辨識標籤：`{label}`，置信度：{score:.1%}）\n"
-            f"- 檔案大小：{file_size_kb:.1f} KB\n\n"
-            f"【使用者指定分析需求】：\n"
-            f"{user_caption if user_caption else '（使用者未輸入文字備註。請主動對本文件進行專業投資與財務分析，整理關鍵財務指標、營運亮點、數據洞察與風險評估）'}\n\n"
-            f"【文件擷取內容】：\n"
-            f"{extracted_text}\n"
+        full_prompt = build_document_analysis_prompt(
+            file_name=file_name,
+            doc_type=doc_type,
+            label=label,
+            score=score,
+            file_size_kb=file_size_kb,
+            user_caption=user_caption,
+            extracted_text=extracted_text,
         )
 
         thread_id = str(update.effective_chat.id)

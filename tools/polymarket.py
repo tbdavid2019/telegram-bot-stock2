@@ -252,6 +252,9 @@ def fetch_polymarket_markets(
     Protected by TTLCache and SingleFlight.
     """
     clean_kw = keyword.strip().lower()
+    # ``top`` is a UI alias for the unfiltered high-volume market list.
+    if clean_kw in {"top", "熱門", "熱門市場", "global", "global hot"}:
+        clean_kw = ""
     cache_key = f"pm:{clean_kw}:{limit}:{filter_sports}"
     cached = _pm_cache.get(cache_key)
     if cached is not None:
@@ -316,6 +319,11 @@ def fetch_polymarket_markets(
                         for m in ev.get("markets", []):
                             parsed = _sanitize_market(m)
                             if parsed and parsed["question"] not in seen_questions:
+                                if filter_sports and any(
+                                    re.search(pat, parsed["question"], re.IGNORECASE)
+                                    for pat in SPORTS_PATTERNS
+                                ):
+                                    continue
                                 seen_questions.add(parsed["question"])
                                 results.append(parsed)
 

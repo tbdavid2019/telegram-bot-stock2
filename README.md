@@ -77,7 +77,7 @@
 - 🧠 **Google TimesFM 2.5 500M 時間序列大模型預測 (`/tfm 股票代碼`)**：採用 Google 最新 500M 參數時間序列基礎大模型，計算未來目標價、預期漲幅、ATR 動態波動度、建議進場價、停損價與風報比 (R/R Ratio)。
 - 🗡️ **玄鐵重劍突破拉回戰法 (`/xt` 或 `/xuantie`)**：基於經典均線策略（MA60 季線 / MA120 半年線），捕捉強勢突破後健康回測關鍵支撐之右側進場轉折標的。
 - 🏢 **台股關鍵券商分點追蹤 (`/broker 股票代碼`)**：即時解析主力分點籌碼進出，列出買超 Top 3 與賣超 Top 3 分點券商名稱及買賣超張數，掌握在地主力與大戶進出動向。
-- 📅 **結構化全球財經日曆 (`/cal [類別]`)**：美股重量級財報日曆 (`earnings`)、全球宏觀央行/CPI/非農 (`macro`)、CME 聯準會利率會議點陣圖 (`fed`) 與大宗商品原物料結算 (`commodities`)。
+- 📅 **結構化全球財經日曆 (`/cal [類別]`)**：美股重量級財報日曆 (`earn`/`earnings`)、全球宏觀央行/CPI/非農 (`econ`/`macro`)、CME 聯準會利率會議點陣圖 (`fed`) 與大宗商品原物料行情 (`comm`/`commodities`)。
 
 ### 11. 🧭 Smart Money 與散戶市場情報（自然語言調用）
 - 13F：透過 2MD 三節點備援讀取 Dataroma/WhaleWisdom 公開資料，整理超級投資人買入、賣出或持有摘錄。
@@ -115,10 +115,10 @@
 | `/pm` | 🔮 Polymarket 預測市場前瞻機率與總經政策定價 | `/pm fed`、`/pm recession` 或 `/pm ai` |
 | `/pick` | 👑 四維共振精選飆股雷達 (雙模型交集與高風報比) | `/pick` 或 `/resonance` |
 | `/macro` | 🛡️ 宏觀市場體制與建議投資部位曝險 (0%~100%) | `/macro` 或 `/regime` |
-| `/tfm` | 🧠 Google TimesFM 500M 時間序列深度預測與風報比 | `/tfm 2330.TW` 或 `/tfm NVDA` |
+| `/tfm` | 🧠 Google TimesFM 500M 時間序列深度預測與風報比；指定代碼時讀取該標的最新 TimesFM 預測 | `/tfm 2330.TW`、`/tfm NVDA` 或 `/tfm top` |
 | `/xt` | 🗡️ 玄鐵重劍戰法突破回測均線選股 | `/xt` 或 `/xuantie` |
 | `/broker` | 🏢 台股關鍵券商分點進出明細 (Top 3 買賣超主力) | `/broker 2330.TW` 或 `/broker 3293.TWO` |
-| `/cal` | 📅 結構化全球財經日曆 (美股財報/宏觀/聯準會/商品) | `/cal`、`/cal macro` 或 `/cal fed` |
+| `/cal` | 📅 結構化全球財經日曆 (美股財報/宏觀/聯準會/商品) | `/cal`、`/cal macro`、`/cal fed` 或 `/cal commodities` |
 | `/chain` | ⛓️ 金融邏輯傳導鏈分析與因果流程圖 | `/chain 聯準會降息` 或 `/chain 輝達財報` |
 | `/hot` | 🔥 即時快訊：財聯社/華爾街見聞/雪球/Investing.com (繁中焦點、大宗商品、美債利率) | `/hot`、`/hot investing_hk` 或 `/hot commodities` |
 | `/chip` | 🏢 台股三大法人買賣超、連買連賣與關鍵券商分點 | `/chip 2330.TW` 或 `/chip 3293.TWO` |
@@ -157,7 +157,7 @@
 | :--- | :--- | :--- |
 | 👑 **四維共振飆股雷達** | `/pick` 或 `/resonance` | 通過四維指標共振 ∩ 雙 ML 模型的強勢飆股、ATR 波動度、建議進場價、保護性停損價與風報比 (R/R)。 |
 | 🛡️ **宏觀市場體制與部位建議** | `/macro` 或 `/regime` | 目前市場體制狀態（Bullish / High Volatility / Risk-Off）、建議投資部位曝險比例（0%~100%）與避險指引。 |
-| 🧠 **Google TimesFM 500M 預測** | `/tfm 2330.TW` 或 `/tfm NVDA` | Google 500M 時間序列大模型預測的未來目標價、預期漲幅、進場停損區間與風報比。 |
+| 🧠 **Google TimesFM 500M 預測** | `/tfm 2330.TW` 或 `/tfm NVDA` | 該標的最新 TimesFM 預測目標價、預期漲幅與風報比；`/tfm top` 顯示排行榜。 |
 | 🗡️ **玄鐵重劍突破拉回戰法** | `/xt` 或 `/xuantie` | 強勢突破後回測 MA60（季線）或 MA120（半年線）關鍵支撐的強勢選股清單。 |
 | 🏢 **台股關鍵券商分點追蹤** | `/broker 2330.TW` | 該檔股票當日 **Top 3 買超主力分點** 與 **Top 3 賣超分點** 的淨進出張數。 |
 | 🏢 **三大法人 + 券商分點聯動** | `/chip 2330.TW` | 外資/投信/自營商連買連賣數據，並**自動在報告末端附帶 Top 3 關鍵券商分點**。 |

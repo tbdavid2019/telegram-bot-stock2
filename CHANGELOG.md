@@ -2,6 +2,17 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.14.1] - 2026-09-10
+
+### 🛠️ 量化指令與外部 API 相容性修復
+- 修正 `/pm top` 被當成一般關鍵字而回傳空結果的問題，並確保熱門市場備援列表仍會排除體育賽事。
+- 修正 `/tfm <ticker>`：改讀取 888 Stock Quant 的單一標的預測歷史，只保留最新 TimesFM 項目；`/tfm top` 維持排行榜模式。
+- 支援行事曆別名 `/cal macro`、`/cal economic`、`/cal rate`、`/cal commodities`，並修正 FedWatch API `target_rates/current_probability` 欄位映射。
+- `/macro` 顯示使用者要求的市場；若上游回傳市場代碼不一致，明確標示 API 契約警告。
+- `/chip` 同時附加近 20 日 Top 3 買超與賣超券商分點。
+- 新增 `xlrd` 依賴以支援舊式 `.xls` 試算表，並限制上傳文件注入 LLM 的內容長度、隔離不可信文件指令。
+- 補上量化整合回歸測試，涵蓋外部 API 欄位與指令別名相容性。
+
 ## [2.14.0] - 2026-09-10
 
 ### 👑 888 Stock Quant 量化平台全量導入：共振選股、TimesFM、大盤風控與主力分點
@@ -38,7 +49,7 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 
 ### 🔮 Polymarket 預測市場前瞻情報與總經政策定價導入
 - **全新工具模組 `tools/polymarket.py`**：
-  - **100% 免 API Key 直連**：串接 Polymarket Gamma API 與 CLOB API 公開端點，讀取市場元數據、即時賠率定價（`outcomePrices`）、24小時成交額（`volume24hr`）、總流動性（`liquidityNum`）與結算日期。
+  - **100% 免 API Key 直連**：串接 Polymarket Gamma API 公開端點，讀取市場元數據、即時賠率定價（`outcomePrices`）、24小時成交額（`volume24hr`）、總流動性（`liquidityNum`）與結算日期。
   - **真金白銀市場共識定價**：提供傳統新聞與社交情緒缺乏的「前瞻真實機率（Skin-in-the-game Forward Odds）」，涵蓋聯準會降息/升息幅度分布、美國經濟衰退、全球關稅政策、大選與重要科技催化劑（OpenAI、IPO 等）。
   - **文字進度條與排版美化**：輸出直觀的 ASCII/Unicode 百分比進度條（如 `[████░░░░] 45.5%`），清晰標註 24h 成交額與流動性深度。
 - **專屬指令 `/pm [關鍵字]` 與快捷互動**：

@@ -813,11 +813,18 @@ async def institutional_chip_analysis(update: Update, context: ContextTypes.DEFA
         try:
             from tools.stockdata_quant import fetch_broker_summary
             brk = await loop.run_in_executor(None, fetch_broker_summary, res['stock'], 20)
-            if brk and "top_buyers" in brk and brk["top_buyers"]:
-                reply_text += "\n\n━━━━━━━━━━━━━━━━━━━━\n🟢 **近 20 日主力買超券商分點 Top 3**：\n"
+            if brk and (brk.get("top_buyers") or brk.get("top_sellers")):
+                reply_text += "\n\n━━━━━━━━━━━━━━━━━━━━\n"
+            if brk and brk.get("top_buyers"):
+                reply_text += "🟢 **近 20 日主力買超券商分點 Top 3**：\n"
                 for b in brk["top_buyers"][:3]:
                     net = int(round(b.get("total_net", 0)))
                     reply_text += f"  • {b.get('broker_name')}: `+{net:,} 張`\n"
+            if brk and brk.get("top_sellers"):
+                reply_text += "🔴 **近 20 日主力賣超券商分點 Top 3**：\n"
+                for s in brk["top_sellers"][:3]:
+                    net = int(round(s.get("total_net", 0)))
+                    reply_text += f"  • {s.get('broker_name')}: `{net:,} 張`\n"
         except Exception:
             pass
 
@@ -1000,8 +1007,11 @@ async def resonance_picks_query(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def timesfm_predictions_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /tfm or /timesfm: Google TimesFM 2.5 500M forecasts & Risk/Reward Ratios."""
-    action = context.args[0].lower() if context.args else "bullish"
+    raw_action = context.args[0].strip() if context.args else "bullish"
+    action = raw_action.lower()
     is_bear = "bear" in action or "跌" in action
+    is_mode = action in {"", "bullish", "bearish", "top", "看漲", "看跌", "避險"}
+    ticker = None if is_mode or is_bear else raw_action.upper()
     title_act = "看跌避險榜" if is_bear else "5日看漲榜"
     processing_msg = await update.message.reply_text(f"🧠 正在載入 Google TimesFM 2.5 500M 時序大模型【{title_act}】...")
 
@@ -1011,7 +1021,9 @@ async def timesfm_predictions_query(update: Update, context: ContextTypes.DEFAUL
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         from handlers.general import cache_prompt
 
-        items = await loop.run_in_executor(None, fetch_timesfm_predictions, "bearish" if is_bear else "bullish", 10)
+        items = await loop.run_in_executor(
+            None, fetch_timesfm_predictions, "bearish" if is_bear else "bullish", 10, ticker
+        )
         reply_text = format_timesfm_markdown(items, is_bearish=is_bear)
 
         toggle_btn = InlineKeyboardButton("🧠 切換看跌避險榜", callback_data=cache_prompt("/tfm bear")) if not is_bear else InlineKeyboardButton("🧠 切換看漲潛力榜", callback_data=cache_prompt("/tfm top"))
@@ -1187,5 +1199,4 @@ async def calendar_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
         await update.message.reply_text(f"❌ 查詢行事曆資料時發生錯誤：{str(e)}")
-
 
