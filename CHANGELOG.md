@@ -2,6 +2,21 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.15.0] - 2026-09-10
+
+### 🌐 美股與港股全市場官方清冊導入、跨市場智慧代碼映射與防幻覺強化
+- **美股全市場官方清冊封裝 (`data/us_stock_registry.json`)**：
+  - 串接美國證券交易委員會 (SEC EDGAR) 官方 `company_tickers.json`，收錄全美 **10,407 檔** 上市公司、ETF 與外國企業 ADR，提供官方 CIK 法人登記編號與正式英文全名。
+  - 內建高頻美股中文別名映射表（如 `蘋果` ➔ `AAPL`、`微軟` ➔ `MSFT`、`輝達` ➔ `NVDA`、`特斯拉` ➔ `TSLA`、`台積電ADR` ➔ `TSM`、`波克夏` ➔ `BRK-B`、`SpaceX` ➔ `SPCX` 等 80+ 檔熱門標的）。
+- **港股全市場官方清冊封裝 (`data/hk_stock_registry.json`)**：
+  - 串接香港交易所 (HKEX) 官方 `ListOfSecurities_c.xlsx`，收錄主板與 GEM 共 **3,237 檔** 股本證券、ETF 與 REITs，提供原生繁體中文名稱、每手股數與 ISIN 國際證券識別碼。
+  - 支援港股純數字代碼（如 `700`、`0700`、`00700` 自動標準化為 `0700.HK`，`9988` ➔ `9988.HK`，`3690` ➔ `3690.HK`）與繁體中文名稱直接查詢（如 `騰訊` ➔ `0700.HK`、`阿里巴巴` ➔ `9988.HK`、`美團` ➔ `3690.HK`、`小米` ➔ `1810.HK`、`比亞迪` ➔ `1211.HK`、`匯豐` ➔ `0005.HK`）。
+- **跨市場代碼解析引擎升級 (`tools/stock.py`)**：
+  - 統一台股 (2,234 檔)、港股 (3,237 檔)、美股 (10,407 檔) 三大市場的解析邏輯，優先序：已知別名 ➔ 中文精確匹配 ➔ 國際後綴 ➔ 數位代號判斷 (ETF / 台股 / 港股) ➔ 美股英文代號 ➔ 中文子字串搜尋 ➔ 2MD 網路搜尋。
+  - 在 `get_stock_prices` 與 `get_financial_metrics` 工具中，針對台股、港股、美股自動附加對應官方名稱、所屬交易所市場（TWSE/TPEx/HKEX/US）與產業資訊，徹底杜絕 LLM 在各市場個股背景上的幻覺。
+- **自動化清冊維護腳本 (`scripts/update_stock_registries.py`)**：
+  - 提供一鍵自動下載並更新 SEC EDGAR 與 HKEX 最新官方名冊的自動化工具。
+
 ## [2.14.4] - 2026-09-10
 
 ### 🛡️ 全架構離線韌性、災備降級與多級快取體系 (Full-Architecture Data Resilience)

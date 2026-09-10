@@ -204,7 +204,11 @@
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
 - **888 Stock Quant 核心運算引擎與 Stale 容災降級**：`https://stockdata.david888.com` (Google TimesFM 2.5 500M 基礎模型推論、四維共振飆股篩選、宏觀體制部位指引、玄鐵重劍均線回測、券商分點與結構化財經日曆)，全面配置 `SingleFlight` 併發收斂與 `get_stale()` 容災平滑降級，上游中斷時自動回傳最後已知有效數據。
 - **全架構離線生存與多級快取體系 (Data Resilience & Offline Fallbacks)**：
-  1. **台股全市場清冊 (`tools/stock.py`)**：內建 `data/tw_stock_registry.json`（2,234 檔 TWSE/TPEx 清冊），100% 離線打包無網路可啟動；執行時以本機靜態 ➔ 法人動態快取 ➔ 2MD 即時檢索三級備援自動映射代碼與產業。
+  1. **台美港三大市場官方清冊 (`tools/stock.py`)**：
+     - **台股清冊 (`data/tw_stock_registry.json`)**：內建 2,234 檔 TWSE/TPEx 官方股票清冊與中英文全名。
+     - **港股清冊 (`data/hk_stock_registry.json`)**：內建 3,237 檔 HKEX 官方主板/GEM 股本證券、ETF 與 REITs 清冊，含原生繁體中文名稱、每手股數與 ISIN 碼。
+     - **美股清冊 (`data/us_stock_registry.json`)**：內建 10,407 檔 SEC EDGAR 官方上市公司/ETF/ADR 清冊與 CIK，附帶 80+ 檔高頻中文別名庫（蘋果、微軟、輝達、特斯拉、波克夏、SpaceX 等）。
+     - **100% 離線靜態封裝**：打包進 Docker 映像檔，零網路依賴即開即用，支援中文名稱、純數字代碼與國際後綴自動解析，並強制向 LLM 注入真確公司名稱與產業分類，根除跨市場產業幻覺。
   2. **三大法人籌碼 (`tools/tw_institutional.py`)**：日度持久化 JSON 落地至 `data/cache/institutional/`，同日請求零網路調用，網路中斷仍可讀取磁碟快取。
   3. **行情數據雙軌容錯 (`tools/tw_stocker.py`)**：GitHub 全市場歷史資料庫雙軌備援，遇 Yahoo Finance 連線受阻或限流時秒級切換。
   4. **新聞與情報 (`tools/news.py`)**：三節點容錯集群 (`2md.aiurl.tw` ➔ `2md.glsoft.ai` ➔ `create360.ai`) + Stale-While-Revalidate + Investing.com RSS / Yahoo Finance 備援。
