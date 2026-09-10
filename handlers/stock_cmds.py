@@ -809,8 +809,34 @@ async def institutional_chip_analysis(update: Update, context: ContextTypes.DEFA
             f"💡 **籌碼評估**：{res.get('sentiment_evaluation', '中性觀望')}"
         )
 
+        # Enrich with top broker branches from stockdata.david888.com
         try:
-            await update.message.reply_text(reply_text, parse_mode="Markdown")
+            from tools.stockdata_quant import fetch_broker_summary
+            brk = await loop.run_in_executor(None, fetch_broker_summary, res['stock'], 20)
+            if brk and "top_buyers" in brk and brk["top_buyers"]:
+                reply_text += "\n\n━━━━━━━━━━━━━━━━━━━━\n🟢 **近 20 日主力買超券商分點 Top 3**：\n"
+                for b in brk["top_buyers"][:3]:
+                    net = int(round(b.get("total_net", 0)))
+                    reply_text += f"  • {b.get('broker_name')}: `+{net:,} 張`\n"
+        except Exception:
+            pass
+
+        try:
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            from handlers.general import cache_prompt
+            sym = res['stock']
+            buttons = [
+                [
+                    InlineKeyboardButton(f"🏢 {sym} 券商主力分點排行", callback_data=cache_prompt(f"/broker {sym}")),
+                    InlineKeyboardButton(f"📊 {sym} 多因子風險歸因", callback_data=cache_prompt(f"/ff {sym}"))
+                ],
+                [
+                    InlineKeyboardButton("👑 多模型共振選股推薦", callback_data=cache_prompt("/pick")),
+                    InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro"))
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(buttons)
+            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
         except Exception:
             await update.message.reply_text(reply_text)
 
@@ -879,5 +905,287 @@ async def polymarket_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
         await update.message.reply_text(f"❌ 查詢 Polymarket 預測市場時發生錯誤：{str(e)}")
+
+
+async def macro_regime_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /macro or /regime: Market risk regime and portfolio exposure recommendations."""
+    market_arg = context.args[0].lower() if context.args else "tw"
+    m_display = "台股" if "tw" in market_arg else "美股"
+    processing_msg = await update.message.reply_text(f"🛡️ 正在運算 {m_display} 宏觀風控制度、均線連動與建議部位曝險...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import fetch_macro_regime, format_macro_regime_markdown
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.general import cache_prompt
+
+        data = await loop.run_in_executor(None, fetch_macro_regime, market_arg)
+        reply_text = format_macro_regime_markdown(data)
+
+        buttons = [
+            [
+                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick")),
+                InlineKeyboardButton("🧠 TimesFM 5日看漲榜", callback_data=cache_prompt("/tfm top"))
+            ],
+            [
+                InlineKeyboardButton("🗡️ 玄鐵重劍拉回買點", callback_data=cache_prompt("/xt")),
+                InlineKeyboardButton("📅 全球總經與財報日曆", callback_data=cache_prompt("/cal"))
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        try:
+            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
+        except Exception:
+            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Macro regime handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 查詢大盤風控資料時發生錯誤：{str(e)}")
+
+
+async def resonance_picks_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /pick or /resonance: Multi-model resonance stock screening."""
+    idx = context.args[0] if context.args else "台灣50"
+    processing_msg = await update.message.reply_text(f"👑 正在掃描【{idx}】多模型共振焦點（玄鐵 ∩ 籌碼 ∩ LSTM ∩ TimesFM）...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import fetch_resonance_picks, format_resonance_markdown
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.general import cache_prompt
+
+        picks = await loop.run_in_executor(None, fetch_resonance_picks, idx, 12)
+        reply_text = format_resonance_markdown(picks, title=f"👑 **【{idx} 多模型交集共振選股推薦】**")
+
+        buttons = [
+            [
+                InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro")),
+                InlineKeyboardButton("🧠 TimesFM 5日看漲榜", callback_data=cache_prompt("/tfm top"))
+            ],
+            [
+                InlineKeyboardButton("🗡️ 玄鐵重劍拉回買點", callback_data=cache_prompt("/xt")),
+                InlineKeyboardButton("🔮 Polymarket 全球總經", callback_data=cache_prompt("/pm top"))
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        try:
+            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
+        except Exception:
+            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Resonance picks handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 查詢共振選股時發生錯誤：{str(e)}")
+
+
+async def timesfm_predictions_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /tfm or /timesfm: Google TimesFM 2.5 500M forecasts & Risk/Reward Ratios."""
+    action = context.args[0].lower() if context.args else "bullish"
+    is_bear = "bear" in action or "跌" in action
+    title_act = "看跌避險榜" if is_bear else "5日看漲榜"
+    processing_msg = await update.message.reply_text(f"🧠 正在載入 Google TimesFM 2.5 500M 時序大模型【{title_act}】...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import fetch_timesfm_predictions, format_timesfm_markdown
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.general import cache_prompt
+
+        items = await loop.run_in_executor(None, fetch_timesfm_predictions, "bearish" if is_bear else "bullish", 10)
+        reply_text = format_timesfm_markdown(items, is_bearish=is_bear)
+
+        toggle_btn = InlineKeyboardButton("🧠 切換看跌避險榜", callback_data=cache_prompt("/tfm bear")) if not is_bear else InlineKeyboardButton("🧠 切換看漲潛力榜", callback_data=cache_prompt("/tfm top"))
+        buttons = [
+            [
+                toggle_btn,
+                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick"))
+            ],
+            [
+                InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro")),
+                InlineKeyboardButton("🗡️ 玄鐵重劍波段買點", callback_data=cache_prompt("/xt"))
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        try:
+            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
+        except Exception:
+            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"TimesFM handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 查詢 TimesFM 預測時發生錯誤：{str(e)}")
+
+
+async def xuantie_pullback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /xt or /xuantie: Xuantie Heavy Sword MA60/120 pullback swing signals."""
+    idx = context.args[0] if context.args else "台灣50"
+    processing_msg = await update.message.reply_text(f"🗡️ 正在掃描【{idx}】玄鐵重劍 MA60/120 均線波段回踩買點...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import fetch_xuantie_pullbacks, format_xuantie_markdown
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.general import cache_prompt
+
+        items = await loop.run_in_executor(None, fetch_xuantie_pullbacks, idx, 10)
+        reply_text = format_xuantie_markdown(items)
+
+        buttons = [
+            [
+                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick")),
+                InlineKeyboardButton("🧠 TimesFM 5日看漲榜", callback_data=cache_prompt("/tfm top"))
+            ],
+            [
+                InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro")),
+                InlineKeyboardButton("📐 SEPA 突破分析 (TSLA)", callback_data=cache_prompt("/sepa TSLA"))
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        try:
+            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
+        except Exception:
+            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Xuantie handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 查詢玄鐵重劍買點時發生錯誤：{str(e)}")
+
+
+async def broker_trades_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /broker <ticker>: Top 10 buyer and seller broker branches."""
+    if not context.args:
+        await update.message.reply_text("❌ 請提供股票代碼，例如：`/broker 2330.TW` 或 `/broker 2454`", parse_mode="Markdown")
+        return
+
+    ticker = context.args[0].upper().strip()
+    processing_msg = await update.message.reply_text(f"🏢 正在查詢【{ticker}】近 20 日券商主力關鍵分點進出明細...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import fetch_broker_summary, format_broker_summary_markdown
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.general import cache_prompt
+
+        data = await loop.run_in_executor(None, fetch_broker_summary, ticker, 20)
+        reply_text = format_broker_summary_markdown(data)
+
+        buttons = [
+            [
+                InlineKeyboardButton(f"🏢 {ticker} 三大法人籌碼", callback_data=cache_prompt(f"/chip {ticker}")),
+                InlineKeyboardButton(f"📊 {ticker} 多因子歸因", callback_data=cache_prompt(f"/ff {ticker}"))
+            ],
+            [
+                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick")),
+                InlineKeyboardButton(f"📈 {ticker} 即時 K 線", callback_data=cache_prompt(f"/s {ticker}"))
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        try:
+            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
+        except Exception:
+            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Broker trades handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 查詢券商分點時發生錯誤：{str(e)}")
+
+
+async def calendar_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /cal [all|earn|econ|fed|comm]: Investing structural calendars."""
+    cat = context.args[0].lower() if context.args else "all"
+    processing_msg = await update.message.reply_text(f"📅 正在同步全球總經指標、美股重磅財報與 CME 利率日曆...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import fetch_calendar_data, format_calendar_markdown
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.general import cache_prompt
+
+        data = await loop.run_in_executor(None, fetch_calendar_data, cat)
+        reply_text = format_calendar_markdown(data, cat=cat)
+
+        buttons = [
+            [
+                InlineKeyboardButton("💼 美股財報行事曆", callback_data=cache_prompt("/cal earn")),
+                InlineKeyboardButton("🌐 全球總經行事曆", callback_data=cache_prompt("/cal econ"))
+            ],
+            [
+                InlineKeyboardButton("🏦 CME 官方利率期貨", callback_data=cache_prompt("/cal fed")),
+                InlineKeyboardButton("🪙 大宗商品週期行情", callback_data=cache_prompt("/cal comm"))
+            ],
+            [
+                InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro")),
+                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick"))
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        try:
+            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
+        except Exception:
+            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Calendar handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(f"❌ 查詢行事曆資料時發生錯誤：{str(e)}")
 
 

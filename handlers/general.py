@@ -160,6 +160,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  • 🏛️ *「巴菲特和段永平最近有買進或加減持哪檔股票？(13F持倉)」*\n"
         "  • 🕵️ *「查詢 TSLA 最近的高階經理人內部人買賣 (Form 4)」*\n"
         "  • 🚀 *「分析 GME 的做空比率與軋空 (Short Squeeze) 風險」*\n"
+        "  • 👑 *「今天台股有哪些多模型共振推薦強勢股？」*\n"
+        "  • 🛡️ *「現在大盤整體風險如何？建議幾成持股曝險？」*\n"
+        "  • 🧠 *「查詢 Google TimesFM 5 日預測與高盈虧比排行」*\n"
+        "  • 🏢 *「台積電 2330 最近有哪些券商主力分點在大量買超？」*\n"
         "  • 🔮 *「Polymarket 現在對聯準會 9 月降息的真實機率是多少？」*\n"
         "  • 📰 *「台積電 2330.TW 最近有什麼重大新聞與基本面評估」*\n\n"
         "📎 **智慧文件與對帳單解析（Google Magika 驅動）**：\n"
@@ -167,10 +171,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  • 🛡️ 透過 **Google Magika** 進行 100% 本地深層格式識別與安全檢測，阻截可執行檔偽裝。\n"
         "  • 🤖 AI 專家將為您自動萃取報表數據，深度解析財務體質、營運亮點與資產配置建議！\n\n"
         "📌 **專屬量化與委員會指令速查**：\n"
-        "• `/pm [關鍵字]` - 🔮 Polymarket 預測市場前瞻機率與總經政策定價 (範例：`/pm fed`、`/pm recession`、`/pm ai`)\n"
+        "• `/pick` - 👑 多模型交集共振焦點選股推薦 (四重共振 ∩ 雙ML ∩ 高盈虧比)\n"
+        "• `/macro [tw|us]` - 🛡️ 大盤風控制度、均線連動與建議部位曝險指南 (0%~100%)\n"
+        "• `/tfm [top|bear]` - 🧠 Google TimesFM 2.5 500M 時序大模型預測與真實盈虧比排行\n"
+        "• `/xt [指數]` - 🗡️ 玄鐵重劍 MA60/120 季線半年線波段回踩買點推薦\n"
+        "• `/broker <股票代碼>` - 🏢 查詢個股近 20 日券商主力關鍵分點進出排行 (範例：`/broker 2330.TW`)\n"
+        "• `/cal [earn|econ|fed|comm]` - 📅 全球總經、美股重磅財報與 CME 利率行事曆\n"
+        "• `/pm [關鍵字]` - 🔮 Polymarket 預測市場前瞻機率與總經政策定價 (範例：`/pm fed`、`/pm recession`)\n"
         "• `/chain 事件或主題` - ⛓️ 金融邏輯傳導鏈分析與因果流程圖 (範例：`/chain 聯準會降息`)\n"
         "• `/hot [來源]` - 🔥 財聯社/華爾街見聞/雪球即時快訊 (範例：`/hot` 或 `/hot wallstreetcn`)\n"
-        "• `/chip 股票代碼` - 🏢 台股三大法人買賣超、連買連賣與外資持股 (範例：`/chip 2330.TW`)\n"
+        "• `/chip 股票代碼` - 🏢 台股三大法人買賣超、連買連賣與主力分點 (範例：`/chip 2330.TW`)\n"
         "• `/ff 股票代碼` - 📊 Fama-French 多因子風險歸因與 Alpha (範例：`/ff NVDA`)\n"
         "• `/sepa 股票代碼` - 📐 Minervini SEPA 8 項趨勢模板與 VCP 篩選 (範例：`/sepa TSLA`)\n"
         "• `/val 股票代碼` - 💰 五年 DCF 內在價值與 WACC 敏感度 (範例：`/val AAPL`)\n"
@@ -179,17 +189,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/ai2 股票代碼` - 🏛️ 14 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA`)\n"
         "• `/s 股票代碼` - 📈 查詢即時股價與 日/週/月 K 線圖 (範例：`/s 2330.TW`)\n"
         "• `/p 股票代碼` - 🔮 Prophet 時間序列預測未來 5 天股價區間 (範例：`/p META`)\n"
-        "• `/n 股票代碼或公司名` - 📰 智慧檢索台美股即時財經新聞 (範例：`/n 2330`、`/n 台積電`、`/n TSLA`、`/n 特斯拉`)\n"
+        "• `/n 股票代碼或公司名` - 📰 智慧檢索台美股即時財經新聞 (範例：`/n 2330`、`/n 台積電`、`/n TSLA`)\n"
         "• `/new` 或 `/clear` - 🧹 清空對話記憶開啟全新對話 (3 天無互動亦會自動重置)\n"
         "• `/h` - 🛠️ 顯示其他外部量化預測工具連結\n"
         "• `/start` 或 `/help` - 🔄 重置記憶並顯示此說明選單"
     )
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton("/pick"), KeyboardButton("/macro")],
+            [KeyboardButton("/tfm top"), KeyboardButton("/xt")],
+            [KeyboardButton("/broker 2330.TW"), KeyboardButton("/cal")],
             [KeyboardButton("/pm fed"), KeyboardButton("/chain 聯準會降息")],
-            [KeyboardButton("/hot"), KeyboardButton("/chip 2330.TW")],
-            [KeyboardButton("/ff NVDA"), KeyboardButton("/val AAPL")],
-            [KeyboardButton("/sepa TSLA"), KeyboardButton("/s 2330.TW")],
             [KeyboardButton("/new"), KeyboardButton("/ai2 NVDA")]
         ],
         resize_keyboard=True
@@ -539,6 +549,12 @@ async def reset_commands(application: Application):
         BotCommand("start", "啟動機器人與重置對話記憶"),
         BotCommand("new", "清空對話記憶開啟全新對話"),
         BotCommand("clear", "清空對話記憶開啟全新對話"),
+        BotCommand("pick", "多模型交集共振焦點選股推薦 (四重共振/雙ML)"),
+        BotCommand("macro", "大盤總體風控制度與建議部位曝險指南"),
+        BotCommand("tfm", "Google TimesFM 5日時序大模型預測與盈虧比"),
+        BotCommand("xt", "玄鐵重劍 MA60/120 均線波段回調買點"),
+        BotCommand("broker", "查詢個股近 20 日券商主力關鍵分點進出"),
+        BotCommand("cal", "全球總經/美股重磅財報/CME 利率行事曆"),
         BotCommand("chain", "金融邏輯傳導鏈分析 (因果流程圖)"),
         BotCommand("pm", "Polymarket 預測市場前瞻機率與總經定價"),
         BotCommand("hot", "即時重大財經快訊 (財聯社/華爾街見聞)"),

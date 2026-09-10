@@ -2,6 +2,36 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.14.0] - 2026-09-10
+
+### 👑 888 Stock Quant 量化平台全量導入：共振選股、TimesFM、大盤風控與主力分點
+- **全新量化工具模組 `tools/stockdata_quant.py`**：
+  - 串接 `stockdata.david888.com` 官方 REST API，全模組配備 `SingleFlight` 並發合併與 `TTLCache` 防驚群快取保護。
+- **👑 多模型交集共振焦點選股推薦 (`/pick` / `/resonance`)**：
+  - 終結機器人只能被動問答的限制，實現盤前「主動推薦強勢標的」。
+  - 涵蓋 `👑 四重共振`（玄鐵買點 ∩ 法人鎖碼 ∩ LSTM ∩ TimesFM）、`🏆 三重共振`、`🔮 雙 ML 共振` 與 `⚖️ 高盈虧比` 清單，標註預期潛力、P/E 與法人連續買超張數。
+- **🛡️ 宏觀市場風控制度與建議投資曝險比例 (`/macro` / `/regime`)**：
+  - 監控加權指數 (`^TWII`)、S&P 500 (`SPY`)、費城半導體 (`^SOX`) 季線與 VIX 恐慌指數。
+  - 科學輸出具體的建議投資曝險比例（0% ~ 100%）與半導體動態警戒（如「費半破季線科技股上限 30%」）。
+- **🧠 Google TimesFM 2.5 500M 時序基礎大模型預測 (`/tfm` / `/timesfm`)**：
+  - 升級傳統 Prophet，引入 Google Research 預訓練 500M 參數時序 Decoder 大模型。
+  - 提供 1~5 日中位目標價預測與真實盈虧比（Risk/Reward Ratio: $RR = \frac{P_{50}-P_0}{P_0-P_{10}}$），支援看漲榜與看跌避險榜。
+- **🗡️ 玄鐵重劍波段回調技術買點 (`/xt` / `/xuantie`)**：
+  - 「順大勢 (MA60>MA120) 逆小勢 (回踩季線/半年線支撐帶 ±3%)」低吸起漲策略，與 Minervini SEPA 突破追高策略形成完美互補。
+- **🏢 台灣個股券商關鍵主力分點明細 (`/broker`) 與 `/chip` 雙重升級**：
+  - 查詢特定台股近 20 日前 10 大買超與賣超券商分點（如港商麥格理、美商高盛、凱基台北等）及精確張數。
+  - `/chip` 自動附帶近 20 日主力買超分點 Top 3，法人與分點情報一網打盡。
+- **📅 全球總經、美股重磅財報與 CME 官方利率行事曆 (`/cal` / `/calendar`)**：
+  - 結構化美股重量級企業財報行事曆（Oracle, Adobe 等）及預期 EPS。
+  - 全球重磅總經指標（CPI、非農、PMI）公布日程。
+  - CME FedWatch 官方聯準會利率目標區間機率與 FOMC 倒數。
+  - 黃金、WTI 原油、銅博士週期行情總結。
+- **🤖 LangGraph 主 Agent 全自動工具調用**：
+  - 主 Agent 注入六大新工具（`get_resonance_picks`、`get_macro_regime_analysis`、`get_timesfm_predictions_tool`、`get_xuantie_pullback_picks`、`get_broker_branch_trades`、`get_market_investing_calendars`）。
+  - 使用者以自然語言詢問「今天推薦買什麼？」、「現在大盤風險多大？」、「台積電有哪些分點在買？」，AI 皆可主動調用對應量化工具。
+
+---
+
 ## [2.13.0] - 2026-09-10
 
 ### 🔮 Polymarket 預測市場前瞻情報與總經政策定價導入

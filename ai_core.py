@@ -34,6 +34,14 @@ from tools.transmission import analyze_market_transmission_chain
 from tools.us_fddk import get_fama_french_factor_analysis, get_us_fddk_live_benchmarks
 from tools.tw_institutional import get_tw_institutional_analysis
 from tools.polymarket import get_polymarket_predictions, get_polymarket_macro_sentiment
+from tools.stockdata_quant import (
+    get_macro_regime_analysis,
+    get_resonance_picks,
+    get_timesfm_predictions_tool,
+    get_xuantie_pullback_picks,
+    get_broker_branch_trades,
+    get_market_investing_calendars,
+)
 from tools.wiki import publish_to_wiki
 
 logger = logging.getLogger(__name__)
@@ -56,6 +64,12 @@ main_agent_tools = [
     get_us_fddk_live_benchmarks,
     get_polymarket_predictions,
     get_polymarket_macro_sentiment,
+    get_macro_regime_analysis,
+    get_resonance_picks,
+    get_timesfm_predictions_tool,
+    get_xuantie_pullback_picks,
+    get_broker_branch_trades,
+    get_market_investing_calendars,
     get_sepa_analysis,
     get_dcf_valuation,
     get_earnings_briefing,
@@ -119,6 +133,12 @@ You have access to dynamic real-time tools:
 - `get_us_fddk_live_benchmarks`: Live paper portfolio asset allocation & 20-year ETF research benchmarks from voidful/us_fddk.
 - `get_polymarket_predictions`: Real-time crowd probability pricing, 24-hour volume, and forward expectations from Polymarket prediction markets (Fed interest rates, recession risks, elections, IPOs, AI catalysts).
 - `get_polymarket_macro_sentiment`: Highest-volume global macroeconomic, rate-decision, and financial policy prediction markets on Polymarket.
+- `get_macro_regime_analysis`: Market risk regime, S&P 500 / TWII moving average health, VIX, and recommended portfolio exposure percentage (0% to 100%).
+- `get_resonance_picks`: Multi-model resonance stock recommendations (Quadruple: Xuantie MA Pullback ∩ Institutional Buying ∩ LSTM ∩ TimesFM; Double ML resonance; High Risk/Reward).
+- `get_timesfm_predictions_tool`: Google Research TimesFM 2.5 500M foundational time-series model 5-day stock forecasts and Risk/Reward Ratios (RR >= 1.5).
+- `get_xuantie_pullback_picks`: Xuantie Heavy Sword trend-pullback swing trading opportunities (MA60 > MA120 upward trend + price pulling back to MA60/120 support ±3%).
+- `get_broker_branch_trades`: Top 10 buyer and seller broker branches (如港商麥格理、美商高盛、富邦、國泰等分點明細) and accumulated shares for a Taiwan stock.
+- `get_market_investing_calendars`: Forward-looking structural investing calendars (US Major Corporate Earnings calendar, Global Macroeconomic events CPI/NFP, CME FedWatch, Commodities).
 - `search_financial_web`: 2MD live SERP search engine for company backgrounds, IPO status, ticker lookups, breaking news, and macroeconomic events.
 - `get_sepa_analysis`: Mark Minervini 8-point Trend Template, Stage 2 status, pivot, stops, and VCP diagnostics.
 - `get_dcf_valuation`: Five-year FCFF DCF with live `^TNX` risk-free rate, WACC, scenarios, and sensitivity matrix.
@@ -139,6 +159,12 @@ Users can also upload financial documents and investment data files (PDF 財務�
 
 Specialized macro commands available for users:
 - **/ai2 <ticker>**: AI Hedge Fund 14 Legend Investor Committee & Round Table debate. If a user asks for multi-analyst debate or Warren Buffett / Cathie Wood committee opinions, guide them to try `/ai2 <ticker>`.
+- **/pick**: Multi-model resonance stock screening recommendations (四重共振/雙ML/高盈虧比).
+- **/macro [tw|us]**: Market risk regime and portfolio exposure recommendation (0%~100%).
+- **/tfm [top|bear]**: Google TimesFM 2.5 500M forecasts & Risk/Reward Ratios.
+- **/xt [index]**: Xuantie Heavy Sword MA60/120 pullback swing trading signals.
+- **/broker <ticker>**: Top 10 buyer and seller broker branches for Taiwan stocks.
+- **/cal [earn|econ|fed|comm]**: Global macro, US earnings, and CME rate calendars.
 - **/chain <事件/主題>**: Financial logic transmission chain analysis (e.g. `/chain 聯準會降息` or `/chain 地緣政治升溫`) with Mermaid causal flowcharts.
 - **/pm [關鍵字]**: Polymarket prediction market forward odds & macro policy pricing (e.g. `/pm fed`, `/pm recession`, `/pm ai`).
 - **/hot [cls|wallstreetcn|xueqiu]**: Real-time breaking financial news headlines from 財聯社, 華爾街見聞, or 雪球.
@@ -170,6 +196,10 @@ Specialized macro commands available for users:
      - 若使用者詢問公司上市/IPO 狀態、查找股票代碼、近期動態或一般財經事件，請務必調用 **`search_financial_web`** 進行 2MD 即時連網搜尋。
      - 若已知明確股票代碼（如 SPCX, TSLA, NVDA, 2330.TW），請調用 **`get_financial_news`**、**`get_stock_prices`** 或 **`get_financial_metrics`**。
      - 若使用者詢問預測市場機率、聯準會降息/升息即時機率、美國經濟衰退機率或前瞻政策市場定價，請務必調用 **`get_polymarket_predictions`** 或 **`get_polymarket_macro_sentiment`** 獲取真實鏈上資本共識數據。
+     - 若使用者詢問「今天推薦什麼股票？」、「有什麼強勢股/共振標的？」，請調用 **`get_resonance_picks`** 或 **`get_timesfm_predictions_tool`**。
+     - 若使用者詢問「現在大盤風險如何？」、「目前適合進場嗎？建議幾成部位？」，請調用 **`get_macro_regime_analysis`** 給出科學的建議投資曝險比例（0%~100%）。
+     - 若使用者詢問特定台股有哪些主力或券商營業部在買超，請調用 **`get_broker_branch_trades`** 獲取關鍵分點明細。
+     - 若使用者詢問近期重磅美股財報、全球總經行事曆或 CME 利率期貨，請調用 **`get_market_investing_calendars`**。
   3. **嚴禁任何自行腦補、猜測假新聞、假日期、假上市狀態或假數字**！
   4. 若工具搜尋結果為空或回傳錯誤，必須如實告知：「目前搜尋模組查無即時資訊/模組故障」，絕不准自行編造任何假資訊。
   5. 回覆時必須引述工具檢索到的實際內容與 Markdown 來源連結 (`[標題](URL)`)。

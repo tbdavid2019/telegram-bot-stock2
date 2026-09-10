@@ -68,9 +68,18 @@
 - **精確到張數**：外資（含陸資）、投信、自營商（自行買賣與避險）精確買賣超張數與三大法人合計。
 - **連買連賣指標**：自動計算外資與投信連續買超或賣超天數（連買天數、連賣天數），快速識別法人認養股。
 - **累計買賣超與外資持股**：近 5 日、10 日、20 日累計買賣超張數，以及外資總持股比例 (%) 變化。
+- **關鍵券商分點同步連動**：深度整合 `stockdata.david888.com`，在籌碼報告末端自動附帶 Top 3 買超主力分點與 Top 3 賣超分點進出張數。
 - **多執行緒與本地磁碟快取**：內建 `data/cache/institutional/` 磁碟快取與 `ThreadPoolExecutor` 平行擷取，毫秒級極速回傳。
 
-### 10. 🧭 Smart Money 與散戶市場情報（自然語言調用）
+### 10. ⚡ 888 Stock Quant 智能量化平台深層整合 (`/pick` / `/macro` / `/tfm` / `/xt` / `/broker` / `/cal`)
+- 👑 **四維共振飆股雷達 (`/pick` 或 `/resonance`)**：四維指標共振（趨勢動能/籌碼法人/型態/波動）∩ 雙模型交集篩選（雙重機器學習模型）∩ 高風報比過濾，精選當前市場最強勢主升段標的與進出場點位。
+- 🛡️ **宏觀市場體制與部位建議 (`/macro` 或 `/regime`)**：即時市場週期狀態判定（Bullish Trend / High Volatility / Risk-Off），動態提供股票部位曝險指引（0%~100%），有效抵禦系統性下行風險。
+- 🧠 **Google TimesFM 2.5 500M 時間序列大模型預測 (`/tfm 股票代碼`)**：採用 Google 最新 500M 參數時間序列基礎大模型，計算未來目標價、預期漲幅、ATR 動態波動度、建議進場價、停損價與風報比 (R/R Ratio)。
+- 🗡️ **玄鐵重劍突破拉回戰法 (`/xt` 或 `/xuantie`)**：基於經典均線策略（MA60 季線 / MA120 半年線），捕捉強勢突破後健康回測關鍵支撐之右側進場轉折標的。
+- 🏢 **台股關鍵券商分點追蹤 (`/broker 股票代碼`)**：即時解析主力分點籌碼進出，列出買超 Top 3 與賣超 Top 3 分點券商名稱及買賣超張數，掌握在地主力與大戶進出動向。
+- 📅 **結構化全球財經日曆 (`/cal [類別]`)**：美股重量級財報日曆 (`earnings`)、全球宏觀央行/CPI/非農 (`macro`)、CME 聯準會利率會議點陣圖 (`fed`) 與大宗商品原物料結算 (`commodities`)。
+
+### 11. 🧭 Smart Money 與散戶市場情報（自然語言調用）
 - 13F：透過 2MD 三節點備援讀取 Dataroma/WhaleWisdom 公開資料，整理超級投資人買入、賣出或持有摘錄。
 - Form 4：透過 2MD 讀取 OpenInsider、Finviz/SEC 公開頁面，區分公開市場買賣與 option/grant。
 - Short squeeze：整合 yfinance short float、days to cover 與 2MD 借券費率摘錄。
@@ -78,7 +87,7 @@
 
 以上情報工具可直接用自然語言提問，例如「整理 TSLA 最近的 13F 與內部人交易」或「分析 GME 的 short squeeze 風險」。搜尋結果不足時會保留資料限制，不以猜測補值。
 
-### 11. 📂 智慧文件與對帳單解析（Google Magika 驅動）
+### 12. 📂 智慧文件與對帳單解析（Google Magika 驅動）
 - **直接上傳檔案與對話結合**：在聊天室直接發送文件並可附帶說明文字（例如「*幫我分析這份季報的營收與毛利趨勢*」或「*這是我的美股對帳單，請檢視集中度風險*」）。
 - **Google Magika 100% 本地深度學習辨識**：
   - 映像檔內建 1MB ONNX 模型，運行時於本機 CPU 推論（延遲僅 ~5ms，零外部連網與 API 依賴）。
@@ -90,7 +99,7 @@
   - **TXT / Markdown / JSON 筆記**：文字清洗與上下文注入。
 - **AI 專家交叉驗證**：自動將結構化文字注入 LangGraph 主 Agent，AI 專家可主動調用即時報價、DCF 與估值工具進行對照分析。
 
-### 12. 🛠️ 其他量化工具連結 (`/h`)
+### 13. 🛠️ 其他量化工具連結 (`/h`)
 - 提供台股 LSTM 預測、潛力股預測模型與 HuggingFace 空間快速入口。
 
 ---
@@ -104,9 +113,15 @@
 | `/start` | 🔄 啟動機器人並重置對話記憶 | `/start` |
 | `/new` / `/clear` | 🧹 手動清空對話記憶開啟全新對話 (3 天無互動自動重置) | `/new` 或 `/clear` |
 | `/pm` | 🔮 Polymarket 預測市場前瞻機率與總經政策定價 | `/pm fed`、`/pm recession` 或 `/pm ai` |
+| `/pick` | 👑 四維共振精選飆股雷達 (雙模型交集與高風報比) | `/pick` 或 `/resonance` |
+| `/macro` | 🛡️ 宏觀市場體制與建議投資部位曝險 (0%~100%) | `/macro` 或 `/regime` |
+| `/tfm` | 🧠 Google TimesFM 500M 時間序列深度預測與風報比 | `/tfm 2330.TW` 或 `/tfm NVDA` |
+| `/xt` | 🗡️ 玄鐵重劍戰法突破回測均線選股 | `/xt` 或 `/xuantie` |
+| `/broker` | 🏢 台股關鍵券商分點進出明細 (Top 3 買賣超主力) | `/broker 2330.TW` 或 `/broker 3293.TWO` |
+| `/cal` | 📅 結構化全球財經日曆 (美股財報/宏觀/聯準會/商品) | `/cal`、`/cal macro` 或 `/cal fed` |
 | `/chain` | ⛓️ 金融邏輯傳導鏈分析與因果流程圖 | `/chain 聯準會降息` 或 `/chain 輝達財報` |
 | `/hot` | 🔥 即時快訊：財聯社/華爾街見聞/雪球/Investing.com (繁中焦點、大宗商品、美債利率) | `/hot`、`/hot investing_hk` 或 `/hot commodities` |
-| `/chip` | 🏢 台股三大法人買賣超、連買連賣與外資持股 | `/chip 2330.TW` 或 `/chip 3293.TWO` |
+| `/chip` | 🏢 台股三大法人買賣超、連買連賣與關鍵券商分點 | `/chip 2330.TW` 或 `/chip 3293.TWO` |
 | `/ff` | 📊 Fama-French 多因子風險歸因與 Alpha | `/ff NVDA` 或 `/ff TSLA` |
 | `/ai2` | 🏛️ 14 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA` 或 `/ai2 2330.TW` |
 | `/s` | 📈 查詢即時股價與日/週/月 K 線圖 (支援 tw_stocker 零失敗備援) | `/s 2330.TW` |
@@ -131,6 +146,7 @@
 - **市場數據與自動追版**：`yfinance` (自動 GitHub Actions 每日追版 CI/CD), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
 - **台股官方籌碼**：台灣證交所 (**TWSE T86 / MI_QFIIS**)、櫃買中心 (**TPEX 3itrade**)、`data/cache/institutional/` 磁碟快取
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
+- **888 Stock Quant 核心運算引擎**：`https://stockdata.david888.com` (Google TimesFM 2.5 500M 基礎模型推論、四維共振飆股篩選、宏觀體制部位指引、玄鐵重劍均線回測、券商分點與結構化財經日曆)
 - **金融邏輯與傳導鏈**：DeepEar Lite API、NewsNow API (財聯社/華爾街見聞/雪球)、Investing.com 官方無反爬 RSS (繁中焦點/商品/美債利率)
 - **2MD 財經即時搜尋 (Web Reader & SERP) 與防驚群快取**：
   - **SingleFlight 併發合併與多層級 TTLCache**：內建 `tools/cache_util.py`，阻絕驚群效應 (Thundering Herd)，命中時延遲 0.0001s，具備 Stale-While-Revalidate 容災降級保護。
@@ -164,6 +180,9 @@ TWOMD_BACKUP2_URL=https://create360.ai
 
 # David888 Wiki 發布端點 (選填，預設為 https://wiki.david888.com)
 WIKI_BASE_URL=https://wiki.david888.com
+
+# 888 Stock Quant 量化平台端點 (選填，預設為 https://stockdata.david888.com)
+STOCKDATA_BASE_URL=https://stockdata.david888.com
 
 # 主對話助理 (支援 NEN DeepSeek / Groq / OpenAI 等相容端點)
 LLM_API_KEY=your_llm_api_key

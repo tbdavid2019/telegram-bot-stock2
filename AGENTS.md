@@ -32,6 +32,7 @@ telegram-bot-stock2/
 │   ├── market_intel.py       # Smart money & sentiment: 13F, Form 4, short squeeze, retail sentiment
 │   ├── transmission.py       # Transmission chain & DeepEar signals: analyze_market_transmission_chain
 │   ├── polymarket.py         # Polymarket Gamma/CLOB crowd odds & macro predictions via 2MD
+│   ├── stockdata_quant.py    # 888 Stock Quant Platform: resonance picks, TimesFM 2.5, macro regime, broker trades, calendar
 │   ├── tw_stocker.py         # Taiwan stock full history DB loader & yfinance fallback (voidful/tw_stocker)
 │   ├── tw_institutional.py   # TWSE/TPEX institutional investors (T86/QFIIS/3itrade) official chip tracker
 │   ├── us_fddk.py            # Fama-French multi-factor analysis & ETF live paper benchmarks (voidful/us_fddk)
@@ -175,6 +176,7 @@ telegram-bot-stock2/
 | `TWOMD_BACKUP1_URL` | ❌ | `https://2md.glsoft.ai` | Backup 1 2MD search endpoint |
 | `TWOMD_BACKUP2_URL` | ❌ | `https://create360.ai` | Backup 2 2MD search endpoint |
 | `WIKI_BASE_URL` | ❌ | `https://wiki.david888.com` | Base URL for David888 Wiki Publisher |
+| `STOCKDATA_BASE_URL` | ❌ | `https://stockdata.david888.com` | Base URL for 888 Stock Quant Platform (TimesFM, resonance, regime) |
 | `OPENAI_API_KEY` | ❌ | - | OpenAI API Key (Optional) |
 | `OPENAI_MODEL` | ❌ | `gpt-4o` | Model name for OpenAI endpoint |
 | `OPENAI_BASE_URL` | ❌ | `None` | Optional custom base URL for OpenAI endpoint |
@@ -189,7 +191,7 @@ telegram-bot-stock2/
 ### Local Testing & Execution
 ```bash
 # Verify Python syntax across all modules
-python3 -m py_compile main.py config.py ai_core.py handlers/ai_cmds.py handlers/general.py handlers/stock_cmds.py tools/stock.py tools/news.py
+python3 -m py_compile main.py config.py ai_core.py handlers/ai_cmds.py handlers/general.py handlers/stock_cmds.py tools/stock.py tools/news.py tools/stockdata_quant.py
 
 # Run bot locally
 python3 main.py

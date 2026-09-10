@@ -27,6 +27,12 @@ from handlers.stock_cmds import (
     fama_french_analysis,
     institutional_chip_analysis,
     polymarket_query,
+    macro_regime_query,
+    resonance_picks_query,
+    timesfm_predictions_query,
+    xuantie_pullback_query,
+    broker_trades_query,
+    calendar_query,
 )
 from handlers.ai_cmds import ai_query, ai2_analysis, llm_query
 
@@ -64,6 +70,12 @@ def main():
     # Register Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler(["new", "clear"], new_conversation_handler))
+    app.add_handler(CommandHandler(["macro", "regime"], macro_regime_query))
+    app.add_handler(CommandHandler(["pick", "resonance"], resonance_picks_query))
+    app.add_handler(CommandHandler(["tfm", "timesfm"], timesfm_predictions_query))
+    app.add_handler(CommandHandler(["xt", "xuantie"], xuantie_pullback_query))
+    app.add_handler(CommandHandler("broker", broker_trades_query))
+    app.add_handler(CommandHandler(["cal", "calendar"], calendar_query))
     app.add_handler(CommandHandler("s", stock_info))
     app.add_handler(CommandHandler("n", stock_news))
     app.add_handler(CommandHandler("ny", taiwan_stock_news))

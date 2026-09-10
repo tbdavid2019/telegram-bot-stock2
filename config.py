@@ -38,6 +38,9 @@ TWOMD_SEARCH_ENDPOINTS = [
 WIKI_BASE_URL = os.getenv("WIKI_BASE_URL", "https://wiki.david888.com")
 WIKI_API_URL = os.getenv("WIKI_API_URL", f"{WIKI_BASE_URL}/api")
 
+# --- 888 Stock Quant Platform Endpoints ---
+STOCKDATA_BASE_URL = os.getenv("STOCKDATA_BASE_URL", "https://stockdata.david888.com")
+
 # --- Main LLM Agent Configuration (Primary: NEN deepseek-v4-flash, Fallback: Groq) ---
 # Protocol: OpenAI-compatible
 LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-XqYJN7YDjomSEeOPn9GsHvSpspYLuQrxdgQc2zcA3kvuZD34")
