@@ -204,11 +204,13 @@
 - **量化與因子模型**：`voidful/us_fddk` (Fama-French 多因子模型、v25 Live Paper 資產配置基準)
 - **888 Stock Quant 核心運算引擎與 Stale 容災降級**：`https://stockdata.david888.com` (Google TimesFM 2.5 500M 基礎模型推論、四維共振飆股篩選、宏觀體制部位指引、玄鐵重劍均線回測、券商分點與結構化財經日曆)，全面配置 `SingleFlight` 併發收斂與 `get_stale()` 容災平滑降級，上游中斷時自動回傳最後已知有效數據。
 - **全架構離線生存與多級快取體系 (Data Resilience & Offline Fallbacks)**：
-  1. **台美港三大市場官方清冊 (`tools/stock.py`)**：
-     - **台股清冊 (`data/tw_stock_registry.json`)**：內建 2,234 檔 TWSE/TPEx 官方股票清冊與中英文全名。
-     - **港股清冊 (`data/hk_stock_registry.json`)**：內建 3,237 檔 HKEX 官方主板/GEM 股本證券、ETF 與 REITs 清冊，含原生繁體中文名稱、每手股數與 ISIN 碼。
-     - **美股清冊 (`data/us_stock_registry.json`)**：內建 10,407 檔 SEC EDGAR 官方上市公司/ETF/ADR 清冊與 CIK，附帶 80+ 檔高頻中文別名庫（蘋果、微軟、輝達、特斯拉、波克夏、SpaceX 等）。
-     - **100% 離線靜態封裝**：打包進 Docker 映像檔，零網路依賴即開即用，支援中文名稱、純數字代碼與國際後綴自動解析，並強制向 LLM 注入真確公司名稱與產業分類，根除跨市場產業幻覺。
+  1. **全球五大主流市場官方清冊全量整合 (`tools/stock.py`)**：
+     - **🇹🇼 台股清冊 (`data/tw_stock_registry.json`)**：內建 2,234 檔 TWSE/TPEx 官方股票清冊與中英文全名。
+     - **🇺🇸 美股全市場 (`data/us_stock_registry.json`)**：內建 10,407 檔 SEC EDGAR 官方全市場（NASDAQ、NYSE、AMEX、ARCA、BATS、IEX）上市公司、ETF 與 ADR，附帶 80+ 檔高頻中文別名庫（蘋果、微軟、輝達、特斯拉、波克夏、SpaceX 等）。
+     - **🇭🇰 港股清冊 (`data/hk_stock_registry.json`)**：內建 3,237 檔 HKEX 官方主板/GEM 股本證券、ETF 與 REITs 清冊，含原生繁體中文名稱、每手股數與 ISIN 碼。
+     - **🇯🇵 日股清冊 (`data/jpx_stock_registry.json`)**：內建 4,003 檔 JPX 東證 Prime/Standard/Growth/ETF 標的，含日文名、33 業種與別名庫（豐田、索尼、任天堂、軟銀等）。
+     - **🇨🇳 陸股 A 股 (`data/cn_stock_registry.json`)**：內建 2,009 檔上交所 (SSE) 與深交所 (SZSE) 主板與科創板標的（貴州茅台、寧德時代、比亞迪A股等）。
+     - **台北跨日首查觸發更新 (Lazy On-Demand Refresh with Daily Gate)**：以每日 `00:00 (Asia/Taipei)` 為日界線，跨日後當天第一次有人查詢時才發動更新；當天後續查詢全域共用同一份 24h 快取；並發請求透過 `SingleFlight` 合併；若上游異常自動返回上一份資料並標註 `stale: true`。
   2. **三大法人籌碼 (`tools/tw_institutional.py`)**：日度持久化 JSON 落地至 `data/cache/institutional/`，同日請求零網路調用，網路中斷仍可讀取磁碟快取。
   3. **行情數據雙軌容錯 (`tools/tw_stocker.py`)**：GitHub 全市場歷史資料庫雙軌備援，遇 Yahoo Finance 連線受阻或限流時秒級切換。
   4. **新聞與情報 (`tools/news.py`)**：三節點容錯集群 (`2md.aiurl.tw` ➔ `2md.glsoft.ai` ➔ `create360.ai`) + Stale-While-Revalidate + Investing.com RSS / Yahoo Finance 備援。

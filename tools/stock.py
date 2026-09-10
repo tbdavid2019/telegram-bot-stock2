@@ -18,10 +18,14 @@ except ImportError:
         return fn
 
 import os
+import sys
 import glob
 import json
 import re
+import threading
+from zoneinfo import ZoneInfo
 from tools.news import fetch_2md_news
+from tools.cache_util import SingleFlight
 
 _TWSE_REGISTRY = {}
 _TPEX_REGISTRY = {}
@@ -34,13 +38,24 @@ _HK_NAME_TO_CODE = {}
 _US_STOCKS = {}
 _US_NAME_TO_TICKER = {}
 
+_JPX_STOCKS = {}
+_JPX_NAME_TO_TICKER = {}
+
+_CN_STOCKS = {}
+_CN_NAME_TO_TICKER = {}
+
 _REGISTRIES_INITIALIZED = False
+_LAST_DAILY_REFRESH_DATE = None
+_DAILY_REFRESH_SINGLEFLIGHT = SingleFlight()
+_DAILY_REFRESH_STALE_STATUS = {}
 
 
 def _init_registries():
     global _TWSE_REGISTRY, _TPEX_REGISTRY, _TW_NAME_TO_CODE
     global _HK_STOCKS, _HK_CODE_MAP, _HK_NAME_TO_CODE
     global _US_STOCKS, _US_NAME_TO_TICKER
+    global _JPX_STOCKS, _JPX_NAME_TO_TICKER
+    global _CN_STOCKS, _CN_NAME_TO_TICKER
     global _REGISTRIES_INITIALIZED
 
     if _REGISTRIES_INITIALIZED:
@@ -133,6 +148,68 @@ def _init_registries():
         except Exception:
             pass
 
+    # 4. Japan Registry (JPX Tokyo Stock Exchange)
+    jpx_file = os.path.join(data_dir, "jpx_stock_registry.json")
+    if os.path.exists(jpx_file):
+        try:
+            with open(jpx_file, "r", encoding="utf-8") as f:
+                reg = json.load(f)
+                _JPX_STOCKS.update(reg.get("stocks", {}))
+                aliases = reg.get("aliases", {})
+                for name, ticker in aliases.items():
+                    _JPX_NAME_TO_TICKER[name] = ticker
+        except Exception:
+            pass
+
+    # 5. China A-Shares Registry (SSE & SZSE)
+    cn_file = os.path.join(data_dir, "cn_stock_registry.json")
+    if os.path.exists(cn_file):
+        try:
+            with open(cn_file, "r", encoding="utf-8") as f:
+                reg = json.load(f)
+                _CN_STOCKS.update(reg.get("stocks", {}))
+                aliases = reg.get("aliases", {})
+                for name, ticker in aliases.items():
+                    _CN_NAME_TO_TICKER[name] = ticker
+        except Exception:
+            pass
+
+
+def _check_and_trigger_daily_refresh():
+    """Lazy on-demand daily refresh gated at midnight (00:00 Asia/Taipei).
+    
+    When the first request of the day arrives after 00:00 Asia/Taipei,
+    SingleFlight coalesces concurrent queries, triggers an asynchronous
+    background refresh, and falls back gracefully to stale local cache if any
+    source fails (stale: True).
+    """
+    global _LAST_DAILY_REFRESH_DATE
+    now_taipei = dt.datetime.now(ZoneInfo("Asia/Taipei"))
+    today_str = now_taipei.strftime("%Y-%m-%d")
+
+    if _LAST_DAILY_REFRESH_DATE == today_str:
+        return
+
+    def _worker():
+        global _LAST_DAILY_REFRESH_DATE
+        print(f"🔄 [Registry] First request of the day at {now_taipei.strftime('%Y-%m-%d %H:%M:%S')} (Asia/Taipei). Triggering daily global registry update...")
+        try:
+            import subprocess
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            script_path = os.path.join(base_dir, "scripts", "update_stock_registries.py")
+            if os.path.exists(script_path):
+                ret = subprocess.run([sys.executable, script_path], capture_output=True, text=True, timeout=90)
+                if ret.returncode != 0:
+                    print(f"⚠️ [Registry] Daily refresh warning: {ret.stderr.strip()[:200]}")
+                else:
+                    print(f"✅ [Registry] Daily global registry refresh successful.")
+        except Exception as e:
+            print(f"⚠️ [Registry] Daily refresh failed with error: {e}. Preserving last valid cache (stale: True).")
+
+        _LAST_DAILY_REFRESH_DATE = today_str
+
+    threading.Thread(target=lambda: _DAILY_REFRESH_SINGLEFLIGHT.run(today_str, _worker), daemon=True).start()
+
 
 _init_tw_registry = _init_registries
 
@@ -167,10 +244,11 @@ KNOWN_TICKER_MAP = {
 
 
 def resolve_ticker(company_or_query: str) -> str:
-    """Resolve company name or ticker across Taiwan, Hong Kong, and US stock markets."""
+    """Resolve company name or ticker across Taiwan, Hong Kong, US, Japan, and China stock markets."""
     if not company_or_query:
         return ""
     _init_registries()
+    _check_and_trigger_daily_refresh()
     query = company_or_query.strip()
     upper_query = query.upper()
 
@@ -184,14 +262,19 @@ def resolve_ticker(company_or_query: str) -> str:
         .replace("TWSE:", "")
         .replace("TPEX:", "")
         .replace("HKEX:", "")
+        .replace("JPX:", "")
+        .replace("SSE:", "")
+        .replace("SZSE:", "")
         .replace("HK:", "")
         .replace("TW:", "")
         .replace("US:", "")
+        .replace("JP:", "")
+        .replace("CN:", "")
     )
     if clean_query in KNOWN_TICKER_MAP:
         return KNOWN_TICKER_MAP[clean_query]
 
-    # 2. Direct exact matches for Chinese names
+    # 2. Direct exact matches for Chinese / Japanese names
     if query in _US_NAME_TO_TICKER:
         return _US_NAME_TO_TICKER[query]
     if upper_query in _US_NAME_TO_TICKER:
@@ -202,11 +285,21 @@ def resolve_ticker(company_or_query: str) -> str:
     if upper_query in _HK_NAME_TO_CODE:
         return _HK_NAME_TO_CODE[upper_query]
 
+    if query in _JPX_NAME_TO_TICKER:
+        return _JPX_NAME_TO_TICKER[query]
+    if upper_query in _JPX_NAME_TO_TICKER:
+        return _JPX_NAME_TO_TICKER[upper_query]
+
+    if query in _CN_NAME_TO_TICKER:
+        return _CN_NAME_TO_TICKER[query]
+    if upper_query in _CN_NAME_TO_TICKER:
+        return _CN_NAME_TO_TICKER[upper_query]
+
     if query in _TW_NAME_TO_CODE:
         return _TW_NAME_TO_CODE[query]
 
     # 3. If already formatted with international market suffix
-    if re.match(r"^\d{4,6}\.(TW|TWO|HK|SS|SZ)$", upper_query):
+    if re.match(r"^\d{4,6}\.(TW|TWO|HK|T|SS|SZ)$", upper_query):
         return upper_query
 
     # 4. Explicit HK prefix/suffix pattern (e.g. "HK0700", "0700HK", "HK700")
@@ -215,10 +308,24 @@ def resolve_ticker(company_or_query: str) -> str:
         code_int = int(m_hk.group(1))
         return f"{code_int:04d}.HK"
 
-    # 5. Numeric ticker resolution (Taiwan vs Hong Kong)
+    # Explicit JP prefix/suffix (e.g. "JP7203", "7203JP")
+    m_jp = re.search(r"\bJP(\d{4})\b", upper_query) or re.search(r"\b(\d{4})JP\b", upper_query)
+    if m_jp:
+        return f"{m_jp.group(1)}.T"
+
+    # 5. Numeric ticker resolution (Taiwan vs Hong Kong vs Japan vs China)
     m_num = re.search(r"\b(\d{3,6}[A-Z]?)\b", upper_query)
     if m_num:
         c = m_num.group(1)
+
+        # 6 digits: China A-Shares (SSE / SZSE)
+        if len(c) == 6 and c.isdigit():
+            if c.startswith("60") or c.startswith("68"):
+                return f"{c}.SS"
+            if c.startswith("00") or c.startswith("30"):
+                return f"{c}.SZ"
+            if c in _CN_STOCKS:
+                return _CN_STOCKS[c].get("ticker", f"{c}.SS")
 
         # Starts with '0' or is 5 digits:
         if c.startswith("0") or len(c) == 5:
@@ -242,7 +349,8 @@ def resolve_ticker(company_or_query: str) -> str:
                 return _HK_CODE_MAP[c]
             return f"{int(c):04d}.HK"
 
-        # 4-digit number: Prioritize Taiwan (e.g. 1476, 2330, 3293)
+        # 4-digit number:
+        # Prioritize Taiwan (e.g. 1476, 2330, 3293)
         if c in _TPEX_REGISTRY:
             return f"{c}.TWO"
         if c in _TWSE_REGISTRY:
@@ -252,6 +360,10 @@ def resolve_ticker(company_or_query: str) -> str:
         if c in _HK_CODE_MAP:
             return _HK_CODE_MAP[c]
 
+        # If not in Taiwan or HK, check JPX (e.g. 7203, 6758, 9984)
+        if c in _JPX_STOCKS:
+            return f"{c}.T"
+
         # Default fallback for 4 digits is Taiwan
         return f"{c}.TW"
 
@@ -259,7 +371,7 @@ def resolve_ticker(company_or_query: str) -> str:
     if re.match(r"^[A-Z]{1,5}$", upper_query):
         return upper_query
 
-    # 7. Substring name matching across markets (Taiwan -> HK -> US)
+    # 7. Substring name matching across markets (Taiwan -> HK -> US -> JP -> CN)
     for name, ticker in _TW_NAME_TO_CODE.items():
         if len(name) >= 2 and (name == query or query in name or name in query):
             return ticker
@@ -272,13 +384,21 @@ def resolve_ticker(company_or_query: str) -> str:
         if len(name) >= 2 and (name == query or query in name or name in query):
             return ticker
 
+    for name, ticker in _JPX_NAME_TO_TICKER.items():
+        if len(name) >= 2 and (name == query or query in name or name in query):
+            return ticker
+
+    for name, ticker in _CN_NAME_TO_TICKER.items():
+        if len(name) >= 2 and (name == query or query in name or name in query):
+            return ticker
+
     # 8. Fallback to 2MD web search for unmapped company names
     try:
         results = fetch_2md_news(f"{company_or_query} stock ticker 股票代碼", limit=3)
         for item in results:
             title = item.get("title", "")
             desc = item.get("description", "")
-            m_suf = re.search(r"\b(\d{4,6})\.(TW|TWO|HK)\b", title, re.I) or re.search(r"\b(\d{4,6})\.(TW|TWO|HK)\b", desc, re.I)
+            m_suf = re.search(r"\b(\d{4,6})\.(TW|TWO|HK|T|SS|SZ)\b", title, re.I) or re.search(r"\b(\d{4,6})\.(TW|TWO|HK|T|SS|SZ)\b", desc, re.I)
             if m_suf:
                 return f"{m_suf.group(1)}.{m_suf.group(2).upper()}"
             match = re.search(r"\(([A-Z]{1,5})\)", title) or re.search(r"\(([A-Z]{1,5})\)", desc)
@@ -385,11 +505,21 @@ def get_stock_prices(ticker: str) -> Dict:
         try:
             t = yf.Ticker(ticker)
             info = t.info or {}
-            clean_c = ticker.replace(".TW", "").replace(".TWO", "").replace(".HK", "").strip()
+            clean_c = (
+                ticker.replace(".TW", "")
+                .replace(".TWO", "")
+                .replace(".HK", "")
+                .replace(".T", "")
+                .replace(".SS", "")
+                .replace(".SZ", "")
+                .strip()
+            )
 
             tw_name = _TWSE_REGISTRY.get(clean_c) or _TPEX_REGISTRY.get(clean_c) or _TW_NAME_TO_CODE.get(ticker)
             hk_info = _HK_STOCKS.get(f"{int(clean_c):05d}") if (ticker.endswith(".HK") and clean_c.isdigit()) else None
             us_info = _US_STOCKS.get(ticker)
+            jpx_info = _JPX_STOCKS.get(clean_c) if ticker.endswith(".T") else None
+            cn_info = _CN_STOCKS.get(clean_c) if (ticker.endswith(".SS") or ticker.endswith(".SZ")) else None
 
             if tw_name:
                 market_name = "TWSE (台灣證券交易所)" if ticker.endswith(".TW") else "TPEx (證券櫃檯買賣中心)"
@@ -401,8 +531,18 @@ def get_stock_prices(ticker: str) -> Dict:
                 eng_name = info.get("longName") or info.get("shortName") or ticker
                 display_name = f"{c_name} ({eng_name})" if eng_name != ticker else c_name
             elif us_info:
-                market_name = "US Market (NYSE/NASDAQ)"
+                market_name = "US Market (NYSE/NASDAQ/AMEX)"
                 display_name = us_info.get("name", ticker)
+            elif jpx_info:
+                market_name = "JPX (東京證券交易所)"
+                j_name = jpx_info.get("name", "")
+                eng_name = info.get("longName") or info.get("shortName") or ticker
+                display_name = f"{j_name} ({eng_name})" if eng_name != ticker else j_name
+            elif cn_info:
+                market_name = cn_info.get("market", "China A-Shares (SSE/SZSE)")
+                c_name = cn_info.get("name", "")
+                eng_name = info.get("longName") or info.get("shortName") or ticker
+                display_name = f"{c_name} ({eng_name})" if eng_name != ticker else c_name
             else:
                 market_name = "Global Market"
                 display_name = info.get("longName") or info.get("shortName") or ticker
@@ -436,10 +576,20 @@ def get_financial_metrics(ticker: str) -> Dict:
         # Accessing info is blocking
         info = stock.info or {}
         
-        clean_c = ticker.replace(".TW", "").replace(".TWO", "").replace(".HK", "").strip()
+        clean_c = (
+            ticker.replace(".TW", "")
+            .replace(".TWO", "")
+            .replace(".HK", "")
+            .replace(".T", "")
+            .replace(".SS", "")
+            .replace(".SZ", "")
+            .strip()
+        )
         tw_name = _TWSE_REGISTRY.get(clean_c) or _TPEX_REGISTRY.get(clean_c)
         hk_info = _HK_STOCKS.get(f"{int(clean_c):05d}") if (ticker.endswith(".HK") and clean_c.isdigit()) else None
         us_info = _US_STOCKS.get(ticker)
+        jpx_info = _JPX_STOCKS.get(clean_c) if ticker.endswith(".T") else None
+        cn_info = _CN_STOCKS.get(clean_c) if (ticker.endswith(".SS") or ticker.endswith(".SZ")) else None
 
         if tw_name:
             market_name = "TWSE (台灣證券交易所)" if ticker.endswith(".TW") else "TPEx (證券櫃檯買賣中心)"
@@ -451,8 +601,18 @@ def get_financial_metrics(ticker: str) -> Dict:
             eng_name = info.get("longName") or info.get("shortName") or ticker
             display_name = f"{c_name} ({eng_name})" if eng_name != ticker else c_name
         elif us_info:
-            market_name = "US Market (NYSE/NASDAQ)"
+            market_name = "US Market (NYSE/NASDAQ/AMEX)"
             display_name = us_info.get("name", ticker)
+        elif jpx_info:
+            market_name = "JPX (東京證券交易所)"
+            j_name = jpx_info.get("name", "")
+            eng_name = info.get("longName") or info.get("shortName") or ticker
+            display_name = f"{j_name} ({eng_name})" if eng_name != ticker else j_name
+        elif cn_info:
+            market_name = cn_info.get("market", "China A-Shares (SSE/SZSE)")
+            c_name = cn_info.get("name", "")
+            eng_name = info.get("longName") or info.get("shortName") or ticker
+            display_name = f"{c_name} ({eng_name})" if eng_name != ticker else c_name
         else:
             market_name = "Global Market"
             display_name = info.get('longName') or info.get('shortName') or ticker
