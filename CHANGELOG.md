@@ -29,6 +29,8 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 - **🤖 LangGraph 主 Agent 全自動工具調用**：
   - 主 Agent 注入六大新工具（`get_resonance_picks`、`get_macro_regime_analysis`、`get_timesfm_predictions_tool`、`get_xuantie_pullback_picks`、`get_broker_branch_trades`、`get_market_investing_calendars`）。
   - 使用者以自然語言詢問「今天推薦買什麼？」、「現在大盤風險多大？」、「台積電有哪些分點在買？」，AI 皆可主動調用對應量化工具。
+- **🧪 README 測試指南與 Telegram 提問範例完整收錄**：
+  - 於 `README.md` 增設專屬「測試指南與 Telegram 提問範例」專章，整理斜線指令測試清單與自然語言常用問句範本，支援一鍵複製實測。
 
 ---
 
