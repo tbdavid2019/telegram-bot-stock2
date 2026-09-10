@@ -248,6 +248,27 @@ def fetch_timesfm_predictions(
                     if str(item.get("ticker", "")).upper() == clean_ticker
                     and str(item.get("model_name", "")).lower() == "timesfm"
                 ]
+                # History responses may contain multiple runs; show newest TimesFM first.
+                timestamp_fields = (
+                    "timestamp",
+                    "analysis_date",
+                    "data_as_of",
+                    "prediction_date",
+                    "created_at",
+                    "updated_at",
+                    "date",
+                )
+                items.sort(
+                    key=lambda item: next(
+                        (
+                            str(item.get(field)).strip()
+                            for field in timestamp_fields
+                            if item.get(field) is not None and str(item.get(field)).strip()
+                        ),
+                        "",
+                    ),
+                    reverse=True,
+                )
             _timesfm_cache.set(cache_key, items)
             return items
         return []

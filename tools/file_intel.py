@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import pypdf
+import xlrd
 from magika import Magika
 
 logger = logging.getLogger(__name__)
@@ -267,6 +268,12 @@ def extract_excel_content(content: bytes, max_sheets: int = 3) -> Dict[str, Any]
             "success": True,
             "sheets": sheet_names,
             "text": full_text
+        }
+    except xlrd.biffh.XLRDError as e:
+        logger.warning(f"Error parsing legacy XLS workbook: {e}")
+        return {
+            "success": False,
+            "error": f"Excel .xls 解析失敗：檔案可能損毀或格式不受支援（{e}）"
         }
     except Exception as e:
         logger.error(f"Error parsing Excel: {e}")

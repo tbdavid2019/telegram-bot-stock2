@@ -56,7 +56,26 @@ class RecentIntegrationTests(unittest.TestCase):
     def test_timesfm_can_fetch_one_ticker_from_prediction_history(self):
         response = {
             "success": True,
-            "data": [{"ticker": "2330.TW", "model_name": "TimesFM", "potential": 1.2}],
+            "data": [
+                {
+                    "ticker": "2330.TW",
+                    "model_name": "TimesFM",
+                    "timestamp": "2026-09-09T00:00:00",
+                    "potential": 1.2,
+                },
+                {
+                    "ticker": "2330.TW",
+                    "model_name": "LSTM",
+                    "timestamp": "2026-09-10T00:00:00",
+                    "potential": 9.9,
+                },
+                {
+                    "ticker": "2330.TW",
+                    "model_name": "TimesFM",
+                    "timestamp": "2026-09-10T00:00:00",
+                    "potential": 2.4,
+                },
+            ],
         }
         with mock.patch.object(stockdata_quant, "_get_json", return_value=response):
             stockdata_quant._timesfm_cache.clear()
@@ -64,7 +83,8 @@ class RecentIntegrationTests(unittest.TestCase):
                 action="bullish", limit=10, ticker="2330.TW"
             )
 
-        self.assertEqual(items, response["data"])
+        self.assertEqual([item["potential"] for item in items], [2.4, 1.2])
+        self.assertTrue(all(item["model_name"] == "TimesFM" for item in items))
 
     def test_macro_formatter_uses_requested_market_when_api_ignores_market(self):
         response = {
@@ -109,6 +129,21 @@ class RecentIntegrationTests(unittest.TestCase):
         self.assertTrue(
             any(line.strip().startswith("xlrd") for line in requirements.read_text().splitlines())
         )
+
+    def test_corrupt_xls_is_returned_as_a_safe_parse_error(self):
+        import xlrd
+
+        from tools import file_intel
+
+        with mock.patch.object(
+            file_intel.pd,
+            "ExcelFile",
+            side_effect=xlrd.biffh.XLRDError("corrupt workbook"),
+        ):
+            result = file_intel.extract_excel_content(b"corrupt")
+
+        self.assertFalse(result["success"])
+        self.assertIn(".xls", result["error"])
 
     def test_broker_formatter_includes_buyers_and_sellers(self):
         text = stockdata_quant.format_broker_summary_markdown(

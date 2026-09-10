@@ -95,7 +95,7 @@
 - **多格式智慧解析與數據提取**：
   - **PDF 財務/研究報告 (`pypdf`)**：自動萃取前 20 頁數位文字層（上限 15,000 字元）。
   - **CSV / TSV 投資數據與對帳單 (`pandas`)**：支援 UTF-8、Big5、CP950 多編碼，解析總筆數、欄位清單、前 15 筆表格預覽與數值統計 (`describe`)。
-  - **Excel 財務試算表 (`openpyxl`)**：自動遍歷活頁簿工作表並擷取預覽表格。
+  - **Excel 財務試算表 (`openpyxl` / `xlrd`)**：支援 `.xlsx` 與舊式 `.xls`，自動遍歷活頁簿工作表並擷取預覽表格；損毀或不支援格式會安全回傳解析錯誤。
   - **TXT / Markdown / JSON 筆記**：文字清洗與上下文注入。
 - **AI 專家交叉驗證**：自動將結構化文字注入 LangGraph 主 Agent，AI 專家可主動調用即時報價、DCF 與估值工具進行對照分析。
 
@@ -196,7 +196,7 @@
 詳細架構設計與 14 位 Persona 規範請參閱 [AGENTS.md](AGENTS.md)。
 
 - **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發、`InlineKeyboardMarkup` 動態主動續問按鈕)
-- **文件識別與解析**：`Google Magika` (原生 1MB ONNX 本地 CPU 推論、Docker 內建模型、安全防護), `pypdf`, `openpyxl`
+- **文件識別與解析**：`Google Magika` (原生 1MB ONNX 本地 CPU 推論、Docker 內建模型、安全防護), `pypdf`, `openpyxl`, `xlrd`
 - **Agent 與工具鏈**：`LangGraph` (具備 `synthesizer_node` 兩階段收斂架構、3 天 72h Session TTL 記憶管理), `LangChain`
 - **市場數據與自動追版**：`yfinance` (自動 GitHub Actions 每日追版 CI/CD), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`
 - **台股官方籌碼**：台灣證交所 (**TWSE T86 / MI_QFIIS**)、櫃買中心 (**TPEX 3itrade**)、`data/cache/institutional/` 磁碟快取
