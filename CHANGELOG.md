@@ -2,6 +2,22 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.14.3] - 2026-09-10
+
+### 🛡️ 台股智慧代碼解析、Prophet 5日時序預測升級與產業幻覺根除
+- **台股上市/上櫃全市場自動映射 (`tools/stock.py`)**：
+  - 徹底解決純數字股票代碼（如 `1476`, `2330`, `3293`, `0050`）在 Yahoo Finance 查無數據的嚴重問題。
+  - 串接 TWSE (上市) 與 TPEx (上櫃) 全市場法人名冊資料庫（涵蓋 2,234 檔個股），自動將代號精準映射為 `.TW` 或 `.TWO`，並支援中文公司名稱直接識別（如 `儒鴻` -> `1476.TW`、`鈊象` -> `3293.TWO`）。
+- **根除公司產業與估值幻覺 (Zero Hallucination Grounding)**：
+  - 在 `get_stock_prices` 與 `get_financial_metrics` 工具回傳資料中強制附加公司真確資訊 (`company_profile`: 公司名稱、所屬板塊、所屬產業與業務摘要)，直接將 1476 儒鴻定位為 `Apparel Manufacturing (紡織成衣製造業)`，杜絕 LLM 誤認或臆測為「半導體封測」。
+  - 在 `ai_core.py` 系統提示詞與 `synthesizer_node` 綜合生成節點中加入強約束防線，嚴禁在缺少財報資料時憑空編造 EPS、本益比或毛利率等偽數字。
+- **Prophet 5 日時序預測指令全面強化 (`/p`)**：
+  - 指令輸入自動支援純數字台股代號（如 `/p 1476` 自動解析為 `1476.TW`）。
+  - 新增 `voidful/tw_stocker` 歷史數據零延遲備援，遇 Yahoo Finance 缺值或連線異常自動容錯。
+  - 修復 `Date` / `Datetime` 欄位與時區索引問題，並將輸出升級為格式化 Markdown 預測表格（日期、預測價格、樂觀上限、保守下限、預期幅度 %），附帶置信區間圖表。
+- **全系列分析指令全面支援純數字代碼**：
+  - 包括 `/s`、`/p`、`/sepa`、`/val`、`/earn`、`/corr`、`/tfm`、`/broker`、`/ai`、`/ai2` 全面接入 `resolve_ticker`。
+
 ## [2.14.2] - 2026-09-10
 
 ### 🛡️ 全面修復午夜邊界問題 (Midnight Boundary Problem) 與時區臨界防禦

@@ -48,7 +48,8 @@ async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 請提供股票代碼，例如：/s 2330.TW 或 /s TSLA")
         return
 
-    stock_code = context.args[0].upper()
+    from tools.stock import resolve_ticker
+    stock_code = resolve_ticker(context.args[0])
     try:
         # Offload blocking yfinance call to thread
         loop = asyncio.get_running_loop()
@@ -56,7 +57,13 @@ async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         def fetch_data():
             t = yf.Ticker(stock_code)
             h = t.history(period="6mo")
-            i = t.info
+            if h.empty:
+                if ".TW" in stock_code.upper() or ".TWO" in stock_code.upper() or any(c.isdigit() for c in stock_code):
+                    from tools.tw_stocker import fetch_tw_stocker_df
+                    tw_df = fetch_tw_stocker_df(stock_code)
+                    if tw_df is not None and not tw_df.empty:
+                        h = tw_df.tail(130).copy()
+            i = t.info if not h.empty else {}
             return t, h, i
             
         stock, hist, info = await loop.run_in_executor(None, fetch_data)
@@ -315,9 +322,10 @@ def format_corr_card(res: dict) -> str:
 
 async def sepa_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/sepa TSLA")
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/sepa TSLA 或 /sepa 1476")
         return
-    ticker = context.args[0].strip().split()[0].upper()
+    from tools.stock import resolve_ticker
+    ticker = resolve_ticker(context.args[0].strip().split()[0])
     processing_msg = await update.message.reply_text(f"⏳ 正在分析 {ticker} 之 SEPA 趨勢與 VCP 型態，請稍候...")
     from tools.stock_analysis import get_sepa_analysis
     loop = asyncio.get_running_loop()
@@ -339,9 +347,10 @@ async def sepa_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def valuation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/val AAPL")
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/val AAPL 或 /val 1476")
         return
-    ticker = context.args[0].strip().split()[0].upper()
+    from tools.stock import resolve_ticker
+    ticker = resolve_ticker(context.args[0].strip().split()[0])
     processing_msg = await update.message.reply_text(f"⏳ 正在計算 {ticker} 之 DCF 折現估值模型，請稍候...")
     from tools.stock_analysis import get_dcf_valuation
     loop = asyncio.get_running_loop()
@@ -363,9 +372,10 @@ async def valuation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def earnings_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/earn NVDA")
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/earn NVDA 或 /earn 1476")
         return
-    ticker = context.args[0].strip().split()[0].upper()
+    from tools.stock import resolve_ticker
+    ticker = resolve_ticker(context.args[0].strip().split()[0])
     processing_msg = await update.message.reply_text(f"⏳ 正在整理 {ticker} 之財報預期與盈餘簡報，請稍候...")
     from tools.stock_analysis import get_earnings_briefing
     loop = asyncio.get_running_loop()
@@ -389,7 +399,9 @@ async def correlation_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
     if len(context.args) < 2 and "," not in "".join(context.args):
         await update.message.reply_text("❌ 請提供 2 至 5 個代碼，例如：/corr TSLA,NVDA,AAPL")
         return
-    symbols = ",".join(context.args)
+    from tools.stock import resolve_ticker
+    raw_symbols = ",".join(context.args)
+    symbols = ",".join(resolve_ticker(s.strip()) for s in raw_symbols.split(",") if s.strip())
     processing_msg = await update.message.reply_text("⏳ 正在計算多股相關係數與 SPY Beta，請稍候...")
     from tools.stock_analysis import get_correlation_analysis
     loop = asyncio.get_running_loop()
@@ -521,30 +533,45 @@ async def taiwan_stock_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Prophet prediction (Simplified - imports inside to avoid overhead if not used)
 async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/p META")
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/p META 或 /p 2330 或 /p 1476")
         return
-    stock_code = context.args[0].upper()
-    await update.message.reply_text("🔮 正在進行預測，請稍候...")
+    from tools.stock import resolve_ticker
+    stock_code = resolve_ticker(context.args[0])
+    await update.message.reply_text(f"🔮 正在對【{stock_code}】進行 5 日時間序列預測，請稍候...")
     
     loop = asyncio.get_running_loop()
     
     def run_prophet():
         try:
-            df = yf.download(stock_code, period="1y")
-            if df.empty: return None, None
-            
             import pandas as pd
+            df = yf.download(stock_code, period="1y", progress=False)
+            if df.empty:
+                if ".TW" in stock_code.upper() or ".TWO" in stock_code.upper() or any(c.isdigit() for c in stock_code):
+                    from tools.tw_stocker import fetch_tw_stocker_df
+                    tw_df = fetch_tw_stocker_df(stock_code)
+                    if tw_df is not None and not tw_df.empty:
+                        df = tw_df.tail(260).copy()
+            if df is None or df.empty:
+                return None, None
+            
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
             elif len(df.columns) > 0 and isinstance(df.columns[0], tuple):
                 df.columns = [i[0] for i in df.columns]
                 
-            data = df.reset_index()[['Date', 'Close']]
-            # Fix for timezone naive/aware if needed, Prophet usually handles it
-            if data['Date'].dt.tz is not None:
-                data['Date'] = data['Date'].dt.tz_localize(None)
-                
+            reset_df = df.reset_index()
+            date_col = 'Date' if 'Date' in reset_df.columns else ('Datetime' if 'Datetime' in reset_df.columns else reset_df.columns[0])
+            data = reset_df[[date_col, 'Close']].copy()
             data.columns = ['ds', 'y']
+            data['ds'] = pd.to_datetime(data['ds'])
+            if data['ds'].dt.tz is not None:
+                data['ds'] = data['ds'].dt.tz_localize(None)
+            data['y'] = pd.to_numeric(data['y'], errors='coerce')
+            data = data.dropna(subset=['ds', 'y'])
+            if len(data) < 30:
+                return None, None
+            
+            latest_price = float(data['y'].iloc[-1])
             
             from prophet import Prophet
             model = Prophet(daily_seasonality=True)
@@ -553,9 +580,10 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             forecast = model.predict(future)
             
             fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(data['ds'], data['y'], label='Actual')
-            ax.plot(forecast['ds'], forecast['yhat'], label='Predicted')
-            ax.set_title(f'{stock_code} Price Prediction')
+            ax.plot(data['ds'], data['y'], label='實際歷史股價 (Actual)', color='#1f77b4')
+            ax.plot(forecast['ds'], forecast['yhat'], label='Prophet 預測 (Predicted)', color='#ff7f0e', linestyle='--')
+            ax.fill_between(forecast['ds'], forecast['yhat_lower'], forecast['yhat_upper'], color='#ff7f0e', alpha=0.2, label='信賴區間 (Confidence Interval)')
+            ax.set_title(f'{stock_code} 5-Day Price Prediction (Prophet)')
             ax.legend()
             ax.grid(True, linestyle="--", alpha=0.7)
             
@@ -564,7 +592,29 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             plt.close(fig)
             buf.seek(0)
             
-            return forecast.tail(5)[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].to_string(), buf.getvalue()
+            # Format clean table
+            last_5 = forecast.tail(5)
+            table_lines = [
+                f"🔮 **【{stock_code}】Facebook Prophet 5 日價格預測**",
+                "━━━━━━━━━━━━━━━━━━━━",
+                f"💵 **基準最新價格**：`${latest_price:,.2f}`",
+                "",
+                "| 預測日期 | 預測價格 | 樂觀上限 | 保守下限 | 預期幅度 |",
+                "| :--- | :--- | :--- | :--- | :--- |"
+            ]
+            for _, row in last_5.iterrows():
+                dt_str = row['ds'].strftime('%Y-%m-%d')
+                yhat = row['yhat']
+                y_lower = row['yhat_lower']
+                y_upper = row['yhat_upper']
+                pct_change = ((yhat - latest_price) / latest_price) * 100
+                sign = "+" if pct_change > 0 else ""
+                table_lines.append(
+                    f"| `{dt_str}` | `${yhat:,.2f}` | `${y_upper:,.2f}` | `${y_lower:,.2f}` | `{sign}{pct_change:.2f}%` |"
+                )
+            
+            table_lines.append("\n💡 *註：Prophet 時序預測基於歷史週期性與趨勢外推，不代表實際交易保證，請結合基本面與籌碼面綜合評估。*")
+            return "\n".join(table_lines), buf.getvalue()
         except Exception as e:
             logger.error(f"Prophet error: {e}")
             plt.close('all')
@@ -573,11 +623,14 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         forecast_text, chart_bytes = await loop.run_in_executor(None, run_prophet)
         
-        if chart_bytes:
+        if chart_bytes and forecast_text:
             await update.message.reply_photo(photo=chart_bytes, caption=f"📊 **{stock_code} 5 Day Forecast**")
-            await update.message.reply_text(f"```{forecast_text}```", parse_mode="Markdown")
+            try:
+                await update.message.reply_text(forecast_text, parse_mode="Markdown")
+            except Exception:
+                await update.message.reply_text(forecast_text)
         else:
-             await update.message.reply_text("❌ 預測失敗或無法獲取數據")
+             await update.message.reply_text(f"❌ 無法取得【{stock_code}】足夠的歷史價格數據以進行 Prophet 預測。")
              
     except Exception as e:
         await update.message.reply_text(f"❌ 預測時發生錯誤：{str(e)}")
@@ -1011,7 +1064,8 @@ async def timesfm_predictions_query(update: Update, context: ContextTypes.DEFAUL
     action = raw_action.lower()
     is_bear = "bear" in action or "跌" in action
     is_mode = action in {"", "bullish", "bearish", "top", "看漲", "看跌", "避險"}
-    ticker = None if is_mode or is_bear else raw_action.upper()
+    from tools.stock import resolve_ticker
+    ticker = None if is_mode or is_bear else resolve_ticker(raw_action)
     title_act = "看跌避險榜" if is_bear else "5日看漲榜"
     processing_msg = await update.message.reply_text(f"🧠 正在載入 Google TimesFM 2.5 500M 時序大模型【{title_act}】...")
 
@@ -1109,7 +1163,8 @@ async def broker_trades_query(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("❌ 請提供股票代碼，例如：`/broker 2330.TW` 或 `/broker 2454`", parse_mode="Markdown")
         return
 
-    ticker = context.args[0].upper().strip()
+    from tools.stock import resolve_ticker
+    ticker = resolve_ticker(context.args[0].strip())
     processing_msg = await update.message.reply_text(f"🏢 正在查詢【{ticker}】近 20 日券商主力關鍵分點進出明細...")
 
     try:

@@ -45,7 +45,8 @@ async def ai_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ 請提供股票代碼，例如：/ai TSLA 或 /ai 2330.TW\n💡 提示：您也可以直接傳送文字「分析 TSLA 基本面」與機器人對話！")
         return
 
-    ticker = context.args[0].upper()
+    from tools.stock import resolve_ticker
+    ticker = resolve_ticker(context.args[0].strip())
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     processing_msg = await update.message.reply_text(f"📊 正在為您全面診斷 {ticker}（整合即時行情、財務指標、技術分析與新聞），請稍候...")
     
@@ -74,10 +75,11 @@ async def ai_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """AI Hedge Fund Committee Analysis (/ai2) across 14 Legend Investor Personas."""
     if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/ai2 TSLA 或 /ai2 NVDA 或 /ai2 2330.TW")
+        await update.message.reply_text("❌ 請提供股票代碼，例如：/ai2 TSLA 或 /ai2 NVDA 或 /ai2 2330.TW 或 /ai2 1476")
         return
     
-    ticker = context.args[0].upper()
+    from tools.stock import resolve_ticker
+    ticker = resolve_ticker(context.args[0].strip())
     processing_msg = await update.message.reply_text(f"🏛️ 正在召開 14 位投資大師委員會與圓桌辯論分析 {ticker}，這需要約 15~30 秒，請稍候...")
 
     headers = {"Content-Type": "application/json"}

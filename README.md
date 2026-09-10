@@ -123,15 +123,15 @@
 | `/hot` | 🔥 即時快訊：財聯社/華爾街見聞/雪球/Investing.com (繁中焦點、大宗商品、美債利率) | `/hot`、`/hot investing_hk` 或 `/hot commodities` |
 | `/chip` | 🏢 台股三大法人買賣超、連買連賣與關鍵券商分點 | `/chip 2330.TW` 或 `/chip 3293.TWO` |
 | `/ff` | 📊 Fama-French 多因子風險歸因與 Alpha | `/ff NVDA` 或 `/ff TSLA` |
-| `/ai2` | 🏛️ 14 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA` 或 `/ai2 2330.TW` |
-| `/s` | 📈 查詢即時股價與日/週/月 K 線圖 (支援 tw_stocker 零失敗備援) | `/s 2330.TW` |
-| `/p` | 🔮 Prophet 模型預測未來 5 天股價區間 | `/p META` |
-| `/sepa` | 📐 Minervini SEPA 8 項趨勢模板與 VCP 分析 | `/sepa TSLA` |
-| `/val` | 💰 五年 DCF 內在價值、WACC 與敏感度矩陣 | `/val AAPL` |
-| `/earn` | 🗓️ 財報日期、共識預估與最近四季驚喜 | `/earn NVDA` |
+| `/ai2` | 🏛️ 14 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA` 或 `/ai2 2330.TW` 或 `/ai2 1476` |
+| `/s` | 📈 查詢即時股價與日/週/月 K 線圖 (支援純代碼自動映射與 tw_stocker 備援) | `/s 2330.TW` 或 `/s 1476` 或 `/s TSLA` |
+| `/p` | 🔮 Facebook Prophet 模型預測未來 5 天股價區間 (Markdown 表格 + 信賴帶圖表) | `/p META`、`/p 1476` 或 `/p 2330` |
+| `/sepa` | 📐 Minervini SEPA 8 項趨勢模板與 VCP 分析 | `/sepa TSLA` 或 `/sepa 1476` |
+| `/val` | 💰 五年 DCF 內在價值、WACC 與敏感度矩陣 | `/val AAPL` 或 `/val 1476` |
+| `/earn` | 🗓️ 財報日期、共識預估與最近四季驚喜 | `/earn NVDA` 或 `/earn 1476` |
 | `/corr` | 🔗 2-5 檔股票相關矩陣與 SPY Beta | `/corr TSLA,NVDA,AAPL` |
-| `/n` | 📰 智慧檢索台美股即時財經新聞 (支援代碼與中文公司名) | `/n 2330`、`/n 台積電` 或 `/n TSLA` |
-| `/ny` | 📰 智慧檢索台股即時財經新聞 (相容別名) | `/ny 2330.TW` |
+| `/n` | 📰 智慧檢索台美股即時財經新聞 (支援代碼與中文公司名) | `/n 2330`、`/n 儒鴻`、`/n 台積電` 或 `/n TSLA` |
+| `/ny` | 📰 智慧檢索台股即時財經新聞 (相容別名) | `/ny 2330.TW` 或 `/ny 1476` |
 | `/h` | 🛠️ 顯示其他機器學習模型與量化工具連結 | `/h` |
 
 ---
