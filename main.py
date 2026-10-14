@@ -101,7 +101,7 @@ def main():
     app.add_handler(CommandHandler("ai2", ai2_analysis))
     app.add_handler(CommandHandler(["roundtable", "round_table"], round_table_analysis))
     app.add_handler(CommandHandler("backtest", backtest_grid))
-    app.add_handler(CommandHandler(["backtest_status", "backtest-status"], backtest_status))
+    app.add_handler(CommandHandler("backtest_status", backtest_status))
     app.add_handler(CommandHandler(["ai2health", "hedgehealth"], ai2_health))
     app.add_handler(CommandHandler("llm", llm_query))
     app.add_handler(CommandHandler("h", tools_help))

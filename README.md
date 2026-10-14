@@ -312,6 +312,8 @@ Docker Hub 發布成功只代表映像已上傳；正式 Bot 是否更新，仍�
 
 正式主機 `git.glsoft.ai` 的部署檢查發現既有 Watchtower 僅監控 `url2md` scope，股票 Bot 因此仍運行 9/10 舊映像。股票 Bot 使用獨立 `watchtower-stockbot`，明確以容器名稱 `telegram-bot-stock2` 限定監控範圍；`start-watchtower.sh` 與 Docker Compose 均保留此設定。
 
+啟動測試 `tests/test_bot_startup.py` 會實際註冊全部 Telegram handlers，再攔截 polling；可在發布前檢出無效指令名稱。回測查詢指令使用 `/backtest_status`。
+
 `auto_update_yfinance.sh` 保留為舊 cron 入口，現在代理至 `check_and_update_yfinance.sh`，兩個入口共用同一套比對、diff、commit、push 與部署邏輯。
 
 ### 📊 自動更新與 Watchtower 聯動流程圖
