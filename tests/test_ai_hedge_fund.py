@@ -17,7 +17,7 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
     def test_help_update_stamp_contains_version_and_taipei_date(self):
         stamp = build_help_update_stamp()
 
-        self.assertIn("v2.16.4", stamp)
+        self.assertIn("v2.16.5", stamp)
         self.assertIn("2026-10-14", stamp)
         self.assertNotIn("2026-10-20", stamp)
 
@@ -31,6 +31,7 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
         self.assertEqual(payload["roundTableRounds"], 2)
         self.assertEqual(payload["selectedAnalysts"], list(ALL_ANALYST_KEYS))
         self.assertIn("stanley_druckenmiller", payload["selectedAnalysts"])
+        self.assertIn("decision_model", payload["selectedAnalysts"])
 
     def test_analysis_payload_preserves_optional_point_in_time_portfolio(self):
         portfolio = {

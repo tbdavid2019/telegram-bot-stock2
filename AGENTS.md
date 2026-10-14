@@ -6,7 +6,7 @@ This document contains instructions, architectural rules, code conventions, and 
 
 ## 🎯 Project Overview & Core Mission
 
-`telegram-bot-stock2` is an asynchronous Telegram bot built with Python (`python-telegram-bot` v20+) providing real-time stock quotes, technical K-line charts, Prophet time-series forecasts, fundamental indicator evaluations, and an **AI Hedge Fund Investment Committee** powered by 15 legend investor personas with multi-round round table debates.
+`telegram-bot-stock2` is an asynchronous Telegram bot built with Python (`python-telegram-bot` v20+) providing real-time stock quotes, technical K-line charts, Prophet time-series forecasts, fundamental indicator evaluations, and an **AI Hedge Fund Investment Committee** powered by 16 legend investor personas with multi-round round table debates.
 
 - **Primary Repository**: `https://github.com/tbdavid2019/telegram-bot-stock2.git`
 - **Default Git Author**: `tbdavid2019 <tbdavid2019@gmail.com>`
@@ -22,7 +22,7 @@ telegram-bot-stock2/
 ├── config.py                 # Environment variables loader & service URL constants
 ├── ai_core.py                # LangGraph StateGraph engine (Main Conversational Agent + Memory + Tools)
 ├── handlers/
-│   ├── ai_cmds.py            # Handlers for /ai, /ai2 (15 gurus), roundtable, backtest, /llm
+│   ├── ai_cmds.py            # Handlers for /ai, /ai2 (16 gurus), roundtable, backtest, /llm
 │   ├── stock_cmds.py         # Handlers for /s (K-lines), /n (US news), /ny (TW news), /p (Prophet)
 │   └── general.py            # Handlers for /start (memory reset + keyboard), /h (tools help), text routing
 ├── tools/
@@ -84,11 +84,11 @@ telegram-bot-stock2/
 ### 5. 🏛️ AI Hedge Fund API v2 (`/ai2`) Standards
 - **Base URL**: `https://hedgeapi.afpicapital.com` (configurable via `AI2_BASE_URL` / endpoint-specific variables).
 - **Endpoints**: `/api/analysis`, `/api/round_table`, `/api/backtest/grid`, `/api/backtest/runs/{run_id}`, `/api/health`.
-- **All 15 Analyst Personas**:
-  - `warren_buffett`, `charlie_munger`, `ben_graham`, `cathie_wood`, `bill_ackman`, `nancy_pelosi`, `michael_burry`, `peter_lynch`, `phil_fisher`, `wsb`, `technical_analyst`, `fundamentals_analyst`, `sentiment_analyst`, `valuation_analyst`, `stanley_druckenmiller`.
+- **All 16 Analyst Personas**:
+  - `warren_buffett`, `charlie_munger`, `ben_graham`, `cathie_wood`, `bill_ackman`, `nancy_pelosi`, `michael_burry`, `peter_lynch`, `phil_fisher`, `wsb`, `technical_analyst`, `fundamentals_analyst`, `sentiment_analyst`, `valuation_analyst`, `stanley_druckenmiller`, `decision_model`.
 - **Request Payload Parameters**:
   - `tickers`: Ticker string or comma-separated ticker string (e.g., `"TSLA,NVDA"`, `"2330.TW"`, `"0001.HK"`).
-  - `selectedAnalysts`: Array containing registry keys; an empty array uses all 15 analysts.
+  - `selectedAnalysts`: Array containing registry keys; an empty array uses all 16 analysts.
   - `modelName`: Required by the live Swagger contract; default project value is `openai/gpt-oss-20b`.
   - `modelProvider`: Default project value is `Groq`; `clef-flash` models use `TypeSafe`.
   - `enableRoundTable`: Boolean controlling committee debate.
@@ -137,7 +137,7 @@ telegram-bot-stock2/
 
 ### 6. 💬 Telegram Message Length & Markdown Fallback
 - Telegram enforces a strict **4096 character limit** per message.
-- For lengthy outputs (such as `/ai2` 15-guru breakdown and committee debate), split the content into logical sequential messages.
+- For lengthy outputs (such as `/ai2` 16-guru breakdown and committee debate), split the content into logical sequential messages.
 - Always wrap markdown sends in a try/except block to fallback to plain text if Markdown syntax errors occur (e.g. unescaped underscores or brackets from external data).
 
 ### 7. 📖 MANDATORY Documentation & Versioning Policy (嚴格執行 CHANGELOG.md 與 README.md 維護)

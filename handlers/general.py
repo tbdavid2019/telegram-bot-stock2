@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
-BOT_VERSION = "2.16.4"
+BOT_VERSION = "2.16.5"
 BOT_RELEASE_DATE = "2026-10-14"
 
 
@@ -195,7 +195,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/val 股票代碼` - 💰 五年 DCF 內在價值與 WACC 敏感度 (範例：`/val AAPL`)\n"
         "• `/earn 股票代碼` - 🗓️ 財報日期、共識預估與四季驚喜紀錄 (範例：`/earn NVDA`)\n"
         "• `/corr 股票1,股票2,...` - 🔗 90 日相關係數與 S&P 500 Beta (範例：`/corr TSLA,NVDA,AAPL`)\n"
-        "• `/ai2 股票代碼[,股票代碼]` - 🏛️ 15 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA,TSLA`)\n"
+        "• `/ai2 股票代碼[,股票代碼]` - 🏛️ 16 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA,TSLA`)\n"
         "  可加 `model=clef-flash rounds=3 point_in_time=true start=2026-01-01 end=2026-10-01`；完整回測使用 `/backtest`。\n"
         "• `/roundtable 股票代碼 JSON` - 🗣️ 使用預先計算的分析師訊號執行獨立圓桌辯論\n"
         "• `/backtest RUN_ID 股票代碼[,股票代碼] 起始日 結束日` - 🧪 執行或續接 point-in-time 回測網格\n"

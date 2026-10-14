@@ -1,6 +1,6 @@
 # 🤖 Telegram 股票資訊與 AI 投資分析機器人 (`telegram-bot-stock2`)
 
-這是一個基於 Python 與 `python-telegram-bot` 開發的高效能 **Telegram 股票與 AI 投資分析機器人**。提供即時台股/美股行情、多週期 K 線圖、Prophet 股價預測、基本面技術面評估，以及強大的 **15 位投資大師 AI 對沖基金委員會與圓桌會議辯論**。
+這是一個基於 Python 與 `python-telegram-bot` 開發的高效能 **Telegram 股票與 AI 投資分析機器人**。提供即時台股/美股行情、多週期 K 線圖、Prophet 股價預測、基本面技術面評估，以及強大的 **16 位投資大師 AI 對沖基金委員會與圓桌會議辯論**。
 
 ---
 
@@ -23,8 +23,8 @@
 - **重置記憶**：輸入 `/start` 即可重置對話上下文；`/start` 與 `/help` 會顯示目前版本與版本更新日，方便確認部署是否完成。版本更新日只在改版時變更。
 
 ### 2. 🏛️ AI 對沖基金投資委員會 (`/ai2 股票代碼`)
-- **15 位傳奇投資大師與專家 Persona**：
-  - 👴 **巴菲特** (護城河/內在價值)、🧓 **蒙格** (定價權/逆向思維)、📚 **葛拉漢** (淨流動資產/深價值)、👩‍💼 **伍德** (破壞性創新)、🦈 **艾克曼** (催化劑/積極主義)、🏛️ **裴洛西** (國會交易揭露)、👁️ **貝瑞** (反向放空/隱性負債)、🛍️ **林區** (十倍股/生活選股)、🔍 **費雪** (15項質化調查)、🦍 **WSB** (散戶熱度/軋空)、📉 **技術分析師**、📈 **基本面分析師**、🌐 **情緒分析師**、⚖️ **估值分析師**、🌍 **杜肯米勒** (總經與成長拐點)。
+- **16 位傳奇投資大師與專家 Persona**：
+  - 👴 **巴菲特** (護城河/內在價值)、🧓 **蒙格** (定價權/逆向思維)、📚 **葛拉漢** (淨流動資產/深價值)、👩‍💼 **伍德** (破壞性創新)、🦈 **艾克曼** (催化劑/積極主義)、🏛️ **裴洛西** (國會交易揭露)、👁️ **貝瑞** (反向放空/隱性負債)、🛍️ **林區** (十倍股/生活選股)、🔍 **費雪** (15項質化調查)、🦍 **WSB** (散戶熱度/軋空)、📉 **技術分析師**、📈 **基本面分析師**、🌐 **情緒分析師**、⚖️ **估值分析師**、🌍 **杜肯米勒** (總經與成長拐點)、🧠 **Jev Decision Model** (JEV SystemOne 結構化評估、T+1~T+3 方向機率與 PEAD drift)。
 - **圓桌辯論 (Round Table Debate)**：大師們就「成長 vs 估值」展開激烈多輪辯論，產出委員會共識 (`Consensus`) 與分歧觀點 (`Dissenting Opinions`)。
 - **配置建議與 Wiki 報告**：輸出最終操作決策（買入 / 賣出 / 做空 / 持有）、建議股數與信心度評分，並**自動在背景發布完整大師論述至 David888 Wiki**，隨附一鍵網頁閱讀連結。
 - **API v2 擴充**：支援逗號分隔多標的、模型選擇、1~3 輪辯論、明確 portfolio snapshot、point-in-time 資料聲明與歷史日期範圍。
@@ -32,7 +32,7 @@
 
 #### AI Hedge Fund API v2 請求選項
 
-`/ai2` 預設送出完整 15 位分析師、`modelName=openai/gpt-oss-20b`、`modelProvider=Groq`、2 輪圓桌與 `initialCash=100000`。可用 `key=value` 擴充：
+`/ai2` 預設送出完整 16 位分析師、`modelName=openai/gpt-oss-20b`、`modelProvider=Groq`、2 輪圓桌與 `initialCash=100000`。可用 `key=value` 擴充：
 
 ```text
 /ai2 TSLA,NVDA model=clef-flash provider=TypeSafe rounds=3 analysts=cathie_wood,michael_burry point_in_time=true start=2026-01-01 end=2026-10-01
@@ -141,7 +141,7 @@
 | `/hot` | 🔥 即時快訊：財聯社/華爾街見聞/雪球/Investing.com (繁中焦點、大宗商品、美債利率) | `/hot`、`/hot investing_hk` 或 `/hot commodities` |
 | `/chip` | 🏢 台股三大法人買賣超、連買連賣與關鍵券商分點 | `/chip 2330.TW` 或 `/chip 3293.TWO` |
 | `/ff` | 📊 Fama-French 多因子風險歸因與 Alpha | `/ff NVDA` 或 `/ff TSLA` |
-| `/ai2` | 🏛️ 15 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA,TSLA` 或 `/ai2 2330.TW` |
+| `/ai2` | 🏛️ 16 位投資大師 AI 委員會與圓桌辯論 (自動生成 Wiki 報告) | `/ai2 NVDA,TSLA` 或 `/ai2 2330.TW` |
 | `/roundtable` | 🗣️ 使用預先分析訊號執行獨立圓桌辯論 | `/roundtable NVDA {"cathie_wood":{"NVDA":{"signal":"bullish"}}}` |
 | `/backtest` | 🧪 執行或續接 point-in-time 回測網格 | `/backtest trial-1 AAPL,2330.TW 2026-01-05 2026-01-30` |
 | `/backtest_status` | 📋 查詢已保存的回測結果 | `/backtest_status trial-1` |
@@ -215,7 +215,7 @@
 
 ## 🏗️ 系統架構
 
-詳細架構設計與 15 位 Persona 規範請參閱 [AGENTS.md](AGENTS.md)。
+詳細架構設計與 16 位 Persona 規範請參閱 [AGENTS.md](AGENTS.md)。
 
 - **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發、`InlineKeyboardMarkup` 動態主動續問按鈕)
 - **文件識別與解析**：`Google Magika` (原生 1MB ONNX 本地 CPU 推論、Docker 內建模型、安全防護), `pypdf`, `openpyxl`, `xlrd`
@@ -248,7 +248,7 @@
   - 備援 1：`https://2md.glsoft.ai/`
   - 備援 2：`https://create360.ai/`
 - **David888 Wiki 發布引擎**：`https://wiki.david888.com` (支援 `claude-canvas` 主題、`[TOC]`、雙架構分享)
-- **AI 對沖基金後端**：`https://hedgeapi.afpicapital.com` (API v2，支援 RFC 8259 嚴格 JSON 規範、15 位 Persona、point-in-time 與可續接回測)
+- **AI 對沖基金後端**：`https://hedgeapi.afpicapital.com` (API v2，支援 RFC 8259 嚴格 JSON 規範、16 位 Persona、point-in-time 與可續接回測)
 
 ---
 

@@ -42,6 +42,7 @@ ANALYST_PERSONAS = {
     "sentiment_analyst": ("🌐", "市場情緒分析師 (Sentiment)"),
     "valuation_analyst": ("⚖️", "估值分析師 (Valuation)"),
     "stanley_druckenmiller": ("🌍", "史丹利·杜肯米勒 (Stanley Druckenmiller)"),
+    "decision_model": ("🧠", "Jev 決策模型 (JEV Decision Model)"),
 }
 ALL_ANALYST_KEYS = tuple(ANALYST_PERSONAS)
 

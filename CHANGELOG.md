@@ -2,6 +2,12 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.16.5] - 2026-10-14
+
+### 🧠 Hedge Fund 委員會新增 Jev Decision Model
+- 依 API v2 Swagger registry 新增合法 analyst key `decision_model` 至 `/ai2` 預設分析師清單與 Telegram 分析師顯示表。
+- 同步更新 `/help`、README 與 AGENTS.md 的 16 位分析師說明；版本日期維持 2026-10-14。
+
 ## [2.16.4] - 2026-10-14
 
 ### 🔭 Watchtower 多實例共存修復
