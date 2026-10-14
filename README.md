@@ -316,6 +316,8 @@ Docker Hub 發布成功只代表映像已上傳；正式 Bot 是否更新，仍�
 
 `auto_update_yfinance.sh` 保留為舊 cron 入口，現在代理至 `check_and_update_yfinance.sh`，兩個入口共用同一套比對、diff、commit、push 與部署邏輯。
 
+正式主機原本每 4 小時執行的 yfinance cron 已註解保留；自動升版統一由 GitHub Actions 執行，Watchtower 負責部署。下列 shell/cron 範例用於另選主機端管理的部署，與 GitHub 自動升版擇一啟用。
+
 ### 📊 自動更新與 Watchtower 聯動流程圖
 
 ```mermaid

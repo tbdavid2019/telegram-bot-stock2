@@ -7,6 +7,7 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 ### 🔧 yfinance 版本比較與 Docker 發布鏈修復
 - 實際部署啟動發現 `backtest-status` 無效指令名稱導致反覆重啟；保留合法 `/backtest_status` 並新增完整 handler 註冊測試。
 - 正式主機確認 `/help` 仍是 14 位舊版：既有 Watchtower scope 為 url2md，股票 Bot 容器停留在 9/10。建立股票 Bot 專用監控，並將啟動腳本與 Compose 限定監控 telegram-bot-stock2。
+- 查核正式主機每 4 小時 cron 日誌，1.7.0 同版均直接退出；同步主機 repository 並註解保留重複 cron，升版統一由 GitHub Actions 執行。
 - 查核 Actions #41、#42、#43：commit/push step 均為 skipped；這些日常紀錄屬版本檢查。Docker workflow 歷史顯示 9/10 後至 10/14 程式改動才再次建置。
 - 修正版本僅以字串不相等判斷升級的缺陷：workflow 與 shell 共用數值比較，較舊、相同或數值等價版本維持檔案與 Git 歷史；異常格式中止。
 - 修正使用 `GITHUB_TOKEN` push 後無法觸發另一個 push workflow 的發布鏈缺口；升版成功後明確呼叫 reusable Docker workflow，並傳入新 commit SHA。
