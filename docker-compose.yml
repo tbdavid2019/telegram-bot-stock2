@@ -19,6 +19,7 @@ services:
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower-stockbot
+    command: ["--label-enable", "telegram-bot-stock2"]
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

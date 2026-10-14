@@ -32,7 +32,7 @@ docker run -d \
   -e WATCHTOWER_POLL_INTERVAL="$POLL_INTERVAL" \
   -e WATCHTOWER_LABEL_ENABLE=true \
   -e TZ=Asia/Taipei \
-  containrrr/watchtower:latest
+  containrrr/watchtower:latest --label-enable telegram-bot-stock2
 
 echo "✅ Watchtower started successfully!"
 echo "   Run 'docker logs -f ${CONTAINER_NAME}' to monitor automated updates."

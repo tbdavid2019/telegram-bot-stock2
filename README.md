@@ -310,6 +310,8 @@ GitHub Actions `Check yfinance Version (Commit Only on Change)` 排程設定為�
 
 Docker Hub 發布成功只代表映像已上傳；正式 Bot 是否更新，仍需核對部署主機的容器映像與 Watchtower 日誌。`/help` 顯示 14 位分析師代表載入 API v2 改版前的程式。
 
+正式主機 `git.glsoft.ai` 的部署檢查發現既有 Watchtower 僅監控 `url2md` scope，股票 Bot 因此仍運行 9/10 舊映像。股票 Bot 使用獨立 `watchtower-stockbot`，明確以容器名稱 `telegram-bot-stock2` 限定監控範圍；`start-watchtower.sh` 與 Docker Compose 均保留此設定。
+
 `auto_update_yfinance.sh` 保留為舊 cron 入口，現在代理至 `check_and_update_yfinance.sh`，兩個入口共用同一套比對、diff、commit、push 與部署邏輯。
 
 ### 📊 自動更新與 Watchtower 聯動流程圖
