@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
-BOT_VERSION = "2.16.4"
+BOT_VERSION = "2.16.3"
 BOT_RELEASE_DATE = "2026-10-14"
 
 
@@ -157,6 +157,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     help_message = (
         "🎉 **歡迎使用 DAVID888 股票資訊與 AI 投資分析機器人！**\n\n"
+        f"{build_help_update_stamp()}\n\n"
         "*(您的對話記憶已重置，現在是一個全新的開始)*\n\n"
         "💬 **自然語言智能對話（直接傳送文字即可）**：\n"
         "機器人已整合量化模型、2MD 全網情報、即時股價、技術指標與新聞。您可以像與研究員對話一樣直接詢問：\n"
@@ -205,8 +206,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/n 股票代碼或公司名` - 📰 智慧檢索台美股即時財經新聞 (範例：`/n 2330`、`/n 台積電`、`/n TSLA`)\n"
         "• `/new` 或 `/clear` - 🧹 清空對話記憶開啟全新對話 (3 天無互動亦會自動重置)\n"
         "• `/h` - 🛠️ 顯示其他外部量化預測工具連結\n"
-        "• `/start` 或 `/help` - 🔄 重置記憶並顯示此說明選單\n\n"
-        f"{build_help_update_stamp()}"
+        "• `/start` 或 `/help` - 🔄 重置記憶並顯示此說明選單"
     )
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
