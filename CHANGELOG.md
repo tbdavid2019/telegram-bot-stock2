@@ -2,6 +2,15 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.16.3] - 2026-10-14
+
+### 🔧 yfinance 版本比較與 Docker 發布鏈修復
+- 查核 Actions #41、#42、#43：commit/push step 均為 skipped；這些日常紀錄屬版本檢查。Docker workflow 歷史顯示 9/10 後至 10/14 程式改動才再次建置。
+- 修正版本僅以字串不相等判斷升級的缺陷：workflow 與 shell 共用數值比較，較舊、相同或數值等價版本維持檔案與 Git 歷史；異常格式中止。
+- 修正使用 `GITHUB_TOKEN` push 後無法觸發另一個 push workflow 的發布鏈缺口；升版成功後明確呼叫 reusable Docker workflow，並傳入新 commit SHA。
+- 映像 SHA tag 與 revision label 取實際 checkout commit；`/help` 版本標記為 v2.16.3，固定版本更新日 2026-10-14。
+- 新增實際執行 workflow Python 的同版、舊版、新版測試，以及隔離 Git repository 的 shell 無變更測試。
+
 ## [2.16.2] - 2026-10-14
 
 ### 🔄 yfinance CI/CD 檢查流程修復

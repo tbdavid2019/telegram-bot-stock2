@@ -304,7 +304,11 @@ docker run -d --name telegram-bot-stock2 --restart unless-stopped --env-file .en
 
 Yahoo Finance 經常調整後端 API，導致舊版 `yfinance` 出現報價抓取失敗。本專案內建專屬的 **PyPI 即時檢查與自動化重建腳本 (`check_and_update_yfinance.sh`)**，實現自動升級與熱更新閉環。
 
-GitHub Actions `Check yfinance Version (Commit Only on Change)` 每日台灣時間 08:30 執行檢查。排程執行本身不會修改 repository；只有 PyPI 版本高於 `requirements.txt`，且 `requirements.txt` 產生實際 diff 時，才會 commit/push 並觸發 Docker build。每次執行的目前版本、最新版本與結果會寫入 GitHub Step Summary；版本相同時明確顯示 `No update; no commit or push`。
+GitHub Actions `Check yfinance Version (Commit Only on Change)` 排程設定為每日台灣時間 08:30（GitHub 排程可能延遲）。只有 PyPI 穩定版高於 `requirements.txt`，且 `requirements.txt` 產生實際 diff 時，才會 commit/push；版本相同或較舊時結束檢查。實際比較採數值順序，避免 `1.10.0` 與 `1.9.0` 比較錯誤。未知版本格式會中止。
+
+升版提交成功後，同一 workflow 明確呼叫 `docker-publish.yml` 的 reusable job，checkout 剛產生的 commit SHA，再建置及推送映像。這能避開 `GITHUB_TOKEN` push 不會觸發另一個 push workflow 的限制。映像的 SHA tag 與 `org.opencontainers.image.revision` label 均對應實際建置的 commit。每次檢查結果會寫入 GitHub Step Summary，版本相同或較舊時顯示 `No update; no commit or push`，Docker job 會 skipped。
+
+Docker Hub 發布成功只代表映像已上傳；正式 Bot 是否更新，仍需核對部署主機的容器映像與 Watchtower 日誌。`/help` 顯示 14 位分析師代表載入 API v2 改版前的程式。
 
 `auto_update_yfinance.sh` 保留為舊 cron 入口，現在代理至 `check_and_update_yfinance.sh`，兩個入口共用同一套比對、diff、commit、push 與部署邏輯。
 

@@ -7,13 +7,25 @@ on:
       - '**.md'
       - '.gitignore'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
+        id: source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Identify checked-out revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -35,6 +47,8 @@ jobs:
           push: true
           tags: |
             tbdavid2019/telegram-bot-stock2:latest
-            tbdavid2019/telegram-bot-stock2:${{ github.sha }}
+            tbdavid2019/telegram-bot-stock2:${{ steps.revision.outputs.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.revision.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

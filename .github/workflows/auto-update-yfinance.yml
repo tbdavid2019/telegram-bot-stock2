@@ -16,6 +16,9 @@ permissions:
 jobs:
   check-and-bump:
     runs-on: ubuntu-latest
+    outputs:
+      updated: ${{ steps.bump.outputs.updated }}
+      commit_sha: ${{ steps.commit.outputs.sha }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,6 +36,7 @@ jobs:
           set -euo pipefail
           python3 - << 'PY'
           import json, urllib.request, re, os
+          from scripts.yfinance_version import is_newer
 
           # 1. Fetch PyPI latest version
           url = "https://pypi.org/pypi/yfinance/json"
@@ -46,18 +50,20 @@ jobs:
               content = f.read()
 
           m = re.search(r"yfinance==([0-9a-zA-Z\.\-]+)", content)
-          current_ver = m.group(1).strip() if m else "none"
+          if not m:
+              raise ValueError("Expected exactly pinned yfinance in requirements.txt")
+          current_ver = m.group(1).strip()
 
           print(f"Current yfinance: {current_ver}")
           print(f"Latest PyPI yfinance: {latest_ver}")
 
-          updated = current_ver != latest_ver
-          if current_ver != latest_ver:
+          updated = is_newer(current_ver, latest_ver)
+          if updated:
               new_content = re.sub(r"yfinance(==[0-9a-zA-Z\.\-]+)?", f"yfinance=={latest_ver}", content)
               with open("requirements.txt", "w", encoding="utf-8") as f:
                   f.write(new_content)
           else:
-              print("yfinance is already up to date; no repository change is required.")
+              print("No newer stable release; no repository change is required.")
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh_out:
               gh_out.write(f"updated={'true' if updated else 'false'}\n")
@@ -85,6 +91,7 @@ jobs:
           fi
 
       - name: Commit and Push yfinance Change
+        id: commit
         if: steps.bump.outputs.updated == 'true'
         run: |
           set -euo pipefail
@@ -92,3 +99,12 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(deps): bump yfinance from ${{ steps.bump.outputs.old_version }} to ${{ steps.bump.outputs.new_version }}"
           git push origin HEAD:master
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  publish-updated-image:
+    needs: check-and-bump
+    if: needs.check-and-bump.outputs.updated == 'true'
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      ref: ${{ needs.check-and-bump.outputs.commit_sha }}
+    secrets: inherit

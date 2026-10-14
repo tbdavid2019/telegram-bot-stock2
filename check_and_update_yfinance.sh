@@ -78,9 +78,16 @@ echo "  📦 Current Pinned Version : ${CURRENT_VERSION}"
 echo "  🚀 Latest PyPI Version    : ${LATEST_VERSION}"
 
 # Check if update is needed
-if [[ "$CURRENT_VERSION" == "$LATEST_VERSION" ]]; then
-  echo "  ✅ ${PACKAGE_NAME} is already up to date (${LATEST_VERSION}). No action needed."
-  exit 0
+if python3 "$REPO_DIR/scripts/yfinance_version.py" "$CURRENT_VERSION" "$LATEST_VERSION"; then
+  :
+else
+  comparison_status=$?
+  if [[ "$comparison_status" == "1" ]]; then
+    echo "  ✅ No newer stable ${PACKAGE_NAME} release. No action needed."
+    exit 0
+  fi
+  echo "❌ Invalid version response; update aborted."
+  exit "$comparison_status"
 fi
 
 echo "  ⚡ New version detected! Upgrading ${PACKAGE_NAME} from ${CURRENT_VERSION} -> ${LATEST_VERSION}..."
