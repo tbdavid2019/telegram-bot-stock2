@@ -5,7 +5,7 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 ## [2.16.1] - 2026-10-14
 
 ### 📌 Telegram `/help` 版本辨識標記
-- `/help` 與 `/start` 訊息新增 `v2.16.1` 版本標記、台北時間更新日期與時區提示，方便直接確認目前部署版本。
+- `/help` 與 `/start` 訊息新增 `v2.16.1` 版本標記與固定版本更新日，方便直接確認目前部署版本；日期只在改版時變更。
 
 ## [2.16.0] - 2026-10-14
 

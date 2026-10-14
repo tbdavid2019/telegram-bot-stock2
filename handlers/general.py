@@ -3,8 +3,6 @@ import json
 import hashlib
 import logging
 import asyncio
-from datetime import datetime
-from zoneinfo import ZoneInfo
 from telegram import (
     Update,
     BotCommand,
@@ -22,18 +20,13 @@ logger = logging.getLogger(__name__)
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
 BOT_VERSION = "2.16.1"
-TAIPEI_TZ = ZoneInfo("Asia/Taipei")
+BOT_RELEASE_DATE = "2026-10-14"
 
 
-def build_help_update_stamp(now: datetime | None = None) -> str:
-    """Return a visible release marker for Telegram /help and /start messages."""
+def build_help_update_stamp() -> str:
+    """Return the release marker shown by Telegram /help and /start messages."""
 
-    current = now or datetime.now(TAIPEI_TZ)
-    if current.tzinfo is None:
-        current = current.replace(tzinfo=TAIPEI_TZ)
-    else:
-        current = current.astimezone(TAIPEI_TZ)
-    return f"📌 **版本 v{BOT_VERSION}｜更新日期：{current:%Y-%m-%d}（台北時間）**"
+    return f"📌 **版本 v{BOT_VERSION}｜版本更新日：{BOT_RELEASE_DATE}**"
 
 
 def cache_prompt(prompt_text: str) -> str:
