@@ -2,6 +2,11 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.16.4] - 2026-10-14
+
+### 📌 Help 日期標記位置修正
+- 將 `/help` 與 `/start` 的版本及固定更新日移至最後一行，長訊息捲到底部即可直接看到。
+
 ## [2.16.3] - 2026-10-14
 
 ### 🔧 yfinance 版本比較與 Docker 發布鏈修復

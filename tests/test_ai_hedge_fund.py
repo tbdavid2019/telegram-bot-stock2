@@ -17,7 +17,7 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
     def test_help_update_stamp_contains_version_and_taipei_date(self):
         stamp = build_help_update_stamp()
 
-        self.assertIn("v2.16.3", stamp)
+        self.assertIn("v2.16.4", stamp)
         self.assertIn("2026-10-14", stamp)
         self.assertNotIn("2026-10-20", stamp)
 
