@@ -2,6 +2,14 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.16.2] - 2026-10-14
+
+### 🔄 yfinance CI/CD 檢查流程修復
+- GitHub Actions 每日檢查會在 Step Summary 明確顯示目前版本、PyPI 最新版本，以及「No update; no commit or push」結果。
+- 加入 workflow concurrency，避免手動執行與排程同時更新。
+- 只有 `requirements.txt` 產生實際 staged diff 時才允許 commit/push。
+- 修正 `check_and_update_yfinance.sh` 吞掉 `git pull`/`git commit` 錯誤的問題；`auto_update_yfinance.sh` 改為相容性代理入口，統一使用 canonical updater。
+
 ## [2.16.1] - 2026-10-14
 
 ### 📌 Telegram `/help` 版本辨識標記

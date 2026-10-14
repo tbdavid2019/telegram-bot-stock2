@@ -22,9 +22,20 @@ REQUIREMENTS_FILE="$REPO_DIR/requirements.txt"
 BRANCH="$(git branch --show-current 2>/dev/null || echo 'master')"
 BRANCH="${BRANCH:-master}"
 
+if ! git diff --quiet -- "$REQUIREMENTS_FILE" || ! git diff --cached --quiet -- "$REQUIREMENTS_FILE"; then
+  echo "❌ Error: requirements.txt has local changes; refusing to update or push."
+  exit 1
+fi
+
 echo "================================================================="
 echo "🔍 [$(date '+%Y-%m-%d %H:%M:%S')] Checking ${PACKAGE_NAME} for updates..."
 echo "================================================================="
+
+# Pull first so the comparison always uses the current remote pin.  A failed
+# pull must stop the updater before it can create or push a stale bump commit.
+if [[ "${SKIP_GIT_PULL:-0}" != "1" ]]; then
+  git pull --rebase --autostash origin "$BRANCH"
+fi
 
 # 1. Fetch latest version from PyPI
 fetch_pypi_version() {
@@ -52,7 +63,7 @@ for line in path.read_text(encoding="utf-8").splitlines():
 PY
 }
 
-LATEST_VERSION="$(fetch_pypi_version)"
+LATEST_VERSION="${YFINANCE_LATEST:-$(fetch_pypi_version)}"
 if [[ -z "$LATEST_VERSION" ]]; then
   echo "❌ Error: Failed to fetch latest version from PyPI. Aborting."
   exit 1
@@ -74,12 +85,7 @@ fi
 
 echo "  ⚡ New version detected! Upgrading ${PACKAGE_NAME} from ${CURRENT_VERSION} -> ${LATEST_VERSION}..."
 
-# 3. Pull latest git changes
-if [[ "${SKIP_GIT_PULL:-0}" != "1" ]]; then
-  git pull --rebase --autostash origin "$BRANCH" || true
-fi
-
-# 4. Update requirements.txt
+# 3. Update requirements.txt
 python3 - "$REQUIREMENTS_FILE" "$LATEST_VERSION" <<'PY'
 from pathlib import Path
 import sys
@@ -104,13 +110,23 @@ if not replaced:
 path.write_text("\n".join(updated) + "\n", encoding='utf-8')
 PY
 
+# 4. Verify that the version change produced a real requirements diff.
+if git diff --quiet -- "$REQUIREMENTS_FILE"; then
+  echo "❌ Error: yfinance version changed, but requirements.txt has no diff. Aborting without commit or push."
+  exit 1
+fi
+
 # 5. Git Commit and Push
 git add requirements.txt
-git commit -m "chore: bump yfinance to ${LATEST_VERSION} and trigger auto-rebuild" || true
+git diff --cached --quiet -- requirements.txt && {
+  echo "❌ Error: requirements.txt has no staged diff. Aborting without commit or push."
+  exit 1
+}
+git commit -m "chore: bump yfinance to ${LATEST_VERSION} and trigger auto-rebuild"
 
 if [[ "${SKIP_GIT_PUSH:-0}" != "1" ]]; then
   echo "  📤 Pushing updated requirements.txt to origin/${BRANCH}..."
-  git push origin "$BRANCH" || echo "⚠️ Warning: git push failed; continuing with local build."
+  git push origin HEAD:"$BRANCH"
 fi
 
 # 6. Rebuild Docker image with --no-cache

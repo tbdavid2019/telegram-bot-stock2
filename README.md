@@ -304,6 +304,10 @@ docker run -d --name telegram-bot-stock2 --restart unless-stopped --env-file .en
 
 Yahoo Finance 經常調整後端 API，導致舊版 `yfinance` 出現報價抓取失敗。本專案內建專屬的 **PyPI 即時檢查與自動化重建腳本 (`check_and_update_yfinance.sh`)**，實現自動升級與熱更新閉環。
 
+GitHub Actions `Check yfinance Version (Commit Only on Change)` 每日台灣時間 08:30 執行檢查。排程執行本身不會修改 repository；只有 PyPI 版本高於 `requirements.txt`，且 `requirements.txt` 產生實際 diff 時，才會 commit/push 並觸發 Docker build。每次執行的目前版本、最新版本與結果會寫入 GitHub Step Summary；版本相同時明確顯示 `No update; no commit or push`。
+
+`auto_update_yfinance.sh` 保留為舊 cron 入口，現在代理至 `check_and_update_yfinance.sh`，兩個入口共用同一套比對、diff、commit、push 與部署邏輯。
+
 ### 📊 自動更新與 Watchtower 聯動流程圖
 
 ```mermaid

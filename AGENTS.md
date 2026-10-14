@@ -39,7 +39,8 @@ telegram-bot-stock2/
 │   ├── news.py               # News tools: 2MD news, NewsNow hot news (CLS, WallstreetCN, Xueqiu)
 │   └── wiki.py               # LangChain tool & helper: publish_to_wiki (David888 Wiki REST API)
 ├── news.py                   # Standalone Taiwan Yahoo news scraper helper
-├── auto_update_yfinance.sh   # Automated cron script to bump yfinance version from PyPI & redeploy
+├── check_and_update_yfinance.sh # Canonical yfinance checker, commit/push and Docker redeploy flow
+├── auto_update_yfinance.sh   # Legacy cron compatibility wrapper for the canonical checker
 ├── deploy.sh                 # Docker build, tag, run, and push script
 ├── docker-run.sh             # Local Docker launch script using .env
 ├── Dockerfile                # Debian-slim Python 3.13 image with gcc/g++ for Prophet

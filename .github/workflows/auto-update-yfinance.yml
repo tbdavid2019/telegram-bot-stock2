@@ -1,10 +1,14 @@
-name: Auto Check & Bump yfinance Version
+name: Check yfinance Version (Commit Only on Change)
 
 on:
   schedule:
     # Run daily at 00:30 UTC (08:30 Taiwan Time)
     - cron: '30 0 * * *'
   workflow_dispatch:
+
+concurrency:
+  group: yfinance-version-check
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -23,10 +27,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Check latest yfinance on PyPI & Bump requirements.txt
+      - name: Check latest yfinance on PyPI
         id: bump
         run: |
-          set -e
+          set -euo pipefail
           python3 - << 'PY'
           import json, urllib.request, re, os
 
@@ -47,26 +51,44 @@ jobs:
           print(f"Current yfinance: {current_ver}")
           print(f"Latest PyPI yfinance: {latest_ver}")
 
+          updated = current_ver != latest_ver
           if current_ver != latest_ver:
               new_content = re.sub(r"yfinance(==[0-9a-zA-Z\.\-]+)?", f"yfinance=={latest_ver}", content)
               with open("requirements.txt", "w", encoding="utf-8") as f:
                   f.write(new_content)
-              
-              with open(os.environ["GITHUB_OUTPUT"], "a") as gh_out:
-                  gh_out.write(f"updated=true\n")
-                  gh_out.write(f"old_version={current_ver}\n")
-                  gh_out.write(f"new_version={latest_ver}\n")
           else:
-              print("yfinance is already up to date!")
-              with open(os.environ["GITHUB_OUTPUT"], "a") as gh_out:
-                  gh_out.write("updated=false\n")
+              print("yfinance is already up to date; no repository change is required.")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh_out:
+              gh_out.write(f"updated={'true' if updated else 'false'}\n")
+              gh_out.write(f"old_version={current_ver}\n")
+              gh_out.write(f"new_version={latest_ver}\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("### yfinance version check\n")
+              summary.write(f"- Current requirements version: `{current_ver}`\n")
+              summary.write(f"- Latest PyPI version: `{latest_ver}`\n")
+              if updated:
+                  summary.write("- Result: **new version detected; requirements.txt will be committed and pushed**\n")
+              else:
+                  summary.write("- Result: **No update; no commit or push**\n")
           PY
 
-      - name: Commit and Push Changes
+      - name: Stage and validate version change
         if: steps.bump.outputs.updated == 'true'
         run: |
+          set -euo pipefail
+          git add requirements.txt
+          if git diff --cached --quiet -- requirements.txt; then
+            echo "::error::yfinance reported an update but requirements.txt did not change."
+            exit 1
+          fi
+
+      - name: Commit and Push yfinance Change
+        if: steps.bump.outputs.updated == 'true'
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add requirements.txt
           git commit -m "chore(deps): bump yfinance from ${{ steps.bump.outputs.old_version }} to ${{ steps.bump.outputs.new_version }}"
-          git push origin master
+          git push origin HEAD:master
