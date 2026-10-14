@@ -18,11 +18,16 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", None)
 
-# --- AI Hedge Fund Microservice Endpoints ---
-AI2_BASE_URL = os.getenv("AI2_BASE_URL", "http://dns.glsoft.ai:6000")
+# --- AI Hedge Fund API v2 Microservice Endpoints ---
+AI2_BASE_URL = os.getenv("AI2_BASE_URL", "https://hedgeapi.afpicapital.com")
 AI2_API_URL = os.getenv("AI2_API_URL", f"{AI2_BASE_URL}/api/analysis")
 AI2_ROUND_TABLE_URL = os.getenv("AI2_ROUND_TABLE_URL", f"{AI2_BASE_URL}/api/round_table")
 AI2_HEALTH_URL = os.getenv("AI2_HEALTH_URL", f"{AI2_BASE_URL}/api/health")
+AI2_BACKTEST_GRID_URL = os.getenv("AI2_BACKTEST_GRID_URL", f"{AI2_BASE_URL}/api/backtest/grid")
+AI2_BACKTEST_RUN_URL = os.getenv("AI2_BACKTEST_RUN_URL", f"{AI2_BASE_URL}/api/backtest/runs")
+AI2_MODEL_NAME = os.getenv("AI2_MODEL_NAME", "openai/gpt-oss-20b")
+AI2_MODEL_PROVIDER = os.getenv("AI2_MODEL_PROVIDER", "Groq")
+AI2_TIMEOUT = float(os.getenv("AI2_TIMEOUT", "180"))
 
 # --- 2MD Web Reader & SERP Search Endpoints (Primary & Backups) ---
 TWOMD_PRIMARY_URL = os.getenv("TWOMD_PRIMARY_URL", "https://2md.aiurl.tw")

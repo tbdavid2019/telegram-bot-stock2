@@ -186,7 +186,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/val 股票代碼` - 💰 五年 DCF 內在價值與 WACC 敏感度 (範例：`/val AAPL`)\n"
         "• `/earn 股票代碼` - 🗓️ 財報日期、共識預估與四季驚喜紀錄 (範例：`/earn NVDA`)\n"
         "• `/corr 股票1,股票2,...` - 🔗 90 日相關係數與 S&P 500 Beta (範例：`/corr TSLA,NVDA,AAPL`)\n"
-        "• `/ai2 股票代碼` - 🏛️ 14 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA`)\n"
+        "• `/ai2 股票代碼[,股票代碼]` - 🏛️ 15 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA,TSLA`)\n"
+        "  可加 `model=clef-flash rounds=3 point_in_time=true start=2026-01-01 end=2026-10-01`；完整回測使用 `/backtest`。\n"
+        "• `/roundtable 股票代碼 JSON` - 🗣️ 使用預先計算的分析師訊號執行獨立圓桌辯論\n"
+        "• `/backtest RUN_ID 股票代碼[,股票代碼] 起始日 結束日` - 🧪 執行或續接 point-in-time 回測網格\n"
+        "• `/backtest_status RUN_ID` - 📋 讀取已保存的回測結果\n"
+        "• `/ai2health` - 💓 查詢 AI Hedge Fund API v2 健康狀態\n"
         "• `/s 股票代碼` - 📈 查詢即時股價與 日/週/月 K 線圖 (範例：`/s 2330.TW`)\n"
         "• `/p 股票代碼` - 🔮 Prophet 時間序列預測未來 5 天股價區間 (範例：`/p META`)\n"
         "• `/n 股票代碼或公司名` - 📰 智慧檢索台美股即時財經新聞 (範例：`/n 2330`、`/n 台積電`、`/n TSLA`)\n"
@@ -223,7 +228,7 @@ async def tools_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📊 台股預測 (LSTM)：[點擊使用](https://huggingface.co/spaces/tbdavid2019/twStock-predict)\n"
         "📈 美股台股潛力股預測 (LSTM)：[點擊使用](https://huggingface.co/spaces/tbdavid2019/twStock-Underdogs)\n"
         "🔮 美股台股預測 (Prophet)：[點擊使用](https://huggingface.co/spaces/tbdavid2019/Stock-Predict-Prophet)\n"
-        "🏛️ AI 對沖基金 (14位投資大師與圓桌辯論)：[點擊使用](https://huggingface.co/spaces/tbdavid2019/ai-hedge-fund)"
+        "🏛️ AI 對沖基金 (15位投資大師與圓桌辯論)：[點擊使用](https://hedgeapi.afpicapital.com/docs)"
     )
     await update.message.reply_text(message, parse_mode="Markdown")
 
@@ -559,7 +564,11 @@ async def reset_commands(application: Application):
         BotCommand("hot", "即時重大財經快訊 (財聯社/華爾街見聞)"),
         BotCommand("chip", "台股三大法人買賣超與連買連賣籌碼分析"),
         BotCommand("ff", "Fama-French 多因子風險歸因與 Alpha"),
-        BotCommand("ai2", "14位投資大師圓桌辯論 (AI對沖基金)"),
+        BotCommand("ai2", "15位投資大師圓桌辯論 (AI對沖基金)"),
+        BotCommand("roundtable", "使用預先訊號執行獨立圓桌辯論"),
+        BotCommand("backtest", "執行或續接 point-in-time 回測網格"),
+        BotCommand("backtest_status", "查詢已保存的回測結果"),
+        BotCommand("ai2health", "查詢 AI Hedge Fund API v2 健康狀態"),
         BotCommand("s", "查詢即時股價和日/週/月 K 線圖"),
         BotCommand("p", "Prophet 模型預測未來 5 天股價"),
         BotCommand("sepa", "Minervini SEPA 趨勢模板與 VCP 分析"),

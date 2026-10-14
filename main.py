@@ -34,7 +34,15 @@ from handlers.stock_cmds import (
     broker_trades_query,
     calendar_query,
 )
-from handlers.ai_cmds import ai_query, ai2_analysis, llm_query
+from handlers.ai_cmds import (
+    ai_query,
+    ai2_analysis,
+    ai2_health,
+    backtest_grid,
+    backtest_status,
+    llm_query,
+    round_table_analysis,
+)
 
 # Configure Logging
 logging.basicConfig(
@@ -91,6 +99,10 @@ def main():
     app.add_handler(CommandHandler("corr", correlation_analysis))
     app.add_handler(CommandHandler("ai", ai_query))
     app.add_handler(CommandHandler("ai2", ai2_analysis))
+    app.add_handler(CommandHandler(["roundtable", "round_table"], round_table_analysis))
+    app.add_handler(CommandHandler("backtest", backtest_grid))
+    app.add_handler(CommandHandler(["backtest_status", "backtest-status"], backtest_status))
+    app.add_handler(CommandHandler(["ai2health", "hedgehealth"], ai2_health))
     app.add_handler(CommandHandler("llm", llm_query))
     app.add_handler(CommandHandler("h", tools_help))
     app.add_handler(CommandHandler("help", start))

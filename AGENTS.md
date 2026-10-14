@@ -6,7 +6,7 @@ This document contains instructions, architectural rules, code conventions, and 
 
 ## 🎯 Project Overview & Core Mission
 
-`telegram-bot-stock2` is an asynchronous Telegram bot built with Python (`python-telegram-bot` v20+) providing real-time stock quotes, technical K-line charts, Prophet time-series forecasts, fundamental indicator evaluations, and an **AI Hedge Fund Investment Committee** powered by 14 legend investor personas with multi-round round table debates.
+`telegram-bot-stock2` is an asynchronous Telegram bot built with Python (`python-telegram-bot` v20+) providing real-time stock quotes, technical K-line charts, Prophet time-series forecasts, fundamental indicator evaluations, and an **AI Hedge Fund Investment Committee** powered by 15 legend investor personas with multi-round round table debates.
 
 - **Primary Repository**: `https://github.com/tbdavid2019/telegram-bot-stock2.git`
 - **Default Git Author**: `tbdavid2019 <tbdavid2019@gmail.com>`
@@ -22,7 +22,7 @@ telegram-bot-stock2/
 ├── config.py                 # Environment variables loader & service URL constants
 ├── ai_core.py                # LangGraph StateGraph engine (Main Conversational Agent + Memory + Tools)
 ├── handlers/
-│   ├── ai_cmds.py            # Handlers for /ai (fundamentals), /ai2 (14 gurus), /llm (conversational)
+│   ├── ai_cmds.py            # Handlers for /ai, /ai2 (15 gurus), roundtable, backtest, /llm
 │   ├── stock_cmds.py         # Handlers for /s (K-lines), /n (US news), /ny (TW news), /p (Prophet)
 │   └── general.py            # Handlers for /start (memory reset + keyboard), /h (tools help), text routing
 ├── tools/
@@ -80,20 +80,27 @@ telegram-bot-stock2/
 - **3-Day Auto-Expiration**: When a user's idle time exceeds 3 days (72 hours), the system automatically invokes `clear_context(thread_id)` upon next query and prepends `💡 *(距離上次對話已超過 3 天，系統已自動為您重置記憶並開啟全新對話)*\n\n`.
 - **Manual Reset**: Users can explicitly clear context anytime using `/new`, `/clear`, or `/start`.
 
-### 5. 🏛️ AI Hedge Fund API (`/ai2`) Standards
-- **Endpoint**: `http://dns.glsoft.ai:6000/api/analysis` (configurable via `AI2_API_URL` / `AI2_BASE_URL`).
-- **All 14 Analyst Personas**:
-  - `warren_buffett`, `charlie_munger`, `ben_graham`, `cathie_wood`, `bill_ackman`, `nancy_pelosi`, `michael_burry`, `peter_lynch`, `phil_fisher`, `wsb`, `technical_analyst`, `fundamentals_analyst`, `sentiment_analyst`, `valuation_analyst`.
+### 5. 🏛️ AI Hedge Fund API v2 (`/ai2`) Standards
+- **Base URL**: `https://hedgeapi.afpicapital.com` (configurable via `AI2_BASE_URL` / endpoint-specific variables).
+- **Endpoints**: `/api/analysis`, `/api/round_table`, `/api/backtest/grid`, `/api/backtest/runs/{run_id}`, `/api/health`.
+- **All 15 Analyst Personas**:
+  - `warren_buffett`, `charlie_munger`, `ben_graham`, `cathie_wood`, `bill_ackman`, `nancy_pelosi`, `michael_burry`, `peter_lynch`, `phil_fisher`, `wsb`, `technical_analyst`, `fundamentals_analyst`, `sentiment_analyst`, `valuation_analyst`, `stanley_druckenmiller`.
 - **Request Payload Parameters**:
-  - `tickers`: Ticker symbol (e.g., `"TSLA"`, `"2330.TW"`, `"0001.HK"`).
-  - `selectedAnalysts`: Array containing the analyst persona keys.
-  - `enableRoundTable`: Must be set to `true` to generate the committee debate.
-  - `roundTableRounds`: `2` (integer between 1 and 3).
-  - `initialCash`: `100000`.
+  - `tickers`: Ticker string or comma-separated ticker string (e.g., `"TSLA,NVDA"`, `"2330.TW"`, `"0001.HK"`).
+  - `selectedAnalysts`: Array containing registry keys; an empty array uses all 15 analysts.
+  - `modelName`: Required by the live Swagger contract; default project value is `openai/gpt-oss-20b`.
+  - `modelProvider`: Default project value is `Groq`; `clef-flash` models use `TypeSafe`.
+  - `enableRoundTable`: Boolean controlling committee debate.
+  - `roundTableRounds`: Integer from 1 to 3.
+  - `initialCash`: Non-negative starting portfolio cash.
+  - `portfolio`: Optional dated snapshot with `as_of`, `cash`, `currency`, and signed `positions`.
+  - `pointInTime`: Optional strict historical availability filtering.
+  - `startDate` / `endDate`: Optional `YYYY-MM-DD` analysis window.
 - **Response Structure**:
   - `decisions`: Execution action (`buy`, `sell`, `short`, `hold`), confidence score, share quantity, and rationale.
   - `round_table`: Committee `consensus_view`, `dissenting_opinions`, and `discussion_summary`.
   - `analyst_signals`: Individual signals, confidence, and reasoning per persona.
+  - `point_in_time`: Coverage, exclusions, cutoff and survivorship-bias disclosure when enabled.
 - **Language**: Output is bilingual (English and Traditional Chinese `【繁體中文解析】`). Responses sent to Telegram users should emphasize Traditional Chinese.
 
 ### 6. ⚡ Async & Event Loop Safety (python-telegram-bot v20+)
@@ -129,7 +136,7 @@ telegram-bot-stock2/
 
 ### 6. 💬 Telegram Message Length & Markdown Fallback
 - Telegram enforces a strict **4096 character limit** per message.
-- For lengthy outputs (such as `/ai2` 14-guru breakdown and committee debate), split the content into logical sequential messages.
+- For lengthy outputs (such as `/ai2` 15-guru breakdown and committee debate), split the content into logical sequential messages.
 - Always wrap markdown sends in a try/except block to fallback to plain text if Markdown syntax errors occur (e.g. unescaped underscores or brackets from external data).
 
 ### 7. 📖 MANDATORY Documentation & Versioning Policy (嚴格執行 CHANGELOG.md 與 README.md 維護)
@@ -170,8 +177,15 @@ telegram-bot-stock2/
 | Variable | Required | Default | Description |
 | :--- | :---: | :--- | :--- |
 | `TELEGRAM_BOT_TOKEN` | ✅ | - | Telegram Bot API Token from @BotFather |
-| `AI2_BASE_URL` | ❌ | `http://dns.glsoft.ai:6000` | Base URL for AI Hedge Fund microservice |
-| `AI2_API_URL` | ❌ | `http://dns.glsoft.ai:6000/api/analysis` | Full endpoint for AI2 analysis |
+| `AI2_BASE_URL` | ❌ | `https://hedgeapi.afpicapital.com` | Base URL for AI Hedge Fund API v2 |
+| `AI2_API_URL` | ❌ | `{AI2_BASE_URL}/api/analysis` | Full endpoint for AI2 analysis |
+| `AI2_ROUND_TABLE_URL` | ❌ | `{AI2_BASE_URL}/api/round_table` | Standalone round-table endpoint |
+| `AI2_BACKTEST_GRID_URL` | ❌ | `{AI2_BASE_URL}/api/backtest/grid` | Resumable backtest grid endpoint |
+| `AI2_BACKTEST_RUN_URL` | ❌ | `{AI2_BASE_URL}/api/backtest/runs` | Backtest run lookup prefix |
+| `AI2_HEALTH_URL` | ❌ | `{AI2_BASE_URL}/api/health` | API health endpoint |
+| `AI2_MODEL_NAME` | ❌ | `openai/gpt-oss-20b` | Default v2 model name |
+| `AI2_MODEL_PROVIDER` | ❌ | `Groq` | Default v2 model provider |
+| `AI2_TIMEOUT` | ❌ | `180` | API request timeout in seconds |
 | `TWOMD_PRIMARY_URL` | ❌ | `https://2md.aiurl.tw` | Primary 2MD search & web reader endpoint |
 | `TWOMD_BACKUP1_URL` | ❌ | `https://2md.glsoft.ai` | Backup 1 2MD search endpoint |
 | `TWOMD_BACKUP2_URL` | ❌ | `https://create360.ai` | Backup 2 2MD search endpoint |

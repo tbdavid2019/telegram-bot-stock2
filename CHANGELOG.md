@@ -2,6 +2,16 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.16.0] - 2026-10-14
+
+### 🏛️ AI Hedge Fund API v2 全面相容與回測端點補全
+- 依據 `https://hedgeapi.afpicapital.com/skill.md` 與 live Swagger v2.0.0，將 AI Hedge Fund 預設端點更新為 `https://hedgeapi.afpicapital.com`。
+- 新增 `tools/ai_hedge_fund.py` API 邊界層，集中處理 15 位分析師 registry、`modelName`/`modelProvider`、portfolio snapshot、point-in-time、錯誤回應與大小寫安全的多標的解析。
+- `/ai2` 支援逗號分隔多標的、模型/提供商、1~3 輪圓桌、分析師子集、歷史日期與 point-in-time 參數，並保留 David888 Wiki 深度報告發布。
+- 新增 `/roundtable`、`/backtest`、`/backtest_status`、`/ai2health`，覆蓋獨立圓桌、可續接回測網格、回測結果查詢與 API 健康檢查。
+- 補上 Telegram 長訊息分段、第三方 JSON 回應契約檢查與 15 位分析師回歸測試。
+- 同步更新 `.env.example`、`README.md` 與指令選單，避免保留舊 API 位址與 14 位分析師描述。
+
 ## [2.15.2] - 2026-09-10
 
 ### 🇬🇧 倫敦證交所 (LSE) 與 🇪🇺 泛歐證交所 (Euronext) 官方清冊全量整合，全球 7 大交易所 32,000+ 檔大滿貫
