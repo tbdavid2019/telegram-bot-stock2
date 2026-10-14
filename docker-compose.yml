@@ -10,6 +10,7 @@ services:
       - .env
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.scope=none"
     logging:
       driver: "json-file"
       options:
@@ -19,7 +20,9 @@ services:
   watchtower:
     image: containrrr/watchtower:latest
     container_name: watchtower-stockbot
-    command: ["--label-enable", "telegram-bot-stock2"]
+    command: ["--scope", "none", "--label-enable", "telegram-bot-stock2"]
+    labels:
+      - "com.centurylinklabs.watchtower.scope=none"
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

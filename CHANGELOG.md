@@ -2,6 +2,12 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.16.4] - 2026-10-14
+
+### 🔭 Watchtower 多實例共存修復
+- 修正股票 Bot Watchtower 缺少 scope 導致清理其他實例的問題；明確採用 `--scope none`、自身 scope label 與股票 Bot 名稱過濾。
+- 同步 Docker Compose 與啟動腳本，恢復 url2md 專用 scoped Watchtower。
+
 ## [2.16.3] - 2026-10-14
 
 ### 🔧 yfinance 版本比較與 Docker 發布鏈修復
