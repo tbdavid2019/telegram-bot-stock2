@@ -3,6 +3,8 @@ import json
 import hashlib
 import logging
 import asyncio
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from telegram import (
     Update,
     BotCommand,
@@ -19,6 +21,19 @@ logger = logging.getLogger(__name__)
 
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
+BOT_VERSION = "2.16.1"
+TAIPEI_TZ = ZoneInfo("Asia/Taipei")
+
+
+def build_help_update_stamp(now: datetime | None = None) -> str:
+    """Return a visible release marker for Telegram /help and /start messages."""
+
+    current = now or datetime.now(TAIPEI_TZ)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=TAIPEI_TZ)
+    else:
+        current = current.astimezone(TAIPEI_TZ)
+    return f"📌 **版本 v{BOT_VERSION}｜更新日期：{current:%Y-%m-%d}（台北時間）**"
 
 
 def cache_prompt(prompt_text: str) -> str:
@@ -149,6 +164,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     help_message = (
         "🎉 **歡迎使用 DAVID888 股票資訊與 AI 投資分析機器人！**\n\n"
+        f"{build_help_update_stamp()}\n\n"
         "*(您的對話記憶已重置，現在是一個全新的開始)*\n\n"
         "💬 **自然語言智能對話（直接傳送文字即可）**：\n"
         "機器人已整合量化模型、2MD 全網情報、即時股價、技術指標與新聞。您可以像與研究員對話一樣直接詢問：\n"

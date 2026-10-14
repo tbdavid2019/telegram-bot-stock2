@@ -1,7 +1,10 @@
 """Contract tests for the AI Hedge Fund API v2 client."""
 
 import unittest
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+from handlers.general import build_help_update_stamp
 from tools.ai_hedge_fund import (
     ALL_ANALYST_KEYS,
     HedgeFundAPIError,
@@ -13,6 +16,12 @@ from tools.ai_hedge_fund import (
 
 
 class AIHedgeFundPayloadTests(unittest.TestCase):
+    def test_help_update_stamp_contains_version_and_taipei_date(self):
+        stamp = build_help_update_stamp(datetime(2026, 10, 14, tzinfo=ZoneInfo("Asia/Taipei")))
+
+        self.assertIn("v2.16.1", stamp)
+        self.assertIn("2026-10-14", stamp)
+
     def test_analysis_payload_uses_v2_defaults_and_all_fifteen_analysts(self):
         payload = build_analysis_payload("TSLA,NVDA")
 
