@@ -32,10 +32,13 @@
 
 #### AI Hedge Fund API v2 請求選項
 
-`/ai2` 預設送出完整 16 位分析師、`modelName=openai/gpt-oss-20b`、`modelProvider=Groq`、2 輪圓桌與 `initialCash=100000`。可用 `key=value` 擴充：
+`/ai2` 預設送出完整 16 位分析師、`modelName=openai/gpt-oss-20b`、`modelProvider=Groq`、2 輪圓桌與 `initialCash=100000`（最低門檻 $100.0）。可用 `key=value` 擴充：
+
+- **自訂期初資金 (`initialCash`)**：支援 `cash=`, `initial_cash=`, `capital=`, `initialCapital=` 等別名，數值必須 $\ge 100.0$，會直接連動風控模組計算建議配置股數與部位上限。
+- **範例指令**：
 
 ```text
-/ai2 TSLA,NVDA model=clef-flash provider=TypeSafe rounds=3 analysts=cathie_wood,michael_burry point_in_time=true start=2026-01-01 end=2026-10-01
+/ai2 TSLA,NVDA cash=50000 model=clef-flash provider=TypeSafe rounds=3 analysts=cathie_wood,michael_burry,decision_model point_in_time=true start=2026-01-01 end=2026-10-01
 ```
 
 `portfolio` 使用 API v2 的 JSON 物件格式，包含 `as_of`、`cash`、`currency`、`positions`；`positions` 的 `quantity` 支援正數多頭與負數空頭。獨立圓桌需要將分析師訊號 JSON 作為第二個參數：

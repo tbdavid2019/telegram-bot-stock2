@@ -2,6 +2,21 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.17.0] - 2026-10-15
+
+### 💰 AI Hedge Fund 支援期初資金自訂與第 16 位大師 Jev 決策模型正名
+- **期初資金 (`initialCash`) 彈性設定與風控連動**：
+  - `/ai2` 與 `/backtest` 完整支援多種別名輸入：`cash=`, `initial_cash=`, `capital=`, `initialcapital=`, `initialCash=`。
+  - 客戶端與邊界層強制校驗最低金額門檻 $\ge \$100.0$（預設 $\$100,000.0$），低於 100、負數或非數值時即時阻斷並回傳明確繁中引導訊息。
+  - 決策訊息與報告中明確顯示「💰 **期初配置資金**：`$xx,xxx`」，使風控模型推算之建議股數 (`recommended_shares`) 與曝險上限有明確依據。
+- **16 位大師與量化模型全面正名**：
+  - 全面更新 Telegram Bot `/ai2` 說明、快速鍵盤按鈕（`🏛️ 16 大師圓桌辯論`）、BotCommand 選單與內部註解，將歷史殘留之「14 大師 / 15 位」全數統一為 16 位。
+  - 明確將最新加入的第 16 位分析師 `decision_model`（🧠 Jev 決策模型 / JEV Decision Model：SystemOne 高速結構化評估、T+1~T+3 方向機率與 PEAD drift）納入說明與測試案例。
+- **非同步分析與任務輪詢客戶端擴充**：
+  - 在 `tools/ai_hedge_fund.py` 中新增 `analyze_async()` (`POST /api/analysis/async`) 與 `get_task_status()` (`GET /api/task/{taskId}`) 方法，提供非同步任務支援。
+- **合約測試與版本標記**：
+  - 新增 `initialCash` 低於 100 門檻拒絕測試與非同步端點 URL 測試，版本標記升至 `v2.17.0`（更新日 `2026-10-15`）。
+
 ## [2.16.5] - 2026-10-14
 
 ### 🧠 Hedge Fund 委員會新增 Jev Decision Model

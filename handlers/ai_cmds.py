@@ -55,7 +55,7 @@ def _format_round_table(ticker: str, round_table: dict) -> str:
     return "\n\n".join(lines)
 
 
-def _format_analysis_messages(data: dict, tickers: list[str]) -> tuple[str, str, int]:
+def _format_analysis_messages(data: dict, tickers: list[str], initial_cash: float | None = None) -> tuple[str, str, int]:
     """Format v2 analysis response without mixing data between symbols."""
 
     decisions = data.get("decisions") if isinstance(data.get("decisions"), dict) else {}
@@ -74,9 +74,13 @@ def _format_analysis_messages(data: dict, tickers: list[str]) -> tuple[str, str,
             f"🏛️ **{ticker} AI 對沖基金委員會決策報告**",
             f"🎯 **最終決策**：{action_map.get(action, action.upper())}",
             f"📊 **信心度**：`{decision.get('confidence', 0)}%`",
+        ]
+        if initial_cash is not None:
+            section.append(f"💰 **期初配置資金**：`${initial_cash:,.2f}`")
+        section.extend([
             f"📦 **建議配置數量**：`{decision.get('quantity', 0)}` 股",
             f"💡 **執行理由**：\n{decision.get('reasoning', '無詳細說明')}",
-        ]
+        ])
         round_table = get_symbol_entry(round_tables, ticker)
         if isinstance(round_table, dict):
             section.append(_format_round_table(ticker, round_table))
@@ -140,6 +144,18 @@ def _option_bool(options: dict[str, str], key: str, default: bool = False) -> bo
         raise HedgeFundAPIError(f"{key} 必須是 true 或 false")
     return value in {"true", "1", "yes"}
 
+
+def _extract_cash_option(options: dict[str, str], default: float = 100000.0) -> float:
+    cash_aliases = ("initial_cash", "initialcash", "initialcapital", "capital", "cash")
+    for alias in cash_aliases:
+        if alias in options:
+            val = options[alias].strip()
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                raise HedgeFundAPIError(f"期初資金 (initialCash) 格式不正確：{options[alias]}")
+    return default
+
 async def ai_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Unified /ai command: Forward to Main Conversational Agent with tools & memory."""
     if len(context.args) == 0:
@@ -173,10 +189,17 @@ async def ai_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ 分析時發生錯誤：{str(e)}")
 
 async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Run the v2 15-persona analysis and multi-round committee debate."""
+    """Run the v2 16-persona analysis and multi-round committee debate."""
 
     if not context.args:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/ai2 TSLA,NVDA 或 /ai2 2330.TW")
+        await update.message.reply_text(
+            "❌ 請提供股票代碼，例如：/ai2 TSLA,NVDA 或 /ai2 2330.TW\n"
+            "💡 亦可自訂期初資金（預設 $100,000，最低門檻 $100）：\n"
+            "• `/ai2 TSLA cash=50000`\n"
+            "• `/ai2 2330.TW initial_cash=200000`\n"
+            "• `/ai2 NVDA capital=80000 analysts=warren_buffett,decision_model,technical_analyst`",
+            parse_mode="Markdown"
+        )
         return
 
     try:
@@ -185,13 +208,15 @@ async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
         selected_analysts = options.get("analysts")
         analyst_keys = selected_analysts.split(",") if selected_analysts else None
         portfolio = json.loads(options["portfolio"]) if options.get("portfolio") else None
+        initial_cash = _extract_cash_option(options)
+
         payload = build_analysis_payload(
             tickers,
             selected_analysts=analyst_keys,
             model_name=options.get("model", "openai/gpt-oss-20b"),
             model_provider=options.get("provider", "Groq"),
             round_table_rounds=int(options.get("rounds", "2")),
-            initial_cash=float(options.get("cash", "100000")),
+            initial_cash=initial_cash,
             portfolio=portfolio,
             point_in_time=_option_bool(options, "point_in_time"),
             start_date=options.get("start"),
@@ -208,7 +233,7 @@ async def ai2_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     try:
         data = await HedgeFundAPIClient().analyze(payload)
-        decision_message, analyst_message, analyst_count = _format_analysis_messages(data, tickers)
+        decision_message, analyst_message, analyst_count = _format_analysis_messages(data, tickers, initial_cash=initial_cash)
         try:
             await processing_msg.delete()
         except Exception:
@@ -305,6 +330,8 @@ async def backtest_grid(update: Update, context: ContextTypes.DEFAULT_TYPE):
         selected = options.get("analysts")
         portfolio = json.loads(options["portfolio"]) if options.get("portfolio") else None
         tickers = await _resolve_tickers_async([raw_tickers])
+        initial_cash = _extract_cash_option(options)
+
         payload = build_backtest_payload(
             run_id=run_id,
             tickers=tickers,
@@ -312,7 +339,7 @@ async def backtest_grid(update: Update, context: ContextTypes.DEFAULT_TYPE):
             end_date=end_date,
             cutoff_time_utc=options.get("cutoff", "16:00:00Z"),
             selected_analysts=selected.split(",") if selected else None,
-            initial_cash=float(options.get("cash", "100000")),
+            initial_cash=initial_cash,
             portfolio=portfolio,
             daily_rebalance_policy=options.get("policy", "daily"),
             transaction_fee_rate=float(options.get("fee", "0.001")),

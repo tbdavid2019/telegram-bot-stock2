@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
-BOT_VERSION = "2.16.5"
-BOT_RELEASE_DATE = "2026-10-14"
+BOT_VERSION = "2.17.0"
+BOT_RELEASE_DATE = "2026-10-15"
 
 
 def build_help_update_stamp() -> str:
@@ -114,7 +114,7 @@ def generate_followup_keyboard(
             ])
             buttons.append([
                 InlineKeyboardButton(f"📐 檢驗 {clean_code} SEPA 趨勢", callback_data=cache_prompt(f"/sepa {sym}")),
-                InlineKeyboardButton(f"🏛️ 14 大師圓桌辯論", callback_data=cache_prompt(f"/ai2 {sym}"))
+                InlineKeyboardButton(f"🏛️ 16 大師圓桌辯論", callback_data=cache_prompt(f"/ai2 {sym}"))
             ])
         else:
             buttons.append([
@@ -123,7 +123,7 @@ def generate_followup_keyboard(
             ])
             buttons.append([
                 InlineKeyboardButton(f"📊 {sym} 多因子風險歸因", callback_data=cache_prompt(f"/ff {sym}")),
-                InlineKeyboardButton(f"🏛️ 14 大師圓桌辯論", callback_data=cache_prompt(f"/ai2 {sym}"))
+                InlineKeyboardButton(f"🏛️ 16 大師圓桌辯論", callback_data=cache_prompt(f"/ai2 {sym}"))
             ])
 
     elif subj["type"] == "macro":
@@ -195,8 +195,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/val 股票代碼` - 💰 五年 DCF 內在價值與 WACC 敏感度 (範例：`/val AAPL`)\n"
         "• `/earn 股票代碼` - 🗓️ 財報日期、共識預估與四季驚喜紀錄 (範例：`/earn NVDA`)\n"
         "• `/corr 股票1,股票2,...` - 🔗 90 日相關係數與 S&P 500 Beta (範例：`/corr TSLA,NVDA,AAPL`)\n"
-        "• `/ai2 股票代碼[,股票代碼]` - 🏛️ 16 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA,TSLA`)\n"
-        "  可加 `model=clef-flash rounds=3 point_in_time=true start=2026-01-01 end=2026-10-01`；完整回測使用 `/backtest`。\n"
+        "• `/ai2 股票代碼[,股票代碼] [cash=金額]` - 🏛️ 16 位投資大師 AI 對沖基金委員會與圓桌辯論 (範例：`/ai2 NVDA,TSLA cash=50000`)\n"
+        "  可加 `cash=50000 analysts=warren_buffett,decision_model rounds=3 point_in_time=true`；完整回測使用 `/backtest`。\n"
         "• `/roundtable 股票代碼 JSON` - 🗣️ 使用預先計算的分析師訊號執行獨立圓桌辯論\n"
         "• `/backtest RUN_ID 股票代碼[,股票代碼] 起始日 結束日` - 🧪 執行或續接 point-in-time 回測網格\n"
         "• `/backtest_status RUN_ID` - 📋 讀取已保存的回測結果\n"
@@ -237,7 +237,7 @@ async def tools_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📊 台股預測 (LSTM)：[點擊使用](https://huggingface.co/spaces/tbdavid2019/twStock-predict)\n"
         "📈 美股台股潛力股預測 (LSTM)：[點擊使用](https://huggingface.co/spaces/tbdavid2019/twStock-Underdogs)\n"
         "🔮 美股台股預測 (Prophet)：[點擊使用](https://huggingface.co/spaces/tbdavid2019/Stock-Predict-Prophet)\n"
-        "🏛️ AI 對沖基金 (15位投資大師與圓桌辯論)：[點擊使用](https://hedgeapi.afpicapital.com/docs)"
+        "🏛️ AI 對沖基金 (16位投資大師與圓桌辯論)：[點擊使用](https://hedgeapi.afpicapital.com/docs)"
     )
     await update.message.reply_text(message, parse_mode="Markdown")
 
@@ -573,7 +573,7 @@ async def reset_commands(application: Application):
         BotCommand("hot", "即時重大財經快訊 (財聯社/華爾街見聞)"),
         BotCommand("chip", "台股三大法人買賣超與連買連賣籌碼分析"),
         BotCommand("ff", "Fama-French 多因子風險歸因與 Alpha"),
-        BotCommand("ai2", "15位投資大師圓桌辯論 (AI對沖基金)"),
+        BotCommand("ai2", "16位投資大師圓桌辯論 (AI對沖基金)"),
         BotCommand("roundtable", "使用預先訊號執行獨立圓桌辯論"),
         BotCommand("backtest", "執行或續接 point-in-time 回測網格"),
         BotCommand("backtest_status", "查詢已保存的回測結果"),

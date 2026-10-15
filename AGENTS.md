@@ -83,7 +83,7 @@ telegram-bot-stock2/
 
 ### 5. 🏛️ AI Hedge Fund API v2 (`/ai2`) Standards
 - **Base URL**: `https://hedgeapi.afpicapital.com` (configurable via `AI2_BASE_URL` / endpoint-specific variables).
-- **Endpoints**: `/api/analysis`, `/api/round_table`, `/api/backtest/grid`, `/api/backtest/runs/{run_id}`, `/api/health`.
+- **Endpoints**: `/api/analysis`, `/api/analysis/async`, `/api/task/{task_id}`, `/api/round_table`, `/api/backtest/grid`, `/api/backtest/runs/{run_id}`, `/api/health`.
 - **All 16 Analyst Personas**:
   - `warren_buffett`, `charlie_munger`, `ben_graham`, `cathie_wood`, `bill_ackman`, `nancy_pelosi`, `michael_burry`, `peter_lynch`, `phil_fisher`, `wsb`, `technical_analyst`, `fundamentals_analyst`, `sentiment_analyst`, `valuation_analyst`, `stanley_druckenmiller`, `decision_model`.
 - **Request Payload Parameters**:
@@ -93,7 +93,7 @@ telegram-bot-stock2/
   - `modelProvider`: Default project value is `Groq`; `clef-flash` models use `TypeSafe`.
   - `enableRoundTable`: Boolean controlling committee debate.
   - `roundTableRounds`: Integer from 1 to 3.
-  - `initialCash`: Non-negative starting portfolio cash.
+  - `initialCash`: Starting portfolio cash (default: 100,000.0, minimum: 100.0). Supports aliases `initial_cash`, `initialCapital`, `capital`, `cash`. Directly controls risk manager position limits and recommended shares.
   - `portfolio`: Optional dated snapshot with `as_of`, `cash`, `currency`, and signed `positions`.
   - `pointInTime`: Optional strict historical availability filtering.
   - `startDate` / `endDate`: Optional `YYYY-MM-DD` analysis window.

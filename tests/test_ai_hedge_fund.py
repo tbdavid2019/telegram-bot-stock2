@@ -17,11 +17,11 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
     def test_help_update_stamp_contains_version_and_taipei_date(self):
         stamp = build_help_update_stamp()
 
-        self.assertIn("v2.16.5", stamp)
-        self.assertIn("2026-10-14", stamp)
+        self.assertIn("v2.17.0", stamp)
+        self.assertIn("2026-10-15", stamp)
         self.assertNotIn("2026-10-20", stamp)
 
-    def test_analysis_payload_uses_v2_defaults_and_all_fifteen_analysts(self):
+    def test_analysis_payload_uses_v2_defaults_and_all_sixteen_analysts(self):
         payload = build_analysis_payload("TSLA,NVDA")
 
         self.assertEqual(payload["tickers"], "TSLA,NVDA")
@@ -29,9 +29,29 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
         self.assertEqual(payload["modelProvider"], "Groq")
         self.assertTrue(payload["enableRoundTable"])
         self.assertEqual(payload["roundTableRounds"], 2)
+        self.assertEqual(len(payload["selectedAnalysts"]), 16)
         self.assertEqual(payload["selectedAnalysts"], list(ALL_ANALYST_KEYS))
         self.assertIn("stanley_druckenmiller", payload["selectedAnalysts"])
         self.assertIn("decision_model", payload["selectedAnalysts"])
+        self.assertEqual(payload["initialCash"], 100000)
+
+    def test_analysis_payload_rejects_initial_cash_under_one_hundred(self):
+        with self.assertRaises(HedgeFundAPIError):
+            build_analysis_payload("TSLA", initial_cash=50)
+        with self.assertRaises(HedgeFundAPIError):
+            build_analysis_payload("TSLA", initial_cash=0)
+        with self.assertRaises(HedgeFundAPIError):
+            build_analysis_payload("TSLA", initial_cash=-100)
+
+    def test_backtest_payload_rejects_initial_cash_under_one_hundred(self):
+        with self.assertRaises(HedgeFundAPIError):
+            build_backtest_payload(
+                run_id="test-run",
+                tickers=["TSLA"],
+                start_date="2026-01-01",
+                end_date="2026-02-01",
+                initial_cash=99.9,
+            )
 
     def test_analysis_payload_preserves_optional_point_in_time_portfolio(self):
         portfolio = {
@@ -121,6 +141,13 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
                     ],
                 },
             )
+
+
+    def test_client_async_and_task_endpoints(self):
+        from tools.ai_hedge_fund import HedgeFundAPIClient
+        client = HedgeFundAPIClient("https://hedgeapi.afpicapital.com")
+        self.assertEqual(client.analysis_async_url, "https://hedgeapi.afpicapital.com/api/analysis/async")
+        self.assertEqual(client.task_url, "https://hedgeapi.afpicapital.com/api/task")
 
 
 if __name__ == "__main__":

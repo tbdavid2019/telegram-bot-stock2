@@ -156,8 +156,8 @@ def build_analysis_payload(
         raise HedgeFundAPIError("modelName 不可為空")
     if not isinstance(model_provider, str) or not model_provider.strip():
         raise HedgeFundAPIError("modelProvider 不可為空")
-    if isinstance(initial_cash, bool) or not isinstance(initial_cash, (int, float)) or initial_cash < 0:
-        raise HedgeFundAPIError("initialCash 必須是非負數字")
+    if isinstance(initial_cash, bool) or not isinstance(initial_cash, (int, float)) or initial_cash < 100.0:
+        raise HedgeFundAPIError("initialCash 必須為大於或等於 100.0 的數字（最低門檻 100.0）")
 
     payload: dict[str, Any] = {
         "tickers": ",".join(_normalise_tickers(tickers)),
@@ -227,13 +227,14 @@ def build_backtest_payload(
     if daily_rebalance_policy not in {"daily", "none"}:
         raise HedgeFundAPIError("dailyRebalancePolicy 必須是 daily 或 none")
     for field_name, value in (
-        ("initialCash", initial_cash),
         ("transactionFeeRate", transaction_fee_rate),
         ("slippageRate", slippage_rate),
         ("marginRatio", margin_ratio),
     ):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
             raise HedgeFundAPIError(f"{field_name} 必須是非負數字")
+    if isinstance(initial_cash, bool) or not isinstance(initial_cash, (int, float)) or initial_cash < 100.0:
+        raise HedgeFundAPIError("initialCash 必須為大於或等於 100.0 的數字（最低門檻 100.0）")
 
     payload: dict[str, Any] = {
         "runId": run_id,
@@ -295,12 +296,16 @@ class HedgeFundAPIClient:
         self.timeout = timeout
         if self.base_url == AI2_BASE_URL.rstrip("/"):
             self.analysis_url = AI2_API_URL
+            self.analysis_async_url = f"{self.base_url}/api/analysis/async"
+            self.task_url = f"{self.base_url}/api/task"
             self.round_table_url = AI2_ROUND_TABLE_URL
             self.backtest_grid_url = AI2_BACKTEST_GRID_URL
             self.backtest_run_url = AI2_BACKTEST_RUN_URL
             self.health_url = AI2_HEALTH_URL
         else:
             self.analysis_url = f"{self.base_url}/api/analysis"
+            self.analysis_async_url = f"{self.base_url}/api/analysis/async"
+            self.task_url = f"{self.base_url}/api/task"
             self.round_table_url = f"{self.base_url}/api/round_table"
             self.backtest_grid_url = f"{self.base_url}/api/backtest/grid"
             self.backtest_run_url = f"{self.base_url}/api/backtest/runs"
@@ -349,6 +354,16 @@ class HedgeFundAPIClient:
 
     async def analyze(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         return await self._request("POST", self.analysis_url, payload=payload)
+
+    async def analyze_async(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        """Submit an equity analysis task in the background (HTTP 202)."""
+        return await self._request("POST", self.analysis_async_url, payload=payload)
+
+    async def get_task_status(self, task_id: str) -> dict[str, Any]:
+        """Poll async task status and retrieve analysis result."""
+        if not isinstance(task_id, str) or not task_id.strip():
+            raise HedgeFundAPIError("taskId 不可為空")
+        return await self._request("GET", f"{self.task_url.rstrip('/')}/{task_id.strip()}")
 
     async def round_table(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         return await self._request("POST", self.round_table_url, payload=payload)
