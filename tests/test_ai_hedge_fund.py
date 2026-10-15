@@ -17,7 +17,7 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
     def test_help_update_stamp_contains_version_and_taipei_date(self):
         stamp = build_help_update_stamp()
 
-        self.assertIn("v2.17.0", stamp)
+        self.assertIn("v2.17.1", stamp)
         self.assertIn("2026-10-15", stamp)
         self.assertNotIn("2026-10-20", stamp)
 
@@ -43,6 +43,19 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
         with self.assertRaises(HedgeFundAPIError):
             build_analysis_payload("TSLA", initial_cash=-100)
 
+    def test_initial_cash_rejects_nan_and_infinities(self):
+        for invalid_cash in (float("nan"), float("inf"), float("-inf"), True, False):
+            with self.assertRaises(HedgeFundAPIError):
+                build_analysis_payload("TSLA", initial_cash=invalid_cash)
+            with self.assertRaises(HedgeFundAPIError):
+                build_backtest_payload(
+                    run_id="test-run",
+                    tickers=["TSLA"],
+                    start_date="2026-01-01",
+                    end_date="2026-02-01",
+                    initial_cash=invalid_cash,
+                )
+
     def test_backtest_payload_rejects_initial_cash_under_one_hundred(self):
         with self.assertRaises(HedgeFundAPIError):
             build_backtest_payload(
@@ -52,6 +65,39 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
                 end_date="2026-02-01",
                 initial_cash=99.9,
             )
+
+    def test_extract_cash_option_aliases_and_conflicts(self):
+        from handlers.ai_cmds import _extract_cash_option
+
+        # Default
+        self.assertEqual(_extract_cash_option({}), 100000.0)
+
+        # All aliases supported
+        self.assertEqual(_extract_cash_option({"cash": "50000"}), 50000.0)
+        self.assertEqual(_extract_cash_option({"initial_cash": "60000"}), 60000.0)
+        self.assertEqual(_extract_cash_option({"capital": "70000"}), 70000.0)
+        self.assertEqual(_extract_cash_option({"initialcapital": "80000"}), 80000.0)
+        self.assertEqual(_extract_cash_option({"initialcash": "90000"}), 90000.0)
+
+        # Identical duplicate aliases
+        self.assertEqual(_extract_cash_option({"cash": "50000", "capital": "50000"}), 50000.0)
+
+        # Conflicting duplicate aliases rejected
+        with self.assertRaises(HedgeFundAPIError) as ctx:
+            _extract_cash_option({"cash": "50000", "capital": "60000"})
+        self.assertIn("矛盾", str(ctx.exception))
+
+        # Non-numeric rejected
+        with self.assertRaises(HedgeFundAPIError):
+            _extract_cash_option({"cash": "invalid"})
+        with self.assertRaises(HedgeFundAPIError):
+            _extract_cash_option({"initial_cash": ""})
+
+        # NaN and Inf rejected
+        with self.assertRaises(HedgeFundAPIError):
+            _extract_cash_option({"cash": "nan"})
+        with self.assertRaises(HedgeFundAPIError):
+            _extract_cash_option({"capital": "inf"})
 
     def test_analysis_payload_preserves_optional_point_in_time_portfolio(self):
         portfolio = {
@@ -142,12 +188,57 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
                 },
             )
 
-
     def test_client_async_and_task_endpoints(self):
         from tools.ai_hedge_fund import HedgeFundAPIClient
+
         client = HedgeFundAPIClient("https://hedgeapi.afpicapital.com")
         self.assertEqual(client.analysis_async_url, "https://hedgeapi.afpicapital.com/api/analysis/async")
         self.assertEqual(client.task_url, "https://hedgeapi.afpicapital.com/api/task")
+
+
+class AIHedgeFundAsyncClientTests(unittest.IsolatedAsyncioTestCase):
+    async def test_analyze_async_posts_to_correct_url(self):
+        from unittest import mock
+        from tools.ai_hedge_fund import HedgeFundAPIClient
+
+        client = HedgeFundAPIClient("https://hedgeapi.afpicapital.com")
+        mock_resp = mock.MagicMock()
+        mock_resp.status_code = 202
+        mock_resp.json.return_value = {"taskId": "task-123", "status": "pending"}
+
+        with mock.patch("httpx.AsyncClient.request", new_callable=mock.AsyncMock) as mock_request:
+            mock_request.return_value = mock_resp
+            result = await client.analyze_async({"tickers": "TSLA"})
+            self.assertEqual(result["taskId"], "task-123")
+            mock_request.assert_called_once_with(
+                "POST", "https://hedgeapi.afpicapital.com/api/analysis/async", json={"tickers": "TSLA"}
+            )
+
+    async def test_get_task_status_gets_correct_url(self):
+        from unittest import mock
+        from tools.ai_hedge_fund import HedgeFundAPIClient
+
+        client = HedgeFundAPIClient("https://hedgeapi.afpicapital.com")
+        mock_resp = mock.MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"status": "completed", "result": {}}
+
+        with mock.patch("httpx.AsyncClient.request", new_callable=mock.AsyncMock) as mock_request:
+            mock_request.return_value = mock_resp
+            result = await client.get_task_status("task-123")
+            self.assertEqual(result["status"], "completed")
+            mock_request.assert_called_once_with(
+                "GET", "https://hedgeapi.afpicapital.com/api/task/task-123", json=None
+            )
+
+    async def test_get_task_status_rejects_empty_id(self):
+        from tools.ai_hedge_fund import HedgeFundAPIClient, HedgeFundAPIError
+
+        client = HedgeFundAPIClient()
+        with self.assertRaises(HedgeFundAPIError):
+            await client.get_task_status("")
+        with self.assertRaises(HedgeFundAPIError):
+            await client.get_task_status("   ")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,19 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.17.1] - 2026-10-15
+
+### 🛡️ PR-Agent 程式碼審查加固：NaN/Infinity 防禦、別名衝突檢驗與 Async Mock 測試
+- **數值防禦加固 (P1)**：
+  - 抽取共用 `_validate_initial_cash()` 函式，導入 `math.isfinite()` 徹底阻絕 `float("nan")`、`float("inf")`、`float("-inf")` 與 `bool` 繞過門檻驗證，杜絕非法 JSON 與不合理的風控上限。
+- **別名衝突偵測與 Command 層防護 (P2)**：
+  - 加固 `_extract_cash_option`，當使用者輸入衝突且數值相異的多重別名（例如 `cash=50000 capital=60000`）時，主動拋出明確錯誤提示而非靜默覆寫；相同數值則和諧相容。
+  - 同步於解析層攔截 `nan`、`inf` 與空字串輸入。
+- **測試完整度提升 (P2)**：
+  - 在 `tests/test_ai_hedge_fund.py` 增設 `NaN`、`Inf`、所有別名、非數值與多別名衝突測試。
+  - 新增 `AIHedgeFundAsyncClientTests`，使用 `unittest.mock` 驗證 `analyze_async()` (POST, 202) 與 `get_task_status()` (GET) 之 HTTP 請求規格、路徑與空字串防護。
+  - 版本標記升級至 `v2.17.1`（更新日 `2026-10-15`）。
+
 ## [2.17.0] - 2026-10-15
 
 ### 💰 AI Hedge Fund 支援期初資金自訂與第 16 位大師 Jev 決策模型正名

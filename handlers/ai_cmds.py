@@ -146,15 +146,30 @@ def _option_bool(options: dict[str, str], key: str, default: bool = False) -> bo
 
 
 def _extract_cash_option(options: dict[str, str], default: float = 100000.0) -> float:
+    import math
+
     cash_aliases = ("initial_cash", "initialcash", "initialcapital", "capital", "cash")
+    found_values: dict[str, float] = {}
     for alias in cash_aliases:
         if alias in options:
             val = options[alias].strip()
             try:
-                return float(val)
+                parsed = float(val)
             except (ValueError, TypeError):
                 raise HedgeFundAPIError(f"期初資金 (initialCash) 格式不正確：{options[alias]}")
-    return default
+            if not math.isfinite(parsed):
+                raise HedgeFundAPIError(f"期初資金 (initialCash) 必須為有限數值：{options[alias]}")
+            found_values[alias] = parsed
+
+    if not found_values:
+        return default
+
+    unique_values = set(found_values.values())
+    if len(unique_values) > 1:
+        details = ", ".join(f"{k}={v}" for k, v in found_values.items())
+        raise HedgeFundAPIError(f"偵測到多個互相矛盾的期初資金參數 ({details})，請只保留一個")
+
+    return next(iter(found_values.values()))
 
 async def ai_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Unified /ai command: Forward to Main Conversational Agent with tools & memory."""

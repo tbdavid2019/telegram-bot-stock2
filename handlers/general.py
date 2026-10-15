@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
-BOT_VERSION = "2.17.0"
+BOT_VERSION = "2.17.1"
 BOT_RELEASE_DATE = "2026-10-15"
 
 

@@ -7,6 +7,7 @@ then focus on user interaction and presentation.
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
@@ -136,6 +137,17 @@ def _validate_portfolio(portfolio: Mapping[str, Any] | None) -> dict[str, Any] |
     return dict(portfolio)
 
 
+def _validate_initial_cash(initial_cash: Any, field_name: str = "initialCash") -> float:
+    if (
+        isinstance(initial_cash, bool)
+        or not isinstance(initial_cash, (int, float))
+        or not math.isfinite(initial_cash)
+        or initial_cash < 100.0
+    ):
+        raise HedgeFundAPIError(f"{field_name} 必須為有限且大於或等於 100.0 的數字（最低門檻 100.0）")
+    return float(initial_cash)
+
+
 def build_analysis_payload(
     tickers: str | Sequence[str],
     *,
@@ -156,8 +168,7 @@ def build_analysis_payload(
         raise HedgeFundAPIError("modelName 不可為空")
     if not isinstance(model_provider, str) or not model_provider.strip():
         raise HedgeFundAPIError("modelProvider 不可為空")
-    if isinstance(initial_cash, bool) or not isinstance(initial_cash, (int, float)) or initial_cash < 100.0:
-        raise HedgeFundAPIError("initialCash 必須為大於或等於 100.0 的數字（最低門檻 100.0）")
+    valid_initial_cash = _validate_initial_cash(initial_cash, "initialCash")
 
     payload: dict[str, Any] = {
         "tickers": ",".join(_normalise_tickers(tickers)),
@@ -166,7 +177,7 @@ def build_analysis_payload(
         "modelProvider": model_provider.strip(),
         "enableRoundTable": bool(enable_round_table),
         "roundTableRounds": _validate_rounds(round_table_rounds, "roundTableRounds"),
-        "initialCash": initial_cash,
+        "initialCash": valid_initial_cash,
     }
     validated_portfolio = _validate_portfolio(portfolio)
     if validated_portfolio is not None:
@@ -233,8 +244,7 @@ def build_backtest_payload(
     ):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
             raise HedgeFundAPIError(f"{field_name} 必須是非負數字")
-    if isinstance(initial_cash, bool) or not isinstance(initial_cash, (int, float)) or initial_cash < 100.0:
-        raise HedgeFundAPIError("initialCash 必須為大於或等於 100.0 的數字（最低門檻 100.0）")
+    valid_initial_cash = _validate_initial_cash(initial_cash, "initialCash")
 
     payload: dict[str, Any] = {
         "runId": run_id,
@@ -242,7 +252,7 @@ def build_backtest_payload(
         "startDate": start_date,
         "endDate": end_date,
         "cutoffTimeUtc": cutoff_time_utc,
-        "initialCash": initial_cash,
+        "initialCash": valid_initial_cash,
         "dailyRebalancePolicy": daily_rebalance_policy,
         "transactionFeeRate": transaction_fee_rate,
         "slippageRate": slippage_rate,
@@ -390,4 +400,5 @@ __all__ = [
     "build_round_table_payload",
     "get_symbol_entry",
     "split_message",
+    "_validate_initial_cash",
 ]
