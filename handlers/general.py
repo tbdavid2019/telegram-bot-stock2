@@ -112,10 +112,17 @@ def generate_followup_keyboard(
                 InlineKeyboardButton(f"🏢 查 {clean_code} 三大法人籌碼", callback_data=cache_prompt(f"/chip {sym}")),
                 InlineKeyboardButton(f"💰 計算 {clean_code} DCF 合理價", callback_data=cache_prompt(f"/val {sym}"))
             ])
-            buttons.append([
-                InlineKeyboardButton(f"📐 檢驗 {clean_code} SEPA 趨勢", callback_data=cache_prompt(f"/sepa {sym}")),
-                InlineKeyboardButton(f"🏛️ 16 大師圓桌辯論", callback_data=cache_prompt(f"/ai2 {sym}"))
-            ])
+            from tools.tw_tenders import TW_STOCK_TENDER_MAPPING
+            if clean_code in TW_STOCK_TENDER_MAPPING:
+                buttons.append([
+                    InlineKeyboardButton(f"⚔️ 查 {clean_code} 公標案宿敵與戰報", callback_data=cache_prompt(f"{clean_code} 在公標案上主要競爭對手與得標戰報如何？")),
+                    InlineKeyboardButton(f"🏛️ 16 大師圓桌辯論", callback_data=cache_prompt(f"/ai2 {sym}"))
+                ])
+            else:
+                buttons.append([
+                    InlineKeyboardButton(f"📐 檢驗 {clean_code} SEPA 趨勢", callback_data=cache_prompt(f"/sepa {sym}")),
+                    InlineKeyboardButton(f"🏛️ 16 大師圓桌辯論", callback_data=cache_prompt(f"/ai2 {sym}"))
+                ])
         else:
             buttons.append([
                 InlineKeyboardButton(f"💰 計算 {sym} DCF 內在價值", callback_data=cache_prompt(f"/val {sym}")),
@@ -174,6 +181,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "  • 🧠 *「查詢 Google TimesFM 5 日預測與高盈虧比排行」*\n"
         "  • 🏢 *「台積電 2330 最近有哪些券商主力分點在大量買超？」*\n"
         "  • 🔮 *「Polymarket 現在對聯準會 9 月降息的真實機率是多少？」*\n"
+        "  • ⚔️ *「漢翔在標案上主要競爭對手是誰？勝率如何？(公標案宿敵雷達)」*\n"
+        "  • 🥊 *「比對漢翔與亞航的標案勝負，誰的勝場與勝率比較高？」*\n"
+        "  • 🏛️ *「國防部空軍司令部的主要得標承包商有哪些？」*\n"
+        "  • 📢 *「國防部近期公開招標標案有哪些？(或查詢採購預告)」*\n"
+        "  • 🛡️ *「中鼎或漢翔有沒有被政府停權或名列採購法黑名單？」*\n"
         "  • 📰 *「台積電 2330.TW 最近有什麼重大新聞與基本面評估」*\n\n"
         "📎 **智慧文件與對帳單解析（Google Magika 驅動）**：\n"
         "直接在聊天室發送 **PDF 財報/研報**、**CSV/Excel 投資對帳單與數據表** 或 **TXT 文件**（可附帶文字備註）：\n"
