@@ -120,7 +120,18 @@
   - **TXT / Markdown / JSON 筆記**：文字清洗與上下文注入。
 - **AI 專家交叉驗證**：自動將結構化文字注入 LangGraph 主 Agent，AI 專家可主動調用即時報價、DCF 與估值工具進行對照分析。
 
-### 13. 🛠️ 其他量化工具連結 (`/h`)
+### 13. 🏛️ ToBid 台灣政府標案情報與採購法合規風控 (公標案營收先行指標 & 停權排查)
+- **公標案得標戰報 (`get_company_government_tenders`)**：
+  - 專為台灣國防軍工 (漢翔 2634、龍德 6753、雷虎 8033、亞航 2630)、資訊軟體資安 (精誠 6214、零壹 3029、凌群 2453、邁達特 6112)、營造水資源工程 (中鼎 9933、工信 5521、欣陸 3703、山林水 8473、國統 8936) 與重電綠能 (華城 1519、士電 1503、泓德 6873、雲豹 6869) 等公標案營收佔比極高的標的打造。
+  - 即時查詢歷史投標次數、累計得標次數、勝率 (%)、單一投標獨得率、歷史已知決標總額、前五大發包政府機關與累計得標金額、主要競標對手與交手勝負次數、近期代表性決標標案。
+- **得標廠商標案明細調用 (`get_company_winning_tenders`)**：
+  - 支援針對特定上市櫃公司或廠商代碼/名稱，直接拉取實際得標的最新標案清單。
+  - 列出標案名稱、發包機關、標案案號、決標金額、預算金額、決標日期以及直達 ToBid 標案詳情的案件連結 (`https://tobid.tw/?case={unit_id}|{job_number}`)。
+- **採購法第 101 條停權黑名單查核 (`check_vendor_procurement_compliance`)**：
+  - 上市櫃公司重大黑天鵝排查：精確核對該廠商是否遭政府刊登為「目前拒絕往來（停權生效中）」，或曾有採購法 101 條爭議案件。
+- **對話直接觸發**：在 Telegram 對話中直接詢問（如「漢翔最近拿到哪些政府標案？」、「精誠的政府客戶有哪些？」、「中鼎有沒有被政府停權？」、「列出漢翔的得標案件清單」），Main Agent 會自動調用 ToBid MCP 引擎進行檢索與分析。
+
+### 14. 🛠️ 其他量化工具連結 (`/h`)
 - 提供台股 LSTM 預測、潛力股預測模型與 HuggingFace 空間快速入口。
 
 ---
@@ -213,6 +224,10 @@
 - **詢問重大財經事件與預測市場**：
   > 🗣️ *「這幾天美股有哪些重要公司要公布財報？」*  
   > 🗣️ *「幫我查 Polymarket 上現在預測聯準會降息的機率是多少？」*
+- **詢問政府公標案與採購法合規排查**：
+  > 🗣️ *「漢翔最近拿到了哪些政府標案？主要發包機關是誰？」*  
+  > 🗣️ *「精誠資訊最近有得標哪些公標案？幫我列出得標清單與金額。」*  
+  > 🗣️ *「幫我查中鼎有沒有被政府列入採購法第 101 條停權黑名單？」*
 
 ---
 
@@ -244,7 +259,9 @@
   5. **預測市場機率 (`tools/polymarket.py`)**：2MD 代理集群穿透台灣 ISP DNS 阻斷 + `SingleFlight` + 5 分鐘 TTLCache 本機快取。
   6. **主力籌碼與市場情緒 (`tools/market_intel.py`)**：13F (2h)、Form 4 (30m)、空頭擠壓 (20m) 分級快取 + `SingleFlight` 併發合併。
   7. **檔案解析引擎 (`tools/file_intel.py`)**：100% 本地 CPU 推論（Google Magika ONNX 模型、PyPDF、openpyxl、xlrd），零外部網路相依。
+  8. **政府標案與採購法合規 (`tools/tw_tenders.py`)**：ToBid 公開 MCP 整合，`SingleFlight` 併發合併 + 1 小時 (標案戰報) / 2 小時 (停權合規) 分級快取，毫秒級防驚群保護。
 - **金融邏輯與傳導鏈**：DeepEar Lite API、NewsNow API (財聯社/華爾街見聞/雪球)、Investing.com 官方無反爬 RSS (繁中焦點/商品/美債利率)
+- **ToBid 台灣政府標案 MCP 引擎**：`https://api.tobid.tw/mcp` (標準 JSON-RPC 2.0，工程會標案/決標/採購法 101 條停權紀錄)
 - **2MD 財經即時搜尋 (Web Reader & SERP) 與防驚群快取**：
   - **SingleFlight 併發合併與多層級 TTLCache**：內建 `tools/cache_util.py`，阻絕驚群效應 (Thundering Herd)，命中時延遲 0.0001s，具備 Stale-While-Revalidate 容災降級保護。
   - 主力端點：`https://2md.aiurl.tw/` (Timeout 8.5s/12.0s)
@@ -283,6 +300,9 @@ WIKI_BASE_URL=https://wiki.david888.com
 
 # 888 Stock Quant 量化平台端點 (選填，預設為 https://stockdata.david888.com)
 STOCKDATA_BASE_URL=https://stockdata.david888.com
+
+# ToBid 台灣政府標案 MCP 端點 (選填，預設為 https://api.tobid.tw/mcp)
+TOBID_MCP_URL=https://api.tobid.tw/mcp
 
 # 主對話助理 (支援 NEN DeepSeek / Groq / OpenAI 等相容端點)
 LLM_API_KEY=your_llm_api_key

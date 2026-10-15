@@ -42,6 +42,11 @@ from tools.stockdata_quant import (
     get_broker_branch_trades,
     get_market_investing_calendars,
 )
+from tools.tw_tenders import (
+    get_company_government_tenders,
+    get_company_winning_tenders,
+    check_vendor_procurement_compliance,
+)
 from tools.wiki import publish_to_wiki
 
 logger = logging.getLogger(__name__)
@@ -78,6 +83,9 @@ main_agent_tools = [
     get_insider_trading,
     get_short_squeeze_analysis,
     get_retail_sentiment,
+    get_company_government_tenders,
+    get_company_winning_tenders,
+    check_vendor_procurement_compliance,
     publish_to_wiki,
 ]
 
@@ -148,6 +156,9 @@ You have access to dynamic real-time tools:
 - `get_insider_trading`: Public Form 4 insider activity from OpenInsider/Finviz/SEC pages through 2MD.
 - `get_short_squeeze_analysis`: Short float, days-to-cover, and public borrow-fee evidence.
 - `get_retail_sentiment`: Reddit WallStreetBets and StockTwits discussion signals through 2MD.
+- `get_company_government_tenders`: Taiwan listed company government public procurement awards, historical win rates, known total contract amounts, top client agencies (e.g. 國防部、交通部、各大公股行庫), and primary competitors via ToBid. Essential leading revenue indicator for defense/aerospace, IT software/cybersecurity, construction, and green energy stocks.
+- `get_company_winning_tenders`: Retrieves the latest specific government tender awards list won by a listed company or vendor (including tender title, client agency, award amount, budget, job number, date, and case URL).
+- `check_vendor_procurement_compliance`: Audits whether a vendor or listed company has Article 101 debarment records / government procurement blacklist status (crucial black swan compliance check for contractors).
 - `publish_to_wiki`: Publishes comprehensive financial reports, research documents, and multi-stock comparisons to David888 Wiki and returns a public shareUrl.
 
 Users can converse with you freely in natural language to perform fundamental analysis, technical health checks, news summaries, transmission chain reasoning, multi-factor attribution, or market comparisons across Taiwan (e.g. 2330.TW) and US stocks (e.g. NVDA, TSLA).
@@ -204,6 +215,8 @@ Specialized macro commands available for users:
      - 若使用者詢問「現在大盤風險如何？」、「目前適合進場嗎？建議幾成部位？」，請調用 **`get_macro_regime_analysis`** 給出科學的建議投資曝險比例（0%~100%）。
      - 若使用者詢問特定台股有哪些主力或券商營業部在買超，請調用 **`get_broker_branch_trades`** 獲取關鍵分點明細。
      - 若使用者詢問近期重磅美股財報、全球總經行事曆或 CME 利率期貨，請調用 **`get_market_investing_calendars`**。
+     - 若使用者詢問軍工國防 (漢翔/龍德/雷虎/全訊/亞航)、資訊軟服 (精誠/零壹/凌群/邁達特/安碁資訊)、營造水資源 (中鼎/工信/欣陸/山林水/國統) 或重電綠能 (華城/士電/泓德/雲豹) 等標的之「政府標案、得標戰報、公標案營收、政府客戶機關」，請調用 **`get_company_government_tenders`**。
+     - 若使用者詢問特定廠商是否名列停權黑名單、違反政府採購法第 101 條或合規風險查核，請調用 **`check_vendor_procurement_compliance`**。
   3. **嚴禁任何自行腦補、猜測假新聞、假日期、假上市狀態或假數字**！
   4. 若工具搜尋結果為空或回傳錯誤，必須如實告知：「目前搜尋模組查無即時資訊/模組故障」，絕不准自行編造任何假資訊。
   5. 回覆時必須引述工具檢索到的實際內容與 Markdown 來源連結 (`[標題](URL)`)。

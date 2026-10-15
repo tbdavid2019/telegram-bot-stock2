@@ -2,6 +2,23 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.18.0] - 2026-10-15
+
+### 🏛️ ToBid 台灣政府標案情報與採購法合規風控 (公標案營收先行指標 & 停權黑天鵝排查)
+- **ToBid 公開 MCP 整合 (`tools/tw_tenders.py`)**：
+  - 串接 ToBid 台灣政府採購公開數據平台 (`https://api.tobid.tw/mcp`，免 API Key / 標準 JSON-RPC 2.0 規格)。
+  - 新增 `get_company_government_tenders` 工具：即時查詢上市櫃公司投標歷史、得標次數、勝率 (%)、單一投標獨得率、歷年累計決標金額（億元 NTD）、前五大發包政府機關、主要同場競爭對手勝負紀錄，以及近期代表性決標標案。
+  - 新增 `get_company_winning_tenders` 工具：直接查詢特定廠商或上市櫃公司實際得標的最新政府公標案明細清單（包含標案名稱、發包機關、決標金額、案號、決標日期與 ToBid 案件連結）。
+  - 新增 `check_vendor_procurement_compliance` 工具：審查上市櫃公司是否名列行政院工程會採購法第 101 條「拒絕往來廠商（停權生效中）」黑名單與爭議案件，防範重大營收黑天鵝風險。
+- **實體名稱解析 (Entity Mapping)**：
+  - 內建台股國防軍工 (2634 漢翔、6753 龍德、8033 雷虎、2630 亞航)、資訊軟服 (6214 精誠、3029 零壹、2453 凌群、6112 邁達特)、營造水資源 (9933 中鼎、5521 工信、3703 欣陸、8473 山林水、8936 國統) 與重電綠能 (1519 華城、1503 士電、6873 泓德、6869 雲豹) 之代號/簡稱至官方登記全名自動映射，並支援 ToBid `find_entity` 動態補位。
+- **高可用快取與防驚群保護**：
+  - 整合 `tools/cache_util.py`，標案戰報 1 小時 TTL、合規查核 2 小時 TTL 分級快取。
+  - 全流程受 `SingleFlight` 保護，確保高併發請求時只發起單次上游查詢，具備 Stale-While-Revalidate 降級容錯。
+- **LangGraph 主對話助理無縫整合 (`ai_core.py`)**：
+  - 註冊至 `main_agent_tools`，優化系統提示詞引導規則，使用者自然語言詢問特定標的之公標案戰報或停權合規時自動觸發。
+  - 依照 Telegram 排版規範美化輸出，提供乾淨之 Emoji 粗體標題與 ToBid 查核外鏈。
+
 ## [2.17.2] - 2026-10-15
 
 ### 🛡️ 數值邊界全面加固：OverflowError 防護、非字串 Alias 防呆與回測費率有限性檢驗

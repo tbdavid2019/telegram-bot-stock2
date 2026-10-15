@@ -35,6 +35,7 @@ telegram-bot-stock2/
 │   ├── stockdata_quant.py    # 888 Stock Quant Platform: resonance picks, TimesFM 2.5, macro regime, broker trades, calendar
 │   ├── tw_stocker.py         # Taiwan stock full history DB loader & yfinance fallback (voidful/tw_stocker)
 │   ├── tw_institutional.py   # TWSE/TPEX institutional investors (T86/QFIIS/3itrade) official chip tracker
+│   ├── tw_tenders.py         # Taiwan government procurement tenders & Article 101 compliance via ToBid MCP
 │   ├── us_fddk.py            # Fama-French multi-factor analysis & ETF live paper benchmarks (voidful/us_fddk)
 │   ├── news.py               # News tools: 2MD news, NewsNow hot news (CLS, WallstreetCN, Xueqiu)
 │   └── wiki.py               # LangChain tool & helper: publish_to_wiki (David888 Wiki REST API)
@@ -192,6 +193,7 @@ telegram-bot-stock2/
 | `TWOMD_BACKUP2_URL` | ❌ | `https://create360.ai` | Backup 2 2MD search endpoint |
 | `WIKI_BASE_URL` | ❌ | `https://wiki.david888.com` | Base URL for David888 Wiki Publisher |
 | `STOCKDATA_BASE_URL` | ❌ | `https://stockdata.david888.com` | Base URL for 888 Stock Quant Platform (TimesFM, resonance, regime) |
+| `TOBID_MCP_URL` | ❌ | `https://api.tobid.tw/mcp` | ToBid Taiwan government procurement MCP endpoint |
 | `OPENAI_API_KEY` | ❌ | - | OpenAI API Key (Optional) |
 | `OPENAI_MODEL` | ❌ | `gpt-4o` | Model name for OpenAI endpoint |
 | `OPENAI_BASE_URL` | ❌ | `None` | Optional custom base URL for OpenAI endpoint |
