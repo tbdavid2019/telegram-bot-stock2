@@ -44,8 +44,12 @@ from tools.stockdata_quant import (
 )
 from tools.tw_tenders import (
     get_company_government_tenders,
+    get_company_procurement_rivals,
+    compare_procurement_vendors,
+    get_procurement_unit_report,
     get_company_winning_tenders,
     check_vendor_procurement_compliance,
+    search_government_procurement_tenders,
 )
 from tools.wiki import publish_to_wiki
 
@@ -84,8 +88,12 @@ main_agent_tools = [
     get_short_squeeze_analysis,
     get_retail_sentiment,
     get_company_government_tenders,
+    get_company_procurement_rivals,
+    compare_procurement_vendors,
+    get_procurement_unit_report,
     get_company_winning_tenders,
     check_vendor_procurement_compliance,
+    search_government_procurement_tenders,
     publish_to_wiki,
 ]
 
@@ -156,9 +164,13 @@ You have access to dynamic real-time tools:
 - `get_insider_trading`: Public Form 4 insider activity from OpenInsider/Finviz/SEC pages through 2MD.
 - `get_short_squeeze_analysis`: Short float, days-to-cover, and public borrow-fee evidence.
 - `get_retail_sentiment`: Reddit WallStreetBets and StockTwits discussion signals through 2MD.
-- `get_company_government_tenders`: Taiwan listed company government public procurement awards, historical win rates, known total contract amounts, top client agencies (e.g. 國防部、交通部、各大公股行庫), and primary competitors via ToBid. Essential leading revenue indicator for defense/aerospace, IT software/cybersecurity, construction, and green energy stocks.
+- `get_company_government_tenders`: Taiwan listed company government public procurement dossier via ToBid, including total win rates, known total contract amounts, category distribution (勞務/財物/工程), reserve bottom-price margin analysis (底價占預算、決標占底價、議價空間), top client agencies (Top 8), top rivals summary, and recent lost tenders.
+- `get_company_procurement_rivals`: Retrieves full ranking table of competitors in government tenders, match counts, wins, losses, relative win rates (相對勝率 %), competitive evaluation tags (🔴 弱勢, 🟡 均勢, 🟢 優勢), and detailed recent lost tenders with competitor winning bids.
+- `compare_procurement_vendors`: Directly compares two vendors or listed companies head-to-head in government public tenders (head-to-head match count, wins per vendor, relative win rates, and dominance evaluation).
+- `get_procurement_unit_report`: Analyzes public procurement volume, total contract value, fail rates, sole bidder rates, concentration, and top contractor suppliers for government agencies (e.g. 國防部空軍司令部, 台灣電力公司).
 - `get_company_winning_tenders`: Retrieves the latest specific government tender awards list won by a listed company or vendor (including tender title, client agency, award amount, budget, job number, date, and case URL).
 - `check_vendor_procurement_compliance`: Audits whether a vendor or listed company has Article 101 debarment records / government procurement blacklist status (crucial black swan compliance check for contractors).
+- `search_government_procurement_tenders`: Searches Taiwan government procurement public tender notices (公開招標公告), awards (已決標案件), or upcoming procurement forecasts (未來採購預告) by query keywords, agency unit, or tender kind.
 - `publish_to_wiki`: Publishes comprehensive financial reports, research documents, and multi-stock comparisons to David888 Wiki and returns a public shareUrl.
 
 Users can converse with you freely in natural language to perform fundamental analysis, technical health checks, news summaries, transmission chain reasoning, multi-factor attribution, or market comparisons across Taiwan (e.g. 2330.TW) and US stocks (e.g. NVDA, TSLA).
@@ -214,9 +226,13 @@ Specialized macro commands available for users:
      - 若使用者詢問「今天推薦什麼股票？」、「有什麼強勢股/共振標的？」，請調用 **`get_resonance_picks`** 或 **`get_timesfm_predictions_tool`**。
      - 若使用者詢問「現在大盤風險如何？」、「目前適合進場嗎？建議幾成部位？」，請調用 **`get_macro_regime_analysis`** 給出科學的建議投資曝險比例（0%~100%）。
      - 若使用者詢問特定台股有哪些主力或券商營業部在買超，請調用 **`get_broker_branch_trades`** 獲取關鍵分點明細。
-     - 若使用者詢問近期重磅美股財報、全球總經行事曆或 CME 利率期貨，請調用 **`get_market_investing_calendars`**。
-     - 若使用者詢問軍工國防 (漢翔/龍德/雷虎/全訊/亞航)、資訊軟服 (精誠/零壹/凌群/邁達特/安碁資訊)、營造水資源 (中鼎/工信/欣陸/山林水/國統) 或重電綠能 (華城/士電/泓德/雲豹) 等標的之「政府標案、得標戰報、公標案營收、政府客戶機關」，請調用 **`get_company_government_tenders`**。
+     - 若使用者詢問特定公司在公標案上的「主要競爭對手是誰？」、「誰常跟某公司搶標？」、「某公司常輸給誰？」、「同場競標對手與勝率排行」或「近期落標案件」，請務必調用 **`get_company_procurement_rivals`**！
+     - 若使用者詢問「A 跟 B 誰在公標案比較強？」、「兩家廠商對決誰勝場多」或比對兩家廠商同場競爭時，請務必調用 **`compare_procurement_vendors`**！
+     - 若使用者詢問特定政府機關（如空軍司令部、台電、鐵道局等）的發包情報、年度採購規模、主要得標供應商是誰時，請務必調用 **`get_procurement_unit_report`**！
+     - 若使用者詢問軍工國防 (漢翔/龍德/雷虎/全訊/亞航)、資訊軟服 (精誠/零壹/凌群/邁達特/安碁資訊)、營造水資源 (中鼎/工信/欣陸/山林水/國統) 或重電綠能 (華城/士電/泓德/雲豹) 等標的之「政府標案、得標戰報、公標案營收、政府客戶機關、底價落點/議價空間」，請調用 **`get_company_government_tenders`**。
+     - 若使用者明確詢問「某公司最近拿到什麼政府標案？」、「列出得標標案明細清單」，請調用 **`get_company_winning_tenders`**。
      - 若使用者詢問特定廠商是否名列停權黑名單、違反政府採購法第 101 條或合規風險查核，請調用 **`check_vendor_procurement_compliance`**。
+     - 若使用者詢問「國防部近期公開招標有哪些？」、「台灣電力公司有哪些發包採購案？」、「關鍵字（如無人機、變壓器、公共工程）標案搜尋」或「全市場標案預告 / 未來採購預告」，請務必調用 **`search_government_procurement_tenders`**！
   3. **嚴禁任何自行腦補、猜測假新聞、假日期、假上市狀態或假數字**！
   4. 若工具搜尋結果為空或回傳錯誤，必須如實告知：「目前搜尋模組查無即時資訊/模組故障」，絕不准自行編造任何假資訊。
   5. 回覆時必須引述工具檢索到的實際內容與 Markdown 來源連結 (`[標題](URL)`)。

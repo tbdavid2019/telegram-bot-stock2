@@ -172,6 +172,23 @@ telegram-bot-stock2/
   - Data is strictly for market sentiment, crowd consensus, and macroeconomic forward-looking intelligence.
   - Never provide order-execution, betting, or account-binding features. Always attach the disclaimer.
 
+### 10. 🏛️ ToBid Taiwan Government Procurement & Competitor Intelligence Standards
+- **Keyless Public MCP & REST Hybrid Architecture**:
+  - MCP JSON-RPC 2.0 endpoint: `https://api.tobid.tw/mcp` (configurable via `TOBID_MCP_URL`).
+  - Web dataset profile endpoint: `https://api.tobid.tw/api/vendor_report?name={name}` with `Referer: https://tobid.tw/` as primary, MCP `vendor_report` as fallback.
+- **Dedicated Tools Portfolio (`tools/tw_tenders.py`)**:
+  - `get_company_government_tenders`: Comprehensive dossier (total contract value, win rates, sole-bid rates, bottom-price reserve margins, category distribution, core products, top 8 client agencies, top 5 rivals).
+  - `get_company_procurement_rivals`: Full competitor ranking table, head-to-head encounters, wins/losses, relative win rates (`win_rate_vs %`), competitive battle evaluation tags (🔴 弱勢, 🟡 均勢, 🟢 優勢), and recent loss bidding prices.
+  - `compare_procurement_vendors`: Head-to-head duel between two vendors/tickers (match count, wins, relative win rates calculated from total awarded wins, dominance evaluation).
+  - `get_procurement_unit_report`: Agency procurement intelligence (volume, fail rates, sole bidder rates, concentration, top contractor rankings, seasonal peak months).
+  - `get_company_winning_tenders`: Explicit list of latest won public contracts with case links.
+  - `search_government_procurement_tenders`: Broad tender exploration (`tender`, `award`, `forecast`, `all`), including 1~3 month forward procurement forecast (`procurement_forecast`).
+  - `check_vendor_procurement_compliance`: Government Procurement Act Article 101 debarment status & blacklist risk auditing.
+- **Entity Resolution**:
+  - Auto-resolves stock codes and aliases (`2634` -> 漢翔, `3703` -> 大陸工程股份有限公司, etc.) and falls back to ToBid `find_entity`.
+- **Anti-Thundering-Herd & Caching**:
+  - Protected by `SingleFlight` and tiered `TTLCache` (1h for tenders/rivals, 2h for compliance/units).
+
 ---
 
 ## ⚙️ Environment Variables Reference
