@@ -138,14 +138,15 @@ def _validate_portfolio(portfolio: Mapping[str, Any] | None) -> dict[str, Any] |
 
 
 def _validate_initial_cash(initial_cash: Any, field_name: str = "initialCash") -> float:
-    if (
-        isinstance(initial_cash, bool)
-        or not isinstance(initial_cash, (int, float))
-        or not math.isfinite(initial_cash)
-        or initial_cash < 100.0
-    ):
+    if isinstance(initial_cash, bool) or not isinstance(initial_cash, (int, float)):
         raise HedgeFundAPIError(f"{field_name} 必須為有限且大於或等於 100.0 的數字（最低門檻 100.0）")
-    return float(initial_cash)
+    try:
+        converted = float(initial_cash)
+        if not math.isfinite(converted) or converted < 100.0:
+            raise HedgeFundAPIError(f"{field_name} 必須為有限且大於或等於 100.0 的數字（最低門檻 100.0）")
+        return converted
+    except OverflowError:
+        raise HedgeFundAPIError(f"{field_name} 數值過大，無法作為有效投資金額")
 
 
 def build_analysis_payload(
@@ -242,8 +243,14 @@ def build_backtest_payload(
         ("slippageRate", slippage_rate),
         ("marginRatio", margin_ratio),
     ):
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise HedgeFundAPIError(f"{field_name} 必須是非負數字")
+        try:
+            val_float = float(value)
+            if not math.isfinite(val_float) or val_float < 0:
+                raise HedgeFundAPIError(f"{field_name} 必須是非負有限數字")
+        except OverflowError:
+            raise HedgeFundAPIError(f"{field_name} 數值過大")
     valid_initial_cash = _validate_initial_cash(initial_cash, "initialCash")
 
     payload: dict[str, Any] = {

@@ -17,7 +17,7 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
     def test_help_update_stamp_contains_version_and_taipei_date(self):
         stamp = build_help_update_stamp()
 
-        self.assertIn("v2.17.1", stamp)
+        self.assertIn("v2.17.2", stamp)
         self.assertIn("2026-10-15", stamp)
         self.assertNotIn("2026-10-20", stamp)
 
@@ -43,8 +43,8 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
         with self.assertRaises(HedgeFundAPIError):
             build_analysis_payload("TSLA", initial_cash=-100)
 
-    def test_initial_cash_rejects_nan_and_infinities(self):
-        for invalid_cash in (float("nan"), float("inf"), float("-inf"), True, False):
+    def test_initial_cash_rejects_nan_and_infinities_and_oversized_integers(self):
+        for invalid_cash in (float("nan"), float("inf"), float("-inf"), True, False, 10**1000):
             with self.assertRaises(HedgeFundAPIError):
                 build_analysis_payload("TSLA", initial_cash=invalid_cash)
             with self.assertRaises(HedgeFundAPIError):
@@ -65,6 +65,17 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
                 end_date="2026-02-01",
                 initial_cash=99.9,
             )
+
+    def test_backtest_payload_rejects_non_finite_rates(self):
+        for invalid_rate in (float("nan"), float("inf"), float("-inf"), 10**1000):
+            with self.assertRaises(HedgeFundAPIError):
+                build_backtest_payload(
+                    run_id="test-run",
+                    tickers=["TSLA"],
+                    start_date="2026-01-01",
+                    end_date="2026-02-01",
+                    transaction_fee_rate=invalid_rate,
+                )
 
     def test_extract_cash_option_aliases_and_conflicts(self):
         from handlers.ai_cmds import _extract_cash_option
@@ -87,17 +98,21 @@ class AIHedgeFundPayloadTests(unittest.TestCase):
             _extract_cash_option({"cash": "50000", "capital": "60000"})
         self.assertIn("矛盾", str(ctx.exception))
 
-        # Non-numeric rejected
+        # Non-numeric, empty, or None rejected
         with self.assertRaises(HedgeFundAPIError):
             _extract_cash_option({"cash": "invalid"})
         with self.assertRaises(HedgeFundAPIError):
             _extract_cash_option({"initial_cash": ""})
+        with self.assertRaises(HedgeFundAPIError):
+            _extract_cash_option({"capital": None})
 
-        # NaN and Inf rejected
+        # NaN, Inf, and oversized integers rejected
         with self.assertRaises(HedgeFundAPIError):
             _extract_cash_option({"cash": "nan"})
         with self.assertRaises(HedgeFundAPIError):
             _extract_cash_option({"capital": "inf"})
+        with self.assertRaises(HedgeFundAPIError):
+            _extract_cash_option({"capital": "1e1000"})
 
     def test_analysis_payload_preserves_optional_point_in_time_portfolio(self):
         portfolio = {

@@ -2,6 +2,18 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.17.2] - 2026-10-15
+
+### 🛡️ 數值邊界全面加固：OverflowError 防護、非字串 Alias 防呆與回測費率有限性檢驗
+- **超大整數 OverflowError 防護 (P1)**：
+  - 在 `_validate_initial_cash()` 中顯式捕獲超大整數（如 `10**1000`）轉 float 時引發的 `OverflowError`，保證統一由 `HedgeFundAPIError` 返回可讀的錯誤訊息，避免未處理例外與 HTTP 500 崩潰。
+- **別名解析防呆加固**：
+  - `_extract_cash_option()` 增加對 `None` 與非字串值的型別安全防護，並攔截指數超大整數字串（如 `1e1000`）之 `OverflowError`。
+- **回測多維度費率有限性檢驗**：
+  - 在 `build_backtest_payload()` 中對 `transactionFeeRate`、`slippageRate`、`marginRatio` 增加 `math.isfinite()` 檢驗與 `OverflowError` 攔截，確保所有 JSON 數值符合 RFC 8259 嚴格規範。
+- **回歸測試與版本標記**：
+  - 補足 `10**1000`、`None` 輸入與費率非有限數值的全面測試，版本號升至 `v2.17.2`（更新日 `2026-10-15`）。
+
 ## [2.17.1] - 2026-10-15
 
 ### 🛡️ PR-Agent 程式碼審查加固：NaN/Infinity 防禦、別名衝突檢驗與 Async Mock 測試

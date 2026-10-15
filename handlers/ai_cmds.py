@@ -152,13 +152,14 @@ def _extract_cash_option(options: dict[str, str], default: float = 100000.0) -> 
     found_values: dict[str, float] = {}
     for alias in cash_aliases:
         if alias in options:
-            val = options[alias].strip()
+            raw_val = options[alias]
+            val = str(raw_val).strip() if raw_val is not None else ""
             try:
                 parsed = float(val)
-            except (ValueError, TypeError):
-                raise HedgeFundAPIError(f"期初資金 (initialCash) 格式不正確：{options[alias]}")
+            except (ValueError, TypeError, OverflowError):
+                raise HedgeFundAPIError(f"期初資金 (initialCash) 格式不正確：{raw_val}")
             if not math.isfinite(parsed):
-                raise HedgeFundAPIError(f"期初資金 (initialCash) 必須為有限數值：{options[alias]}")
+                raise HedgeFundAPIError(f"期初資金 (initialCash) 必須為有限數值：{raw_val}")
             found_values[alias] = parsed
 
     if not found_values:
