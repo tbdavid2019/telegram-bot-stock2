@@ -11,6 +11,8 @@
 ![Forecast](image-1.png)
 ![Guru Analysis](image-2.png)
 
+![](orca-paste-1792108928420-4f8f6e83-5f44-4567-9521-40a375eaeb28.png)
+
 ---
 
 ## 🌟 核心功能一覽
