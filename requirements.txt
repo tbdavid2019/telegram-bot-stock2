@@ -1,5 +1,5 @@
 python-telegram-bot
-yfinance==1.7.0
+yfinance==1.8.0
 matplotlib
 pandas
 requests
