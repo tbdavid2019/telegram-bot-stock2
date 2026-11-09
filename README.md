@@ -330,10 +330,15 @@ STOCKDATA_BASE_URL=https://stockdata.david888.com
 # ToBid 台灣政府標案 MCP 端點 (選填，預設為 https://api.tobid.tw/mcp)
 TOBID_MCP_URL=https://api.tobid.tw/mcp
 
-# 主對話助理 (支援 NEN DeepSeek / Groq / OpenAI 等相容端點)
-LLM_API_KEY=your_llm_api_key
-LLM_BASE_URL=https://nen.com.tw/v1
-LLM_MODEL=deepseek-v4-flash
+# 主對話助理 (第一順位: Gemini Flash 3.8，備援 Fallback: Groq)
+LLM_API_KEY=sk-magpie-key-7cdba5f5ff990d6b59ccd29f6b5d5523d8e54f63a35f9864
+LLM_BASE_URL=https://llm.aiurl.tw/v1
+LLM_MODEL=gemini-3.8-flash
+
+# 備援模型 (選填，支援 Groq / FALLBACK_LLM_API_KEY 或 GROQ_API_KEY)
+FALLBACK_LLM_API_KEY=your_groq_api_key
+FALLBACK_LLM_BASE_URL=https://api.groq.com/openai/v1
+FALLBACK_LLM_MODEL=openai/gpt-oss-20b
 ```
 
 2. **使用部署腳本一鍵啟動**：

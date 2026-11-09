@@ -49,11 +49,11 @@ STOCKDATA_BASE_URL = os.getenv("STOCKDATA_BASE_URL", "https://stockdata.david888
 # --- ToBid Government Procurement MCP Endpoint ---
 TOBID_MCP_URL = os.getenv("TOBID_MCP_URL", "https://api.tobid.tw/mcp")
 
-# --- Main LLM Agent Configuration (Primary: NEN deepseek-v4-flash, Fallback: Groq) ---
+# --- Main LLM Agent Configuration (Primary: Gemini Flash 3.8 via llm.aiurl.tw, Fallback: Groq) ---
 # Protocol: OpenAI-compatible
-LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-XqYJN7YDjomSEeOPn9GsHvSpspYLuQrxdgQc2zcA3kvuZD34")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://nen.com.tw/v1")
-LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-flash")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-magpie-key-7cdba5f5ff990d6b59ccd29f6b5d5523d8e54f63a35f9864")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://llm.aiurl.tw/v1")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.8-flash")
 
 # Fallback LLM (Groq)
 FALLBACK_LLM_API_KEY = os.getenv("FALLBACK_LLM_API_KEY", os.getenv("GROQ_API_KEY"))

@@ -2,6 +2,19 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.19.0] - 2026-11-09
+
+### ⚡ 主力對話模型升級為 Gemini 3.8 Flash (OpenAI-compatible) 並保留 Groq 雙軌自動容錯 Fallback
+- **主力 LLM 升級為 Gemini 3.8 Flash (`config.py` & `ai_core.py`)**：
+  - 第一順位端點全面切換至 `https://llm.aiurl.tw/v1` (OpenAI API compatible)，預設模型設定為 `gemini-3.8-flash`（亦支援 `antigravity/gemini-3.8-flash`）。
+  - 預設提供認證金鑰 `sk-magpie-key-7cdba5f5ff990d6b59ccd29f6b5d5523d8e54f63a35f9864`。
+  - 完成 LangChain `ChatOpenAI` 與 LangGraph `ToolNode` / `bind_tools` 完整雙向驗證，支援 Function Calling 工具調用生命週期與繁體中文金融推論。
+- **保留 Groq 自動降級容錯 (Fallback)**：
+  - 備援端點維持原 Groq 架構 (`https://api.groq.com/openai/v1`)，模型採用 `openai/gpt-oss-20b`。
+  - 當主力模型遇到超時或錯誤時，由 LangChain `with_fallbacks` 自動切換至 Groq 備援，確保主對話助理 24/7 不斷線。
+- **同步專案配置與環境變數文件**：
+  - 更新 `.env.example`、`AGENTS.md`、`README.md` 中的環境變數說明與示例。
+
 ## [2.18.1] - 2026-10-15
 
 ### ⚔️ ToBid 公標案深度情報旗艦升級：同場宿敵對抗雷達、機關採購情報與全市場廣域標案檢索

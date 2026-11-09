@@ -214,9 +214,12 @@ telegram-bot-stock2/
 | `OPENAI_API_KEY` | ❌ | - | OpenAI API Key (Optional) |
 | `OPENAI_MODEL` | ❌ | `gpt-4o` | Model name for OpenAI endpoint |
 | `OPENAI_BASE_URL` | ❌ | `None` | Optional custom base URL for OpenAI endpoint |
-| `LLM_API_KEY` | ❌ | - | API Key for Main Agent (NEN DeepSeek, Groq, OpenAI, Gemini) |
-| `LLM_BASE_URL` | ❌ | `https://nen.com.tw/v1` | Base URL for Main Agent endpoint |
-| `LLM_MODEL` | ❌ | `deepseek-v4-flash` | Model name for conversational agent |
+| `LLM_API_KEY` | ❌ | `sk-magpie-key...` | API Key for Main Agent (Gemini Flash 3.8, DeepSeek, Groq, OpenAI) |
+| `LLM_BASE_URL` | ❌ | `https://llm.aiurl.tw/v1` | Base URL for Main Agent endpoint |
+| `LLM_MODEL` | ❌ | `gemini-3.8-flash` | Model name for conversational agent |
+| `FALLBACK_LLM_API_KEY` | ❌ | - | Fallback API Key (Groq / FALLBACK_LLM_API_KEY or GROQ_API_KEY) |
+| `FALLBACK_LLM_BASE_URL` | ❌ | `https://api.groq.com/openai/v1` | Base URL for Fallback agent endpoint |
+| `FALLBACK_LLM_MODEL` | ❌ | `openai/gpt-oss-20b` | Fallback model name |
 
 ---
 

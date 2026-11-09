@@ -97,7 +97,7 @@ main_agent_tools = [
     publish_to_wiki,
 ]
 
-# Initialize Primary LLM (NEN / DeepSeek-v4-flash)
+# Initialize Primary LLM (Gemini Flash 3.8 via llm.aiurl.tw / OpenAI Compatible)
 primary_llm = ChatOpenAI(
     model=LLM_MODEL,
     api_key=LLM_API_KEY or "dummy-key",
