@@ -26,14 +26,14 @@ fi
 docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
-  --label com.centurylinklabs.watchtower.scope=none \
+  --label com.centurylinklabs.watchtower.scope=stockbot \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e DOCKER_API_VERSION=1.45 \
   -e WATCHTOWER_CLEANUP=true \
   -e WATCHTOWER_POLL_INTERVAL="$POLL_INTERVAL" \
   -e WATCHTOWER_LABEL_ENABLE=true \
   -e TZ=Asia/Taipei \
-  containrrr/watchtower:latest --scope none --label-enable telegram-bot-stock2
+  containrrr/watchtower:latest --scope stockbot --label-enable telegram-bot-stock2
 
 echo "✅ Watchtower started successfully!"
 echo "   Run 'docker logs -f ${CONTAINER_NAME}' to monitor automated updates."
