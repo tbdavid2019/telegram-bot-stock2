@@ -14,13 +14,14 @@ from telegram import (
 from telegram.ext import ContextTypes, Application
 from ai_core import clear_context, process_chat_message, extract_followups_from_text
 from tools.file_intel import process_uploaded_document, build_document_analysis_prompt
+from tools.telegram_formatter import safe_reply_formatted, split_telegram_text
 
 logger = logging.getLogger(__name__)
 
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
-BOT_VERSION = "2.17.2"
-BOT_RELEASE_DATE = "2026-10-15"
+BOT_VERSION = "2.20.1"
+BOT_RELEASE_DATE = "2026-11-09"
 
 
 def build_help_update_stamp() -> str:
@@ -274,24 +275,8 @@ def split_telegram_text(text: str, limit: int = 3900) -> list[str]:
 
 
 async def safe_reply_chunks(message, text: str, reply_markup=None):
-    """Safely reply with text chunks, attaching reply_markup to the final message."""
-    chunks = split_telegram_text(text)
-    for i, chunk in enumerate(chunks):
-        is_last = (i == len(chunks) - 1)
-        markup = reply_markup if is_last else None
-        try:
-            await message.reply_text(
-                chunk,
-                reply_markup=markup,
-                parse_mode="Markdown",
-                disable_web_page_preview=True
-            )
-        except Exception:
-            await message.reply_text(
-                chunk,
-                reply_markup=markup,
-                disable_web_page_preview=True
-            )
+    """Safely reply with text chunks using 3-tier delivery (Markdown -> HTML -> Clean Plain)."""
+    await safe_reply_formatted(message, text, reply_markup=reply_markup, disable_web_page_preview=True)
 
 
 async def default_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -556,10 +541,7 @@ async def callback_prompt_handler(update: Update, context: ContextTypes.DEFAULT_
         clean_response, followups = extract_followups_from_text(raw_response)
         followup_markup = generate_followup_keyboard(prompt_text, clean_response, dynamic_followups=followups)
 
-        try:
-            await query.message.reply_text(clean_response, reply_markup=followup_markup, parse_mode="Markdown")
-        except Exception:
-            await query.message.reply_text(clean_response, reply_markup=followup_markup)
+        await safe_reply_formatted(query.message, clean_response, reply_markup=followup_markup, disable_web_page_preview=True)
     except Exception as e:
         logger.error(f"Callback prompt handler error: {e}")
         try:

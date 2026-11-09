@@ -10,6 +10,7 @@ import requests
 from telegram import Update
 from telegram.ext import ContextTypes
 from bs4 import BeautifulSoup
+from tools.telegram_formatter import safe_reply_formatted
 
 # Setup Font (run once at import time or lazily)
 try:
@@ -99,11 +100,8 @@ async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ 查詢股價時發生錯誤：{str(e)}")
 
 async def safe_reply_news(update: Update, text: str):
-    """Safely reply with Markdown, falling back to plain text if syntax issues occur."""
-    try:
-        await update.message.reply_text(text, parse_mode="Markdown", disable_web_page_preview=True)
-    except Exception:
-        await update.message.reply_text(text, disable_web_page_preview=True)
+    """Safely reply with 3-tier Markdown/HTML/Plain delivery."""
+    await safe_reply_formatted(update.message, text, disable_web_page_preview=True)
 
 
 def _split_telegram_text(text: str, limit: int = 3900) -> list[str]:
@@ -126,12 +124,8 @@ def _split_telegram_text(text: str, limit: int = 3900) -> list[str]:
 
 
 async def safe_reply_analysis(update: Update, text: str):
-    """Send analysis in bounded chunks, falling back when Markdown is invalid."""
-    for chunk in _split_telegram_text(text):
-        try:
-            await update.message.reply_text(chunk, parse_mode="Markdown", disable_web_page_preview=True)
-        except Exception:
-            await update.message.reply_text(chunk, disable_web_page_preview=True)
+    """Send analysis in bounded chunks using 3-tier delivery."""
+    await safe_reply_formatted(update.message, text, disable_web_page_preview=True)
 
 
 def format_sepa_card(res: dict) -> str:

@@ -16,17 +16,13 @@ from tools.ai_hedge_fund import (
     split_message,
 )
 from tools.wiki import publish_wiki_report
+from tools.telegram_formatter import safe_reply_formatted
 
 logger = logging.getLogger(__name__)
 
 async def safe_reply_markdown(update: Update, text: str):
-    """Safely reply with Markdown, falling back to plain text if parse error occurs."""
-    for chunk in split_message(text):
-        try:
-            await update.message.reply_text(chunk, parse_mode="Markdown")
-        except Exception as e:
-            logger.warning(f"Markdown send failed ({e}), falling back to plain text")
-            await update.message.reply_text(chunk)
+    """Safely reply with 3-tier delivery (Markdown -> HTML -> Clean Plain)."""
+    await safe_reply_formatted(update.message, text, disable_web_page_preview=True)
 
 
 def _resolve_tickers(args: list[str]) -> list[str]:

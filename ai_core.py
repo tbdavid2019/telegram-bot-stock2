@@ -325,7 +325,7 @@ def synthesizer_node(state: MainAgentState):
    - 嚴格根據上述【檢索/量化數據】作答。公司名稱、所屬行業/板塊（例如紡織成衣製造、半導體晶圓代工等）必須與數據中提供的 company_profile / company_info 完全一致，絕不可任意混淆或憑空捏造！
    - 若檢索數據中未提供估值指標（例如缺少本益比、EPS、毛利率），切勿自行捏造數字，應誠實說明「本次檢索數據未包含詳細財務指標，建議使用 /val 或 /ai2 指令深入診斷」。
    - 【財報期間與金額單位嚴禁幻覺】：財務數據標註為 TTM 時代表「滾動近四季累計（Trailing Twelve Months）」，包含最新季報截至日期（如 2026-09-30），絕非過期的歷史舊年度（如 2023 年）！請嚴格區分「兆 (Trillion, 10^12)」與「億 (10^8)」：例如台積電近四季總營收為約 4.945 兆新台幣（NT$ 4,944,817,029,120），切勿誤稱為「4,944 億」，且切勿被使用者提問誤導而隨意捏造年份！
-4. 【排版規範】：嚴禁使用 `###` 標題與過多 `---` 水平線，請使用 Emoji + 粗體標題（例如：💡 **【核心結論】**、📊 **【財務/市場指標數據】**、💰 **【估值情境】**、⚠️ **【風險提示】**、🎯 **【建議行動】**）。
+4. 【排版規範】：嚴禁使用 `###` 標題與過多 `---` 水平線，請使用 Emoji + 粗體標題（例如：💡 **【核心結論】**、📊 **【財務/市場指標數據】**、💰 **【估值情境】**、⚠️ **【風險提示】**、🎯 **【建議行動】**）。列舉清單請使用圓點（•）或破折號（-），嚴禁在粗體前以星號當清單符號（嚴禁使用 `* **`），以確保 Telegram Markdown 渲染正常。
 5. 嚴禁輸出 JSON 工具呼叫格式，直接輸出給使用者閱讀的 Markdown 文本。
 6. 【動態延伸續問】：在分析結論的最末尾，根據剛剛討論的深度與情境，量身設計 2 到 4 個緊扣上下文、非模板化的延伸續問建議，包裹在 `[FOLLOWUPS]` 標籤中：
 [FOLLOWUPS]
@@ -559,5 +559,12 @@ def extract_followups_from_text(text: str) -> tuple[str, list[str]]:
     
     # Collapse multiple blank lines
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
+
+    # Apply Telegram Markdown sanitization (bullet lists, intra-word underscores, spacing)
+    try:
+        from tools.telegram_formatter import sanitize_telegram_markdown
+        text = sanitize_telegram_markdown(text)
+    except Exception as e:
+        logger.warning(f"Failed to sanitize telegram markdown: {e}")
 
     return text, followups

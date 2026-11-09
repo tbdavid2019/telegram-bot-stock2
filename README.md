@@ -275,6 +275,7 @@
 詳細架構設計與 16 位 Persona 規範請參閱 [AGENTS.md](AGENTS.md)。
 
 - **核心框架**：Python 3.12+ / 3.13, `python-telegram-bot` (啟用 `concurrent_updates=True` 全面非阻塞並發、`InlineKeyboardMarkup` 動態主動續問按鈕)
+- **Telegram 訊息排版與三軌渲染防禦 (`tools/telegram_formatter.py`)**：導入「清洗 Markdown ➔ HTML 自動轉換 ➔ 純文字語法標籤過濾」三階梯容錯架構，自動消除清單星號未閉合 (`* **`)、下劃線轉義 (`\_`) 與空白異常，徹底杜絕 Telegram 實體解析崩潰與整篇降級為生硬純文字問題。
 - **文件識別與解析**：`Google Magika` (原生 1MB ONNX 本地 CPU 推論、Docker 內建模型、安全防護), `pypdf`, `openpyxl`, `xlrd`
 - **Agent 與工具鏈**：`LangGraph` (具備 `synthesizer_node` 兩階段收斂架構、3 天 72h Session TTL 記憶管理), `LangChain`
 - **市場數據與自動追版**：`yfinance` (自動 GitHub Actions 每日追版 CI/CD), `voidful/tw_stocker` (台股全市場日 K 高可用備援), `matplotlib`, `prophet`, `pandas`, `ta`

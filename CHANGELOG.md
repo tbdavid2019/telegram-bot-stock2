@@ -2,6 +2,21 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.20.1] - 2026-11-09
+
+### 🎨 Telegram 訊息排版與 Markdown 解析重大加固（三軌容錯：Markdown ➔ HTML ➔ 純文字清洗）
+- **徹底解決 Telegram Markdown 實體解析崩潰與整篇降級為生硬純文字之重大缺陷 (`tools/telegram_formatter.py`)**：
+  - **清單符號防穿透 (`sanitize_telegram_markdown`)**：將模型產生的星號清單符號 `* ` 與 `+ ` 全面自動轉為圓點符號 `• `，徹底消除 Telegram Markdown v1 將首字星號誤判為未閉合粗體（`* **` 奇數星號引發 `Can't parse entities`）之致命問題。
+  - **識別字下劃線防傾斜衝突**：自動偵測並轉義單詞與變數內部下劃線（如 `魏_家`、`action_decision`、`2330_TW` 等轉義為 `\_`），避免觸發未閉合斜體錯誤。
+  - **粗體/斜體空白符號智能收緊**：自動去除 `** text **` 內部空格，避免標籤失去粗體語意。
+  - **三軌階梯式防禦調度 (`safe_reply_formatted`)**：
+    - **第 1 軌 (Markdown)**：以清洗過的高相容 Markdown 優先發送。
+    - **第 2 軌 (HTML 自動轉換)**：若 Markdown 解析因複雜符號拋出異常，自動即時轉為 Telegram 原生 HTML 標籤（`<b>`, `<i>`, `<code>`, `<pre>`, `<a>`）發送，完全免疫底線與星號解析衝突。
+    - **第 3 軌 (純文字語法標籤過濾)**：若 HTML 發送仍遇極端錯誤，自動剔除殘留之 `**`、`*`、`` ` `` 等符號，確保使用者永遠看到乾淨整齊的純文字，絕不出現破碎的符號。
+- **全局訊息發送器重構 (`handlers/general.py`, `handlers/ai_cmds.py`, `handlers/stock_cmds.py`, `ai_core.py`)**：
+  - 全面將原本容易靜默失敗並降級為生硬純文字的 `safe_reply_chunks`、`safe_reply_markdown`、`safe_reply_analysis` 與 `safe_reply_news` 統一重構為 `safe_reply_formatted`。
+  - 在 `ai_core.py` 提示詞中明確加入 Telegram 排版清單規範，並於 `extract_followups_from_text` 階段實施預先清洗。
+
 ## [2.20.0] - 2026-11-09
 
 ### 🧠 888 Stock Quant v2.6.0 量化大腦與 Agent Skill 全面接入
