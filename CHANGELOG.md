@@ -17,6 +17,10 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
 - **生產主機部署與 Watchtower Scope 隔離加固 (`docker-compose.yml`, `start-watchtower.sh`)**：
   - 排查正式伺服器 `bitnami@git.glsoft.ai` 部署狀態，修正 Watchtower 範圍標籤由 `--scope none` 改為獨立具名 `--scope stockbot`，解決多個 Watchtower 實例互斥踢除問題。
   - 同步更新遠端主機代碼 (`git pull origin master`) 與 `.env` 配置檔，重新建立並以 Docker Compose 啟動 `telegram-bot-stock2` 容器，確認正式載入最新 Gemini 3.8 Flash 配置。
+- **財報數值期間與「兆/億」大額貨幣單位防幻覺加固 (`tools/stock.py`, `ai_core.py`)**：
+  - 徹底解決模型將台積電最新近四季營收約 4.94 兆新台幣（NT$ 4,944,817,029,120）幻覺誤認為「4,944 億」且腦補為「2023 年財報」之重大缺陷。
+  - `get_financial_metrics` 工具新增 `reporting_period`（明確標註最新季報截止日 `latest_quarter_date`）、`_format_financial_amount`（大於 10^12 自動換算為「兆 TWD」，大於 10^8 換算為「億 TWD」）與 `unit_guidance` 單位指引。
+  - 在 `main_agent_node` 與 `synthesizer_node` 提示詞中增設「財報期間與金額單位嚴禁幻覺鐵律」，強制模型回答財務問題時參照最新 TTM 季報日期，嚴禁依提問猜測過期舊年度。
 
 ## [2.18.1] - 2026-10-15
 

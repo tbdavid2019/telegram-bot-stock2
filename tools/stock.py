@@ -657,6 +657,34 @@ def get_stock_prices(ticker: str) -> Dict:
     except Exception as e:
         return {"error": f"無法獲取技術分析數據: {str(e)}"}
 
+def _format_financial_amount(val, currency="TWD") -> str:
+    """Helper to format large financial figures into clear Chinese trillion/billion scales."""
+    if not isinstance(val, (int, float)):
+        return "N/A"
+    sign = "-" if val < 0 else ""
+    abs_val = abs(val)
+    if currency == "TWD":
+        if abs_val >= 1e12:
+            trillions = abs_val / 1e12
+            return f"{sign}{trillions:.3f} 兆 TWD ({val:,.0f} 元新台幣，約 {sign}{trillions:.3f} 兆元)"
+        elif abs_val >= 1e8:
+            hundred_millions = abs_val / 1e8
+            return f"{sign}{hundred_millions:.2f} 億 TWD ({val:,.0f} 元新台幣)"
+        else:
+            return f"{sign}{abs_val:,.0f} TWD"
+    else:
+        if abs_val >= 1e12:
+            trillions = abs_val / 1e12
+            return f"{sign}${trillions:.3f} 兆 {currency} ({val:,.0f})"
+        elif abs_val >= 1e9:
+            billions = abs_val / 1e9
+            return f"{sign}${billions:.2f} 億 {currency} / {billions:.2f}B ({val:,.0f})"
+        elif abs_val >= 1e6:
+            millions = abs_val / 1e6
+            return f"{sign}${millions:.2f} 百萬 {currency} / {millions:.2f}M ({val:,.0f})"
+        else:
+            return f"{sign}{abs_val:,.0f} {currency}"
+
 @tool
 def get_financial_metrics(ticker: str) -> Dict:
     """Fetches key financial ratios for a given ticker or company name."""
@@ -668,29 +696,51 @@ def get_financial_metrics(ticker: str) -> Dict:
         info = stock.info or {}
         market_name, display_name = _get_market_and_display_name(ticker, info)
 
+        fin_currency = info.get('financialCurrency') or info.get('currency') or 'TWD'
+        mrq_ts = info.get('mostRecentQuarter')
+        mrq_date = dt.datetime.fromtimestamp(mrq_ts).strftime('%Y-%m-%d') if isinstance(mrq_ts, (int, float)) else 'N/A'
+        lfye_ts = info.get('lastFiscalYearEnd')
+        lfye_date = dt.datetime.fromtimestamp(lfye_ts).strftime('%Y-%m-%d') if isinstance(lfye_ts, (int, float)) else 'N/A'
+
+        total_rev_raw = info.get('totalRevenue', 'N/A')
+        total_rev_fmt = _format_financial_amount(total_rev_raw, fin_currency)
+        market_cap_raw = info.get('marketCap', 'N/A')
+        market_cap_fmt = _format_financial_amount(market_cap_raw, fin_currency)
+
         revenue_growth = info.get('revenueGrowth', 'N/A')
-        if revenue_growth is not None and revenue_growth != 'N/A':
-            revenue_growth = round(revenue_growth * 100, 2)
-        
+        revenue_growth_fmt = f"{round(revenue_growth * 100, 2)}%" if isinstance(revenue_growth, (int, float)) else 'N/A'
+
+        reporting_period_desc = (
+            f"TTM (近四季滾動累計，截至最新季報 {mrq_date})"
+            if mrq_date != 'N/A' else "TTM (近四季滾動累計)"
+        )
+
         return {
             "stock": ticker,
+            "financial_currency": fin_currency,
+            "reporting_period": reporting_period_desc,
+            "latest_quarter_date": mrq_date,
+            "last_fiscal_year_end": lfye_date,
             "company_info": {
                 "name": display_name,
                 "market": market_name,
                 "sector": info.get('sector', 'N/A'),
                 "industry": info.get('industry', 'N/A'),
                 "business_summary": (info.get('longBusinessSummary')[:300] + "...") if info.get('longBusinessSummary') else 'N/A',
-                "market_cap": info.get('marketCap', 'N/A'),
-                "market_cap_billions": round(info.get('marketCap', 0) / 1e9, 2) if info.get('marketCap') else 'N/A'
+                "market_cap_raw": market_cap_raw,
+                "market_cap_formatted": market_cap_fmt
             },
             "revenue_data": {
-                "total_revenue": info.get('totalRevenue', 'N/A'),
-                "revenue_growth": revenue_growth
+                "period": reporting_period_desc,
+                "total_revenue_raw": total_rev_raw,
+                "total_revenue_formatted": total_rev_fmt,
+                "revenue_growth_yoy": revenue_growth_fmt,
+                "unit_guidance": "注意：總營收與市值數值若 >= 10^12 為【兆 (Trillion)】，切勿誤稱為【億】；此為近四季 (TTM) 最新數據，絕非過期舊年度 (如 2023 年)！"
             },
             "profitability_ratios": {
-                "gross_profit_margin": info.get('grossMargins', 'N/A'),
-                "operating_profit_margin": info.get('operatingMargins', 'N/A'),
-                "net_profit_margin": info.get('profitMargins', 'N/A')
+                "gross_profit_margin": f"{round(info.get('grossMargins') * 100, 2)}%" if isinstance(info.get('grossMargins'), (int, float)) else 'N/A',
+                "operating_profit_margin": f"{round(info.get('operatingMargins') * 100, 2)}%" if isinstance(info.get('operatingMargins'), (int, float)) else 'N/A',
+                "net_profit_margin": f"{round(info.get('profitMargins') * 100, 2)}%" if isinstance(info.get('profitMargins'), (int, float)) else 'N/A'
             },
             "financial_health": {
                 "current_ratio": info.get('currentRatio', 'N/A'),
@@ -698,10 +748,10 @@ def get_financial_metrics(ticker: str) -> Dict:
                 "debt_to_equity": info.get('debtToEquity', 'N/A')
             },
             "market_ratios": {
-                "pe_ratio": info.get('trailingPE', 'N/A'),
-                "forward_pe": info.get('forwardPE', 'N/A'),
-                "price_to_book": info.get('priceToBook', 'N/A'),
-                "dividend_yield": info.get('dividendYield', 'N/A')
+                "pe_ratio": round(info.get('trailingPE'), 2) if isinstance(info.get('trailingPE'), (int, float)) else 'N/A',
+                "forward_pe": round(info.get('forwardPE'), 2) if isinstance(info.get('forwardPE'), (int, float)) else 'N/A',
+                "price_to_book": round(info.get('priceToBook'), 2) if isinstance(info.get('priceToBook'), (int, float)) else 'N/A',
+                "dividend_yield": f"{round(info.get('dividendYield') * 100, 2)}%" if isinstance(info.get('dividendYield'), (int, float)) else (info.get('dividendYield', 'N/A'))
             }
         }
     except Exception as e:
