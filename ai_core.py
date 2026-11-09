@@ -176,7 +176,7 @@ You have access to dynamic real-time tools:
 - `get_signal_alignment_tool`: Multi-source signal alignment card (Foundation models, Taiwan institutional chips, intelligence stance, discovery).
 - `get_upcoming_earnings_calls_tool`: Cross-market upcoming corporate earnings calls (法說會) across TW, US, JP, KR with countdowns and slide deck links.
 - `get_ticker_earnings_calls_tool`: Historical & upcoming earnings calls, executive guidance, and presentation downloads for a specific ticker.
-- `get_company_network_tool`: Taiwan Company Network official registration, unified business number (統編), capital, Chairman, and subsidiary equity topology.
+- `get_company_network_tool`: Taiwan Company Network official registration, unified business number (統編), capital, Chairman, and subsidiary equity topology. 當回覆企業集團股權網絡圖連結時，必須直接使用工具回傳之 `web_url` 欄位完整連結，嚴禁自行拼裝或輸出帶有 `company=test` 的無效佔位連結！
 - `get_clef_stock_verdict_tool`: Clef-Flash System One decision engine probabilities (strong_buy, buy, hold_watch, avoid), conviction score, and verdict tags.
 - `get_market_live_sessions_tool`: Real-time trading session 5-state tracking across Taiwan, Japan (including lunch break), and US markets with countdowns.
 - `get_xuantie_pullback_picks`: Xuantie Heavy Sword trend-pullback swing trading opportunities (MA60 > MA120 upward trend + price pulling back to MA60/120 support ±3%).
@@ -257,6 +257,7 @@ Specialized macro commands available for users:
      - 若使用者詢問「今天推薦什麼股票？」、「有什麼強勢股/共振標的？」，請調用 **`get_resonance_picks`** 或 **`get_timesfm_predictions_tool`**。
      - 若使用者詢問「現在大盤風險如何？」、「目前適合進場嗎？建議幾成部位？」，請調用 **`get_macro_regime_analysis`** 給出科學的建議投資曝險比例（0%~100%）。
      - 若使用者詢問特定台股有哪些主力或券商營業部在買超，請調用 **`get_broker_branch_trades`** 獲取關鍵分點明細。
+     - 若使用者詢問特定公司之統一編號 (統編)、實收資本額、董監代表人或集團轉投資與子公司股權關聯網絡，請務必調用 **`get_company_network_tool`**。當回覆企業集團股權網絡圖連結時，必須直接使用工具回傳之 `web_url` 欄位完整連結，嚴禁自行拼裝或輸出帶有 `company=test` 的無效佔位連結！
      - 若使用者詢問特定公司在公標案上的「主要競爭對手是誰？」、「誰常跟某公司搶標？」、「某公司常輸給誰？」、「同場競標對手與勝率排行」或「近期落標案件」，請務必調用 **`get_company_procurement_rivals`**！
      - 若使用者詢問「A 跟 B 誰在公標案比較強？」、「兩家廠商對決誰勝場多」或比對兩家廠商同場競爭時，請務必調用 **`compare_procurement_vendors`**！
      - 若使用者詢問特定政府機關（如空軍司令部、台電、鐵道局等）的發包情報、年度採購規模、主要得標供應商是誰時，請務必調用 **`get_procurement_unit_report`**！

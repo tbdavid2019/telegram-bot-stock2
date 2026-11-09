@@ -13,11 +13,13 @@ Protected with SingleFlight and TTLCache for multi-user high-concurrency Telegra
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import math
+import re
 from datetime import datetime, timezone
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, parse_qs
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -908,13 +910,166 @@ def fetch_ticker_earnings_calls(ticker: str) -> Dict[str, Any]:
     return _sd_singleflight.run(cache_key, _fetch)
 
 
+def _is_invalid_network_url(url: Any) -> bool:
+    """Check if a company network URL is missing, invalid, or contaminated with placeholder test data."""
+    if not url or not isinstance(url, str):
+        return True
+    u_str = url.strip()
+    if not u_str:
+        return True
+    try:
+        parsed = urlparse(u_str)
+        if not parsed.scheme or not parsed.netloc:
+            return True
+        qs = parse_qs(parsed.query, keep_blank_values=True)
+        netloc_lower = parsed.netloc.lower()
+        path_lower = parsed.path.lower()
+        is_graph_endpoint = "taiwan-company-network" in netloc_lower or "/graph" in path_lower
+
+        company_vals = qs.get("company", [])
+        if is_graph_endpoint and not company_vals:
+            return True
+        for v_item in company_vals:
+            val = str(v_item).strip().lower()
+            if not val or val in ("test", "undefined", "none", "null", "empty"):
+                return True
+    except Exception:
+        return True
+    return False
+
+
+def _is_invalid_image_url(url: Any) -> bool:
+    """Check if an image URL is invalid, empty, or points to placeholder test assets."""
+    if not url or not isinstance(url, str):
+        return True
+    u_str = url.strip()
+    if not u_str:
+        return True
+    try:
+        parsed = urlparse(u_str)
+        if not parsed.scheme or not parsed.netloc:
+            return True
+        path_parts = [p.lower() for p in parsed.path.split("/") if p]
+        test_stem_re = re.compile(r"^test([_-]?(sub|img|pic|image|thumb|icon|logo|dummy)?\d*|\d+)$", re.IGNORECASE)
+        for part in path_parts:
+            stem = part.rsplit(".", 1)[0]
+            if stem in ("test", "undefined", "null", "placeholder", "demo", "mock", "sample"):
+                return True
+            if test_stem_re.match(stem):
+                return True
+        qs = parse_qs(parsed.query, keep_blank_values=True)
+        for k, vlist in qs.items():
+            for v in vlist:
+                v_clean = str(v).strip().lower()
+                if v_clean in ("test", "undefined", "null", "mock") or test_stem_re.match(v_clean):
+                    return True
+    except Exception:
+        return True
+    return False
+
+
+def _sanitize_company_network_payload(data: Any, ticker: Any = "") -> Dict[str, Any]:
+    """Sanitize company network API payload to defend against 'company=test' pollution.
+
+    - Reconstructs valid 'web_url' using data['name'] or ticker if URL is missing or tainted.
+    - Cleans 'image_url' if contaminated with test placeholders.
+    - Sanitizes sub-URLs inside 'relationships' structure.
+    - Returns a deep-copied sanitized dict to prevent in-place cache mutation.
+    """
+    if not isinstance(data, dict):
+        return {}
+
+    data = copy.deepcopy(data)
+
+    # 1. Determine canonical company name or ticker identifier safely
+    candidate_name = data.get("name") or data.get("company_name") or data.get("company")
+    cand_str = str(candidate_name).strip() if candidate_name is not None else ""
+    if cand_str.lower() in ("test", "undefined", "none", "null", "company", ""):
+        cand_str = ""
+
+    # Strip the more specific .TWO before .TW to avoid leaves like '6488O'
+    clean_ticker = str(ticker).strip().upper().replace(".TWO", "").replace(".TW", "") if ticker is not None and str(ticker).strip() else ""
+    if clean_ticker.lower() in ("test", "undefined", "none", "null", ""):
+        clean_ticker = ""
+
+    raw_data_ticker = str(data.get("ticker") or "").strip().upper().replace(".TWO", "").replace(".TW", "")
+    if raw_data_ticker.lower() in ("test", "undefined", "none", "null", ""):
+        raw_data_ticker = ""
+
+    canonical_name = cand_str or clean_ticker or raw_data_ticker
+    if canonical_name.lower() in ("test", "undefined", "none", "null", "company", ""):
+        canonical_name = ""
+
+    if canonical_name:
+        encoded_name = quote(canonical_name, safe="")
+        canonical_web_url = f"https://taiwan-company-network.david888.com/graph?company={encoded_name}"
+    else:
+        canonical_web_url = None
+
+    # 2. Check and sanitize web_url
+    current_web_url = data.get("web_url")
+    if _is_invalid_network_url(current_web_url):
+        data["web_url"] = canonical_web_url
+
+    # 3. Check and sanitize image_url
+    image_url = data.get("image_url")
+    if image_url is not None:
+        if _is_invalid_image_url(image_url):
+            data["image_url"] = None
+
+    # 4. Helper for sanitizing relationship items
+    def _clean_rel_item(item: Dict[str, Any]) -> None:
+        rel_url = item.get("web_url") or item.get("url")
+        if rel_url and _is_invalid_network_url(rel_url):
+            rel_name = item.get("name") or item.get("company_name") or item.get("target") or item.get("company") or item.get("id") or item.get("code")
+            rel_str = str(rel_name).strip() if rel_name is not None else ""
+            if rel_str and rel_str.lower() not in ("test", "undefined", "none", "null", "company", ""):
+                corr_url = f"https://taiwan-company-network.david888.com/graph?company={quote(rel_str, safe='')}"
+                if "web_url" in item:
+                    item["web_url"] = corr_url
+                if "url" in item:
+                    item["url"] = corr_url
+            else:
+                if "web_url" in item:
+                    item["web_url"] = None
+                if "url" in item:
+                    item["url"] = None
+        rel_img = item.get("image_url")
+        if rel_img is not None:
+            if _is_invalid_image_url(rel_img):
+                item["image_url"] = None
+
+    # 5. Check and sanitize relationships (both list and dict formats, e.g. upstream/downstream/nodes/links)
+    relationships = data.get("relationships")
+    if isinstance(relationships, list):
+        for item in relationships:
+            if isinstance(item, dict):
+                _clean_rel_item(item)
+    elif isinstance(relationships, dict):
+        for key, sub_items in relationships.items():
+            if isinstance(sub_items, list):
+                for item in sub_items:
+                    if isinstance(item, dict):
+                        _clean_rel_item(item)
+
+    # 6. Check root-level upstream/downstream lists if present
+    for root_rel_key in ("upstream", "downstream"):
+        root_items = data.get(root_rel_key)
+        if isinstance(root_items, list):
+            for item in root_items:
+                if isinstance(item, dict):
+                    _clean_rel_item(item)
+
+    return data
+
+
 def fetch_company_network(ticker: str) -> Dict[str, Any]:
     """Fetch Taiwan Company Network structure and subsidiaries."""
     clean_code = ticker.strip().upper().replace(".TW", "").replace(".TWO", "")
     cache_key = f"network:{clean_code}"
     cached = _company_network_cache.get(cache_key)
     if cached is not None:
-        return cached
+        return _sanitize_company_network_payload(cached, ticker)
 
     def _fetch():
         res = _get_json(f"/api/v1/market/company-network/{quote(clean_code, safe='')}")
@@ -922,11 +1077,19 @@ def fetch_company_network(ticker: str) -> Dict[str, Any]:
             res = _get_json("/api/v1/market/company-network", params={"ticker": clean_code})
         if res and res.get("success") and "data" in res:
             d = res["data"]
+            if isinstance(d, dict):
+                d = _sanitize_company_network_payload(d, ticker)
             _company_network_cache.set(cache_key, d)
             return d
-        return _company_network_cache.get_stale(cache_key) or {}
+        stale = _company_network_cache.get_stale(cache_key)
+        if stale:
+            return _sanitize_company_network_payload(stale, ticker)
+        return {}
 
-    return _sd_singleflight.run(cache_key, _fetch)
+    raw = _sd_singleflight.run(cache_key, _fetch)
+    if isinstance(raw, dict) and raw:
+        return _sanitize_company_network_payload(raw, ticker)
+    return _sanitize_company_network_payload({}, ticker)
 
 
 def fetch_clef_stock_verdict(ticker: str) -> Dict[str, Any]:
@@ -1113,14 +1276,20 @@ def get_company_network_tool(ticker: str) -> Dict[str, Any]:
     - Paid-in capital (實收資本額)
     - Chairman / Board representative
     - Upstream holding companies and downstream subsidiaries / investment relations
+    - Interactive corporate equity graph URL (web_url)
     Use when users ask:
     - '查詢台積電的統一編號、資本額與董監事'
     - '某公司的集團轉投資與子公司股權關係'
     """
     logger.info(f"=== [Tool] get_company_network_tool called for: {ticker} ===")
     data = fetch_company_network(ticker)
+    if not isinstance(data, dict):
+        data = {}
+    data = _sanitize_company_network_payload(data, ticker)
+    web_url = data.get("web_url")
     return {
         "ticker": ticker,
+        "web_url": web_url,
         "company_network": data
     }
 

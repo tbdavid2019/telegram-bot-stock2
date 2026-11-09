@@ -2,6 +2,22 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.20.2] - 2026-11-09
+
+### 🛡️ 台灣集團企業股權網絡圖譜 (Company Network) 防偽與佔位符防禦清洗架構
+- **徹底阻絕 `company=test` 與殘缺圖譜連結污染 (`tools/stockdata_quant.py`)**：
+  - **嚴密 URL 驗證器 (`_is_invalid_network_url`)**：透過 `urllib.parse.urlparse` 與 `parse_qs` 精確解析 URL query 參數，精準阻絕 `company=test`、`company=undefined`、`null`、`none`、空值及缺少 `company` 參數之殘缺圖譜連結；同時完全避免子字串匹配誤殺真實企業（如德律科技 Test Research, Inc.）。
+  - **Payload 深度清洗與自動修復 (`_sanitize_company_network_payload`)**：
+    - 採用 `copy.deepcopy` 保障快取不可變性與執行緒安全（避免原地修改破壞快取字典）。
+    - 支援數值代碼轉型防護（`str(ticker)`），徹底消除整數代碼引發之 `AttributeError`。
+    - 針對 `relationships`（無論為 `list` 還是包含 `upstream` / `downstream` / `nodes` / `links` 之 `dict`）全面執行子關聯 URL 自動校正與 `image_url` 測試佔位符剔除。
+    - 支援乾淨編碼（`urllib.parse.quote(..., safe='')`）與無有效實體時的安全回退（`web_url = None`，絕不拼裝假連結）。
+  - **LangChain Tool 頂層注入真實 `web_url` (`get_company_network_tool`)**：在回傳結構頂層提供標準化之 `web_url` 供模型直接引用。
+- **Prompt 反造假與反佔位符強制規範 (`ai_core.py`)**：
+  - 在 System Prompt 明確規範 Agent 當回覆企業集團股權網絡圖連結時，必須直接使用工具回傳之 `web_url` 欄位完整連結，嚴禁自行拼裝或輸出帶有 `company=test` 的無效佔位連結。
+- **單元測試全覆蓋 (`tests/test_company_network_sanitizer.py`)**：
+  - 新增 10 項完整單元測試，覆蓋 URL 邊界、真實公司名稱（含 Test）、upstream/downstream 字典關聯、整數代碼型別安全、深拷貝不可變性與上游污染修復。
+
 ## [2.20.1] - 2026-11-09
 
 ### 🎨 Telegram 訊息排版與 Markdown 解析重大加固（三軌容錯：Markdown ➔ HTML ➔ 純文字清洗）
