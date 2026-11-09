@@ -751,7 +751,7 @@ def get_financial_metrics(ticker: str) -> Dict:
                 "pe_ratio": round(info.get('trailingPE'), 2) if isinstance(info.get('trailingPE'), (int, float)) else 'N/A',
                 "forward_pe": round(info.get('forwardPE'), 2) if isinstance(info.get('forwardPE'), (int, float)) else 'N/A',
                 "price_to_book": round(info.get('priceToBook'), 2) if isinstance(info.get('priceToBook'), (int, float)) else 'N/A',
-                "dividend_yield": f"{round(info.get('dividendYield') * 100, 2)}%" if isinstance(info.get('dividendYield'), (int, float)) else (info.get('dividendYield', 'N/A'))
+                "dividend_yield": f"{round(info.get('dividendYield'), 2)}%" if isinstance(info.get('dividendYield'), (int, float)) else 'N/A'
             }
         }
     except Exception as e:
