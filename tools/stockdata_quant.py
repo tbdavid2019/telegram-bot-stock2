@@ -762,6 +762,14 @@ _clef_cache = TTLCache(default_ttl=600.0, max_size=100)
 _sessions_cache = TTLCache(default_ttl=120.0, max_size=10)
 
 
+def _normalize_quant_ticker(ticker: str) -> str:
+    """Normalize numeric stock code (e.g. '2330') to Taiwan ticker ('2330.TW')."""
+    clean = ticker.strip().upper()
+    if clean.isdigit() and not clean.endswith(".TW") and not clean.endswith(".TWO"):
+        return f"{clean}.TW"
+    return clean
+
+
 def fetch_timestral_predictions(action: str = "bullish", limit: int = 8, ticker: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fetch Mistral Timestral-209M predictions."""
     is_bearish = "bear" in action.lower() or "跌" in action
@@ -849,7 +857,7 @@ def fetch_quant_screen(
 
 def fetch_signal_alignment(ticker: str) -> Dict[str, Any]:
     """Fetch multi-source signal alignment card for a ticker."""
-    clean_ticker = ticker.strip().upper()
+    clean_ticker = _normalize_quant_ticker(ticker)
     cache_key = f"alignment:{clean_ticker}"
     cached = _alignment_cache.get(cache_key)
     if cached is not None:
@@ -884,7 +892,7 @@ def fetch_upcoming_earnings_calls(market: str = "ALL", limit: int = 10) -> Dict[
 
 def fetch_ticker_earnings_calls(ticker: str) -> Dict[str, Any]:
     """Fetch earnings call history and upcoming guidance for a specific ticker."""
-    clean_ticker = ticker.strip().upper()
+    clean_ticker = _normalize_quant_ticker(ticker)
     cache_key = f"ec_ticker:{clean_ticker}"
     cached = _earnings_call_cache.get(cache_key)
     if cached is not None:
@@ -909,7 +917,9 @@ def fetch_company_network(ticker: str) -> Dict[str, Any]:
         return cached
 
     def _fetch():
-        res = _get_json("/api/v1/market/company-network", params={"ticker": clean_code})
+        res = _get_json(f"/api/v1/market/company-network/{quote(clean_code, safe='')}")
+        if not res or not res.get("success"):
+            res = _get_json("/api/v1/market/company-network", params={"ticker": clean_code})
         if res and res.get("success") and "data" in res:
             d = res["data"]
             _company_network_cache.set(cache_key, d)
@@ -921,13 +931,20 @@ def fetch_company_network(ticker: str) -> Dict[str, Any]:
 
 def fetch_clef_stock_verdict(ticker: str) -> Dict[str, Any]:
     """Fetch Clef System One Decision Engine verdict."""
-    clean_ticker = ticker.strip().upper()
+    clean_ticker = _normalize_quant_ticker(ticker)
     cache_key = f"clef:{clean_ticker}"
     cached = _clef_cache.get(cache_key)
     if cached is not None:
         return cached
 
     def _fetch():
+        # Try direct GET endpoint first
+        res = _get_json(f"/api/v1/decision/stock/{quote(clean_ticker, safe='')}")
+        if res and res.get("success"):
+            _clef_cache.set(cache_key, res)
+            return res
+
+        # Fallback to POST /api/v1/decision/evaluate
         url = f"{STOCKDATA_BASE_URL.rstrip('/')}/api/v1/decision/evaluate"
         headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
         try:
