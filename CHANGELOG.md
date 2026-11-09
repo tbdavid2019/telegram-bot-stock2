@@ -14,6 +14,9 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
   - 當主力模型遇到超時或錯誤時，由 LangChain `with_fallbacks` 自動切換至 Groq 備援，確保主對話助理 24/7 不斷線。
 - **同步專案配置與環境變數文件**：
   - 更新 `.env.example`、`AGENTS.md`、`README.md` 中的環境變數說明與示例。
+- **生產主機部署與 Watchtower Scope 隔離加固 (`docker-compose.yml`, `start-watchtower.sh`)**：
+  - 排查正式伺服器 `bitnami@git.glsoft.ai` 部署狀態，修正 Watchtower 範圍標籤由 `--scope none` 改為獨立具名 `--scope stockbot`，解決多個 Watchtower 實例互斥踢除問題。
+  - 同步更新遠端主機代碼 (`git pull origin master`) 與 `.env` 配置檔，重新建立並以 Docker Compose 啟動 `telegram-bot-stock2` 容器，確認正式載入最新 Gemini 3.8 Flash 配置。
 
 ## [2.18.1] - 2026-10-15
 
