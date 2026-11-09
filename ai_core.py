@@ -38,6 +38,15 @@ from tools.stockdata_quant import (
     get_macro_regime_analysis,
     get_resonance_picks,
     get_timesfm_predictions_tool,
+    get_timestral_predictions_tool,
+    get_moirai_predictions_tool,
+    get_quant_screen_picks,
+    get_signal_alignment_tool,
+    get_upcoming_earnings_calls_tool,
+    get_ticker_earnings_calls_tool,
+    get_company_network_tool,
+    get_clef_stock_verdict_tool,
+    get_market_live_sessions_tool,
     get_xuantie_pullback_picks,
     get_broker_branch_trades,
     get_market_investing_calendars,
@@ -76,6 +85,15 @@ main_agent_tools = [
     get_macro_regime_analysis,
     get_resonance_picks,
     get_timesfm_predictions_tool,
+    get_timestral_predictions_tool,
+    get_moirai_predictions_tool,
+    get_quant_screen_picks,
+    get_signal_alignment_tool,
+    get_upcoming_earnings_calls_tool,
+    get_ticker_earnings_calls_tool,
+    get_company_network_tool,
+    get_clef_stock_verdict_tool,
+    get_market_live_sessions_tool,
     get_xuantie_pullback_picks,
     get_broker_branch_trades,
     get_market_investing_calendars,
@@ -152,6 +170,15 @@ You have access to dynamic real-time tools:
 - `get_macro_regime_analysis`: Market risk regime, S&P 500 / TWII moving average health, VIX, and recommended portfolio exposure percentage (0% to 100%).
 - `get_resonance_picks`: Multi-model resonance stock recommendations (Quadruple: Xuantie MA Pullback ∩ Institutional Buying ∩ LSTM ∩ TimesFM; Double ML resonance; High Risk/Reward).
 - `get_timesfm_predictions_tool`: Google Research TimesFM 2.5 500M foundational time-series model 5-day stock forecasts and Risk/Reward Ratios (RR >= 1.5).
+- `get_timestral_predictions_tool`: Mistral Timestral-209M foundational time-series model 5-day forecasts with Monte Carlo risk bounds (P10/P50/P90).
+- `get_moirai_predictions_tool`: Salesforce MOIRAI-2 foundational time-series model 5-day forecast rankings.
+- `get_quant_screen_picks`: Multi-factor quantitative screener (direction, models, PE range, potential threshold, risk/reward, MA60, institutional flow).
+- `get_signal_alignment_tool`: Multi-source signal alignment card (Foundation models, Taiwan institutional chips, intelligence stance, discovery).
+- `get_upcoming_earnings_calls_tool`: Cross-market upcoming corporate earnings calls (法說會) across TW, US, JP, KR with countdowns and slide deck links.
+- `get_ticker_earnings_calls_tool`: Historical & upcoming earnings calls, executive guidance, and presentation downloads for a specific ticker.
+- `get_company_network_tool`: Taiwan Company Network official registration, unified business number (統編), capital, Chairman, and subsidiary equity topology.
+- `get_clef_stock_verdict_tool`: Clef-Flash System One decision engine probabilities (strong_buy, buy, hold_watch, avoid), conviction score, and verdict tags.
+- `get_market_live_sessions_tool`: Real-time trading session 5-state tracking across Taiwan, Japan (including lunch break), and US markets with countdowns.
 - `get_xuantie_pullback_picks`: Xuantie Heavy Sword trend-pullback swing trading opportunities (MA60 > MA120 upward trend + price pulling back to MA60/120 support ±3%).
 - `get_broker_branch_trades`: Top 10 buyer and seller broker branches (如港商麥格理、美商高盛、富邦、國泰等分點明細) and accumulated shares for a Taiwan stock.
 - `get_market_investing_calendars`: Forward-looking structural investing calendars (US Major Corporate Earnings calendar, Global Macroeconomic events CPI/NFP, CME FedWatch, Commodities).

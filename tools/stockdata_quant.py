@@ -746,3 +746,398 @@ def get_market_investing_calendars(category: str = "all") -> Dict[str, Any]:
         "data": data,
         "formatted_summary": summary
     }
+
+
+# ==========================================
+# 8. Advanced Quant Tools (Timestral, MOIRAI-2, Screener, Alignment, Earnings Calls, Network, Clef, Sessions)
+# ==========================================
+
+_timestral_cache = TTLCache(default_ttl=600.0, max_size=100)
+_moirai_cache = TTLCache(default_ttl=600.0, max_size=100)
+_screen_cache = TTLCache(default_ttl=600.0, max_size=50)
+_alignment_cache = TTLCache(default_ttl=600.0, max_size=100)
+_earnings_call_cache = TTLCache(default_ttl=900.0, max_size=100)
+_company_network_cache = TTLCache(default_ttl=3600.0, max_size=100)
+_clef_cache = TTLCache(default_ttl=600.0, max_size=100)
+_sessions_cache = TTLCache(default_ttl=120.0, max_size=10)
+
+
+def fetch_timestral_predictions(action: str = "bullish", limit: int = 8, ticker: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Fetch Mistral Timestral-209M predictions."""
+    is_bearish = "bear" in action.lower() or "跌" in action
+    clean_ticker = ticker.strip().upper() if ticker else ""
+    if clean_ticker:
+        ep = f"/api/v1/predictions/history/{quote(clean_ticker, safe='')}"
+    else:
+        ep = "/api/v1/predictions/timestral/top-bearish" if is_bearish else "/api/v1/predictions/timestral/top-bullish"
+    cache_key = f"timestral:{action}:{limit}:{clean_ticker}"
+    cached = _timestral_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json(ep, params={"limit": limit})
+        if res and res.get("success") and "data" in res:
+            items = res["data"]
+            if clean_ticker and isinstance(items, list):
+                items = sorted(items, key=_timesfm_timestamp_key, reverse=True)
+            _timestral_cache.set(cache_key, items)
+            return items
+        return _timestral_cache.get_stale(cache_key) or []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_moirai_predictions(limit: int = 8) -> List[Dict[str, Any]]:
+    """Fetch Salesforce MOIRAI-2 predictions."""
+    cache_key = f"moirai:{limit}"
+    cached = _moirai_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/predictions/moirai/top-bullish", params={"limit": limit})
+        if res and res.get("success") and "data" in res:
+            items = res["data"]
+            _moirai_cache.set(cache_key, items)
+            return items
+        return _moirai_cache.get_stale(cache_key) or []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_quant_screen(
+    direction: str = "bullish",
+    models: Optional[str] = None,
+    pe_range: Optional[str] = None,
+    min_potential: Optional[float] = None,
+    risk_reward: Optional[float] = None,
+    ma60: Optional[str] = None,
+    institutional: Optional[str] = None,
+    limit: int = 10
+) -> List[Dict[str, Any]]:
+    """Execute multi-factor quant screener."""
+    params: Dict[str, Any] = {"direction": direction, "limit": limit}
+    if models:
+        params["models"] = models
+    if pe_range:
+        params["pe_range"] = pe_range
+    if min_potential is not None:
+        params["min_potential"] = min_potential
+    if risk_reward is not None:
+        params["risk_reward"] = risk_reward
+    if ma60:
+        params["ma60"] = ma60
+    if institutional:
+        params["institutional"] = institutional
+
+    cache_key = f"screen:{json.dumps(params, sort_keys=True)}"
+    cached = _screen_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/predictions/screen", params=params)
+        if res and res.get("success") and "data" in res:
+            items = res["data"]
+            _screen_cache.set(cache_key, items)
+            return items
+        return _screen_cache.get_stale(cache_key) or []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_signal_alignment(ticker: str) -> Dict[str, Any]:
+    """Fetch multi-source signal alignment card for a ticker."""
+    clean_ticker = ticker.strip().upper()
+    cache_key = f"alignment:{clean_ticker}"
+    cached = _alignment_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json(f"/api/v1/predictions/alignment/{quote(clean_ticker, safe='')}")
+        if res and isinstance(res, dict) and "ticker" in res:
+            _alignment_cache.set(cache_key, res)
+            return res
+        return _alignment_cache.get_stale(cache_key) or {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_upcoming_earnings_calls(market: str = "ALL", limit: int = 10) -> Dict[str, Any]:
+    """Fetch upcoming cross-market corporate earnings calls."""
+    cache_key = f"ec_upcoming:{market}:{limit}"
+    cached = _earnings_call_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/earnings-call/upcoming", params={"market": market.upper(), "limit": limit})
+        if res and res.get("success"):
+            _earnings_call_cache.set(cache_key, res)
+            return res
+        return _earnings_call_cache.get_stale(cache_key) or {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_ticker_earnings_calls(ticker: str) -> Dict[str, Any]:
+    """Fetch earnings call history and upcoming guidance for a specific ticker."""
+    clean_ticker = ticker.strip().upper()
+    cache_key = f"ec_ticker:{clean_ticker}"
+    cached = _earnings_call_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json(f"/api/v1/earnings-call/{quote(clean_ticker, safe='')}")
+        if res and res.get("success"):
+            _earnings_call_cache.set(cache_key, res)
+            return res
+        return _earnings_call_cache.get_stale(cache_key) or {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_company_network(ticker: str) -> Dict[str, Any]:
+    """Fetch Taiwan Company Network structure and subsidiaries."""
+    clean_code = ticker.strip().upper().replace(".TW", "").replace(".TWO", "")
+    cache_key = f"network:{clean_code}"
+    cached = _company_network_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/market/company-network", params={"ticker": clean_code})
+        if res and res.get("success") and "data" in res:
+            d = res["data"]
+            _company_network_cache.set(cache_key, d)
+            return d
+        return _company_network_cache.get_stale(cache_key) or {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_clef_stock_verdict(ticker: str) -> Dict[str, Any]:
+    """Fetch Clef System One Decision Engine verdict."""
+    clean_ticker = ticker.strip().upper()
+    cache_key = f"clef:{clean_ticker}"
+    cached = _clef_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        url = f"{STOCKDATA_BASE_URL.rstrip('/')}/api/v1/decision/evaluate"
+        headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
+        try:
+            resp = requests.post(url, json={"ticker": clean_ticker}, headers=headers, timeout=REQUEST_TIMEOUT)
+            if resp.status_code == 200:
+                d = resp.json()
+                _clef_cache.set(cache_key, d)
+                return d
+        except Exception as e:
+            logger.error(f"StockData Clef evaluate error for {clean_ticker}: {e}")
+        return _clef_cache.get_stale(cache_key) or {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_market_sessions() -> Dict[str, Any]:
+    """Fetch live real-time trading sessions across TW, JP, and US."""
+    cache_key = "market_sessions"
+    cached = _sessions_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/market/calendar/sessions")
+        if res and res.get("success") and "sessions" in res:
+            d = res["sessions"]
+            _sessions_cache.set(cache_key, d)
+            return d
+        return _sessions_cache.get_stale(cache_key) or {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+@tool
+def get_timestral_predictions_tool(ticker_or_type: str = "bullish", limit: int = 8) -> Dict[str, Any]:
+    """
+    Fetches Mistral Timestral-209M time-series foundation model 5-day stock forecasts and Monte Carlo risk intervals (P10 downside, P50 median target, P90 upside).
+    Use when users ask:
+    - 'Timestral 時序大模型預測'
+    - '查詢 Mistral 209M 大模型看漲或看跌名單'
+    - 'Timestral 蒙地卡羅風控區間'
+    """
+    logger.info(f"=== [Tool] get_timestral_predictions_tool called for: {ticker_or_type} ===")
+    raw_arg = ticker_or_type.strip()
+    is_bear = "bear" in raw_arg.lower() or "跌" in raw_arg
+    is_mode = raw_arg.lower() in {"", "bullish", "bearish", "top", "看漲", "看跌", "避險"}
+    ticker = None if is_mode or is_bear else raw_arg
+    items = fetch_timestral_predictions("bearish" if is_bear else "bullish", limit, ticker)
+    return {
+        "model": "Mistral Timestral-209M",
+        "direction": "bearish" if is_bear else "bullish",
+        "count": len(items),
+        "predictions": items
+    }
+
+
+@tool
+def get_moirai_predictions_tool(limit: int = 8) -> Dict[str, Any]:
+    """
+    Fetches Salesforce MOIRAI-2 foundational time-series model 5-day stock forecast rankings and targets.
+    Use when users ask:
+    - 'MOIRAI-2 時序模型推薦標的'
+    - 'Salesforce MOIRAI 大模型看漲清單'
+    """
+    logger.info(f"=== [Tool] get_moirai_predictions_tool called with limit: {limit} ===")
+    items = fetch_moirai_predictions(limit)
+    return {
+        "model": "Salesforce MOIRAI-2",
+        "count": len(items),
+        "predictions": items
+    }
+
+
+@tool
+def get_quant_screen_picks(
+    direction: str = "bullish",
+    models: Optional[str] = None,
+    pe_range: Optional[str] = None,
+    min_potential: Optional[float] = None,
+    risk_reward: Optional[float] = None,
+    ma60: Optional[str] = None,
+    institutional: Optional[str] = None,
+    limit: int = 10
+) -> Dict[str, Any]:
+    """
+    Executes a multi-factor quantitative screener across fundamental and technical constraints:
+    - direction: 'bullish' (看多) or 'bearish' (看空)
+    - models: comma-separated AI models, e.g. 'TimesFM,Timestral,MOIRAI-2'
+    - pe_range: e.g. '0-25'
+    - min_potential: minimum forecast gain percentage, e.g. 5.0
+    - risk_reward: minimum Risk/Reward ratio, e.g. 1.5
+    - ma60: moving average support condition ('above', 'pullback', 'breakout')
+    - institutional: institutional buying streak ('buying', 'foreign', 'trust', 'both')
+    """
+    logger.info(f"=== [Tool] get_quant_screen_picks called ===")
+    items = fetch_quant_screen(
+        direction=direction,
+        models=models,
+        pe_range=pe_range,
+        min_potential=min_potential,
+        risk_reward=risk_reward,
+        ma60=ma60,
+        institutional=institutional,
+        limit=limit
+    )
+    return {
+        "count": len(items),
+        "picks": items
+    }
+
+
+@tool
+def get_signal_alignment_tool(ticker: str) -> Dict[str, Any]:
+    """
+    Fetches the multi-source Signal Alignment card for a ticker, synthesizing consensus across:
+    - Time-Series Foundation Models (TimesFM, Timestral, MOIRAI-2)
+    - Taiwan Institutional Chips (Foreign & Trust streaks)
+    - Intelligence Sentiment Stance
+    - Industry Frontier Discovery Signals
+    Use when users ask:
+    - '台積電 2330 各模型與籌碼訊號一致度如何？'
+    - '多指標共識評估'
+    """
+    logger.info(f"=== [Tool] get_signal_alignment_tool called for: {ticker} ===")
+    data = fetch_signal_alignment(ticker)
+    return {
+        "ticker": ticker,
+        "alignment_data": data
+    }
+
+
+@tool
+def get_upcoming_earnings_calls_tool(market: str = "ALL", limit: int = 10) -> Dict[str, Any]:
+    """
+    Fetches upcoming corporate earnings calls (法人說明會 / 法說會) across Taiwan (TW), US, Japan (JP), and Korea (KR):
+    - Dual timezone alignment
+    - Days countdown
+    - Presentation PDF and audio/video replay links
+    Use when users ask:
+    - '近期有哪些重量級法說會？'
+    - '台股/美股即將召開法說會的清單與簡報'
+    """
+    logger.info(f"=== [Tool] get_upcoming_earnings_calls_tool called for: {market} ===")
+    data = fetch_upcoming_earnings_calls(market, limit)
+    return data
+
+
+@tool
+def get_ticker_earnings_calls_tool(ticker: str) -> Dict[str, Any]:
+    """
+    Fetches historical and upcoming earnings calls, executive guidance (revenue, gross margin, Capex), and slide deck PDF downloads for a specific ticker.
+    Use when users ask:
+    - '查詢特定公司歷史法說會與最新展望'
+    - '下載法說會簡報 PDF'
+    """
+    logger.info(f"=== [Tool] get_ticker_earnings_calls_tool called for: {ticker} ===")
+    data = fetch_ticker_earnings_calls(ticker)
+    return data
+
+
+@tool
+def get_company_network_tool(ticker: str) -> Dict[str, Any]:
+    """
+    Fetches Taiwan Company Network official Ministry of Economic Affairs registration data:
+    - Unified Business Number (統一編號 / 統編)
+    - Paid-in capital (實收資本額)
+    - Chairman / Board representative
+    - Upstream holding companies and downstream subsidiaries / investment relations
+    Use when users ask:
+    - '查詢台積電的統一編號、資本額與董監事'
+    - '某公司的集團轉投資與子公司股權關係'
+    """
+    logger.info(f"=== [Tool] get_company_network_tool called for: {ticker} ===")
+    data = fetch_company_network(ticker)
+    return {
+        "ticker": ticker,
+        "company_network": data
+    }
+
+
+@tool
+def get_clef_stock_verdict_tool(ticker: str) -> Dict[str, Any]:
+    """
+    Fetches Clef-Flash System One Decision Model verdict:
+    - Action probabilities: strong_buy, buy, hold_watch, avoid
+    - Conviction score and favorable entry flag
+    - Recommendation tag (e.g. 🟢建議佈局, 👀建議觀察, 🔴建議迴避)
+    Use when users ask:
+    - 'Clef 決策模型對台積電的評分是什麼？'
+    - 'System One 勝率與動作機率預測'
+    """
+    logger.info(f"=== [Tool] get_clef_stock_verdict_tool called for: {ticker} ===")
+    data = fetch_clef_stock_verdict(ticker)
+    return data
+
+
+@tool
+def get_market_live_sessions_tool() -> Dict[str, Any]:
+    """
+    Fetches live real-time market trading session states across Taiwan (TWSE), Japan (TSE), and US (NYSE/NASDAQ):
+    - Current session (pre_market, regular, lunch_break, after_hours, closed)
+    - Seconds to next session transition and countdown
+    - Tokyo Stock Exchange lunch break tracking
+    Use when users ask:
+    - '現在台股/美股/日股開盤了嗎？'
+    - '距離開盤/收盤還有多久？'
+    - '交易時段查詢'
+    """
+    logger.info("=== [Tool] get_market_live_sessions_tool called ===")
+    data = fetch_market_sessions()
+    return {
+        "sessions": data
+    }

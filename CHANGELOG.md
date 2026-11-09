@@ -2,6 +2,26 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.20.0] - 2026-11-09
+
+### 🧠 888 Stock Quant v2.6.0 量化大腦與 Agent Skill 全面接入
+- **本機 Antigravity Agent Skill 整合 (`~/.gemini/skills/888-stock-quant/SKILL.md`)**：
+  - 成功掛載 `888-stock-quant` 專業級量化大腦技能，同步最新規範至 `~/.gemini/skills/` 與 `~/.gemini/config/skills/`。
+  - 支援四步法操盤分析工作流（宏觀風控 ➔ 👑四重/🏆三重共振 ➔ 時序大模型/玄鐵回踩 ➔ 分位數區間與風控防守）。
+- **9 大進階量化與情報工具鏈接入 (`tools/stockdata_quant.py`, `ai_core.py`)**：
+  - 🔮 **Mistral Timestral-209M 時序大模型 (`get_timestral_predictions_tool`)**：自回歸預測未來 5 日目標價，提供 P10、P50、P90 蒙地卡羅風險區間。
+  - 🔮 **Salesforce MOIRAI-2 時序基礎大模型 (`get_moirai_predictions_tool`)**：5 日目標價走勢預測與潛力排行榜。
+  - 🎯 **多因子量化選股濾網 (`get_quant_screen_picks`)**：支援多模型、多方向（多/空）、本益比區間、最低預期漲幅、風報比、MA60 均線型態與法人連買條件自訂複合篩選。
+  - 📶 **多維訊號共識卡 (`get_signal_alignment_tool`)**：整合時序大模型（TimesFM、Timestral、MOIRAI-2）、籌碼（外資/投信連買）、情報立場與產業前沿發現的共識評價。
+  - 🎙️ **跨市場法說會即時追蹤 (`get_upcoming_earnings_calls_tool` & `get_ticker_earnings_calls_tool`)**：涵蓋台、美、日、韓跨國重量級法人說明會時程、倒數天數、簡報 PDF 與會議重溫影音直連，並支援查詢特定個股之歷史法說會與管理層財務展望。
+  - 🌐 **台灣集團企業關聯與董監統編圖譜 (`get_company_network_tool`)**：串接經濟部商工登記資料，即時查詢公司統一編號、實收資本額、董監代表人與母子集團轉投資股權關聯網絡。
+  - ⚡ **Clef-Flash System One 決策大腦評分 (`get_clef_stock_verdict_tool`)**：提供強烈買進、買進、觀望、迴避四象限動作機率、信心評分與進場優勢判定。
+  - ⏱️ **台美日即時交易時段狀態監控 (`get_market_live_sessions_tool`)**：追蹤台股、日股（含東證午休盤）與美股之盤前、盤中、盤後與休市狀態及切換倒數秒數。
+- **LangGraph 主 Agent 工具註冊與 Prompt 擴充 (`ai_core.py`)**：
+  - 在 `ai_core.py` 的 `main_agent_tools` 完整綁定 9 大新工具，並於 System Prompt 明確指引模型在自然語言對話中主動調用。
+- **全架構高可用快取與 SingleFlight 防穿透加固**：
+  - 各新工具配置專屬 `TTLCache`（交易時段 2 分鐘、預測/共振 10 分鐘、法說會 15 分鐘、企業統編圖譜 1 小時）與例外安全平滑降級。
+
 ## [2.19.0] - 2026-11-09
 
 ### ⚡ 主力對話模型升級為 Gemini 3.8 Flash (OpenAI-compatible) 並保留 Groq 雙軌自動容錯 Fallback
