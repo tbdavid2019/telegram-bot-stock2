@@ -2,6 +2,40 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.21.0] - 2026-11-12
+
+### 💳 Telegram 原生卡片化重構與全功能 Inline Keyboard 互動按鈕矩陣 (`<pre><code>` 卡片風)
+- **核心排版引擎升級與三軌容錯發送 (`tools/telegram_formatter.py`)**：
+  - **原生卡片化構建器 (`format_card`)**：將核心量化數據以 HTML `<b>標題</b>` 與 `<pre><code>等寬內容</code></pre>` 包裹，並支援可選的 `footer` 說明。徹底解決中英混排與手機版窄螢幕折行轉彎破版問題，打造高質感等寬卡片視覺。
+  - **三軌智慧發送調度 (`safe_reply_formatted`)**：
+    - 自動偵測 HTML 標籤（如 `<pre>`, `<code>`, `<b>`, `<button>` 等），優先啟用 HTML Parse Mode 原生渲染。
+    - 若 HTML 模式解析遇例外，自動平滑降級至 Markdown 模式；若 Markdown 仍失敗，自動剔除標籤降級至乾淨純文字（`strip_html_and_markdown_tags`），達成 100% 訊息投遞可靠度。
+  - **HTML 行內按鈕解析器 (`parse_html_button_rows`)**：支援解析 `<button ...>` 及 `<button ... />` 自閉合標籤轉為 Telegram `InlineKeyboardButton`，無縫相容 Telegram 新版行內按鈕穿插設計。
+  - **Inline Keyboard 64-byte 安全保護 (`build_inline_keyboard`)**：自動檢查並裁剪 UTF-8 編碼長度超過 64 bytes 的 `callback_data`，徹底杜絕 Telegram 400 Bad Request: `BUTTON_DATA_INVALID`。
+- **15 大股市指令全量卡片化與互動按鈕矩陣 (`handlers/stock_cmds.py`)**：
+  - **即時報價與技術指標 (`/s`, `/stock`)**：呈現即時股價、漲跌幅、成交量、均線排列與籌碼評分，附帶快捷按鈕：`[估值分析]`、`[籌碼分析]`、`[AI 解讀]`、`[集團網絡]`、`[分點明細]`。
+  - **SEPA 突破動能評估 (`/sepa`)**：量化輸出趨勢模板、RS 相對強弱與波動收縮評分卡片。
+  - **估值模型與 DCF 現金流折現 (`/val`, `/dcf`)**：呈現估值區間、本益比河流圖與安全邊際。
+  - **財報與營收 EPS 摘要 (`/earn`, `/earning`)**：歷史每股盈餘、營收年增率與毛利率卡片。
+  - **板塊與大盤相關係數矩陣 (`/corr`)**：個股對大盤指數與同業類股 Beta 相關性等寬矩陣。
+  - **三大法人籌碼分析 (`/chip`)**：外資、投信、自營商連買連賣統計與主力籌碼集中度卡片。
+  - **主力券商進出分點明細 (`/broker`)**：關鍵買超分點與賣超分點進出張數與均價卡片。
+  - **恐懼與貪婪指數 (`/ff`)**：CNN / 綜合市場情緒指標卡片。
+  - **股價趨勢預測 (`/p`, `/prophet`)**：時序趨勢預測區間與支撐壓力位卡片。
+  - **總體經濟與宏觀風控 (`/macro`, `/regime`)**：宏觀風控象限、流動性與利率環境卡片。
+  - **多因子量化共振選股 (`/pick`, `/resonance`)**：👑四重共振與🏆三重共振清單卡片。
+  - **時序大模型預測 (`/tfm`, `/timesfm`)**：Google TimesFM 時序基礎模型未來 5 日目標價預測卡片。
+  - **玄鐵均線戰法 (`/xt`, `/xuantie`)**：玄鐵均線回踩買點與多頭排列回測卡片。
+  - **跨市場財經行事曆 (`/cal`, `/calendar`)**：重量級除權息、法說會與重要經濟數據時程卡片。
+  - **Polymarket 預測市場 (`/pm`, `/polymarket`)**：即時大選與總經預測事件機率走勢卡片。
+  - **全面強化防禦性程式碼**：加入 `_get_target_message` 與對 `update.message` / `update.callback_query` 的全域 NoneType 檢查，徹底消除在 Callback Context 下調用 `update.message.reply_text` 產生的 `AttributeError`。
+- **量化工具端卡片化輸出 (`tools/stockdata_quant.py`)**：
+  - 將宏觀風控、多模型共振選股、TimesFM 預測、玄鐵均線、券商分點與行事曆的文字輸出全面改寫為無贅詞 `<pre><code>` 卡片格式，並加入嚴密的空值安全防護（Null-safe guards）。
+- **按鈕點擊高速直連路由 (`handlers/general.py`)**：
+  - 在 `callback_prompt_handler` 中擴充完整快取路由，點擊按鈕可直接跳轉執行 `/s`, `/val`, `/dcf`, `/macro`, `/regime`, `/pick`, `/resonance`, `/tfm`, `/timesfm`, `/xt`, `/xuantie`, `/broker`, `/cal`, `/calendar`, `/pm`, `/polymarket` 等指令。
+- **單元測試全覆蓋 (`tests/test_telegram_formatter_cards.py`)**：
+  - 新增 26 項完整單元測試，涵蓋 `format_card`、HTML/Markdown/純文字三軌容錯、`parse_html_button_rows`、64-byte 安全截斷、NoneType 防禦與 callback 快捷路由。
+
 ## [2.20.2] - 2026-11-09
 
 ### 🛡️ 台灣集團企業股權網絡圖譜 (Company Network) 防偽與佔位符防禦清洗架構
