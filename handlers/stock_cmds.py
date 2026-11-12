@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import asyncio
 import io
 import json
 import logging
+from typing import Any, Dict, List, Optional, Tuple
 import yfinance as yf
 import matplotlib.pyplot as plt
 import matplotlib as mpl
