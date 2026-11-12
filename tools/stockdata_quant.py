@@ -48,7 +48,7 @@ _calendar_cache = TTLCache(default_ttl=900.0, max_size=50)    # 15 min
 _sd_singleflight = SingleFlight()
 
 REQUEST_TIMEOUT = 10.0
-USER_AGENT = "telegram-bot-stock2/2.14 (888 Stock Quant Client)"
+USER_AGENT = "telegram-bot-stock2/2.22 (888 Stock Quant Client)"
 
 
 def _get_json(endpoint_path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Any]:
@@ -1420,3 +1420,1125 @@ def get_market_live_sessions_tool() -> Dict[str, Any]:
     return {
         "sessions": data
     }
+
+
+# ==========================================
+# 9. Extended Quant Modules (Industry Chain, Tri-Bullish, Discovery, Risk X-Ray, Stock History, Scorecard, Canary, Podcast, Watchlist)
+# ==========================================
+
+_industry_chain_cache = TTLCache(default_ttl=900.0, max_size=50)
+_tri_bullish_cache = TTLCache(default_ttl=600.0, max_size=50)
+_dual_bullish_cache = TTLCache(default_ttl=600.0, max_size=50)
+_dual_bearish_cache = TTLCache(default_ttl=600.0, max_size=50)
+_discovery_signals_cache = TTLCache(default_ttl=900.0, max_size=50)
+_discovery_candidates_cache = TTLCache(default_ttl=900.0, max_size=50)
+_risk_xray_cache = TTLCache(default_ttl=300.0, max_size=100)
+_stock_history_cache = TTLCache(default_ttl=600.0, max_size=100)
+_model_performance_cache = TTLCache(default_ttl=900.0, max_size=50)
+_canary_cache = TTLCache(default_ttl=120.0, max_size=10)
+_podcast_cache = TTLCache(default_ttl=900.0, max_size=50)
+_watchlist_cache = TTLCache(default_ttl=300.0, max_size=50)
+
+THEME_ALIASES: Dict[str, str] = {
+    "cpo": "CPO_OPTICAL",
+    "cpo_optical": "CPO_OPTICAL",
+    "cpo光互連": "CPO_OPTICAL",
+    "cpo光互聯": "CPO_OPTICAL",
+    "光互連": "CPO_OPTICAL",
+    "光互聯": "CPO_OPTICAL",
+    "矽光子": "CPO_OPTICAL",
+    "硅光": "CPO_OPTICAL",
+    "siph": "CPO_OPTICAL",
+    "optical": "CPO_OPTICAL",
+    "cowos": "ADV_PACKAGING",
+    "pkg": "ADV_PACKAGING",
+    "package": "ADV_PACKAGING",
+    "packaging": "ADV_PACKAGING",
+    "adv_packaging": "ADV_PACKAGING",
+    "先進封裝": "ADV_PACKAGING",
+    "封裝": "ADV_PACKAGING",
+    "soic": "ADV_PACKAGING",
+    "cooling": "POWER_COOLING",
+    "power": "POWER_COOLING",
+    "power_cooling": "POWER_COOLING",
+    "散熱": "POWER_COOLING",
+    "水冷": "POWER_COOLING",
+    "液冷": "POWER_COOLING",
+    "電力": "POWER_COOLING",
+    "電力液冷": "POWER_COOLING",
+    "chip": "AI_CHIPS",
+    "chips": "AI_CHIPS",
+    "gpu": "AI_CHIPS",
+    "ai_chips": "AI_CHIPS",
+    "ai_chip": "AI_CHIPS",
+    "ai晶片": "AI_CHIPS",
+    "晶片": "AI_CHIPS",
+    "算力": "AI_CHIPS",
+    "asic": "AI_CHIPS",
+    "server": "SERVER_ODM",
+    "odm": "SERVER_ODM",
+    "server_odm": "SERVER_ODM",
+    "伺服器": "SERVER_ODM",
+    "伺服器odm": "SERVER_ODM",
+    "主機板": "SERVER_ODM",
+    "robot": "ROBOTICS",
+    "robotics": "ROBOTICS",
+    "機器人": "ROBOTICS",
+    "具身智能": "ROBOTICS",
+    "hbm": "HBM_STORAGE",
+    "storage": "HBM_STORAGE",
+    "hbm_storage": "HBM_STORAGE",
+    "儲存": "HBM_STORAGE",
+    "記憶體": "HBM_STORAGE",
+    "dram": "HBM_STORAGE",
+    "all": "ALL",
+    "全部": "ALL",
+    "全部主題": "ALL",
+    "全產業鏈": "ALL",
+}
+
+VALID_THEMES = {
+    "ALL", "HBM_STORAGE", "CPO_OPTICAL", "POWER_COOLING",
+    "ADV_PACKAGING", "AI_CHIPS", "SERVER_ODM", "ROBOTICS"
+}
+
+
+def resolve_industry_theme(theme: Optional[str] = "ALL") -> str:
+    """Resolve user input theme alias into standardized uppercase theme ID."""
+    if not theme or not str(theme).strip():
+        return "ALL"
+    raw = str(theme).strip()
+    upper = raw.upper()
+    if upper in VALID_THEMES:
+        return upper
+    clean = re.sub(r"[\s\-_/]+", "", raw.lower())
+    if not clean:
+        return "ALL"
+    # 1. Exact match first
+    for alias_key, target in THEME_ALIASES.items():
+        clean_alias = re.sub(r"[\s\-_/]+", "", alias_key.lower())
+        if clean == clean_alias:
+            return target
+    # 2. Substring match only if length >= 2
+    if len(clean) >= 2:
+        for alias_key, target in THEME_ALIASES.items():
+            clean_alias = re.sub(r"[\s\-_/]+", "", alias_key.lower())
+            if clean in clean_alias or clean_alias in clean:
+                return target
+    return "ALL"
+
+
+def fetch_industry_chain_themes() -> List[Dict[str, Any]]:
+    """Fetch all available industry chain themes from stockdata.david888.com."""
+    cache_key = "industry_chain:themes"
+    cached = _industry_chain_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/industry-chain/themes")
+        if res and res.get("success") and "data" in res:
+            data = res["data"]
+            _industry_chain_cache.set(cache_key, data)
+            return data
+        stale = _industry_chain_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_industry_chain_graph(theme: str = "ALL") -> Dict[str, Any]:
+    """Fetch industry value chain graph topology for a specific theme or ALL."""
+    canonical_theme = resolve_industry_theme(theme)
+    cache_key = f"industry_chain:graph:{canonical_theme}"
+    cached = _industry_chain_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/industry-chain/graph", params={"theme": canonical_theme})
+        if res and res.get("success"):
+            _industry_chain_cache.set(cache_key, res)
+            return res
+        stale = _industry_chain_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_industry_chain_markdown(data: Dict[str, Any]) -> str:
+    """Format industry value chain graph into clean Telegram HTML card with pre code block."""
+    if not data or not isinstance(data, dict) or not data.get("success"):
+        return format_card("AI 產業價值鏈拓撲圖譜", "無產業鏈圖譜資料", emoji="⛓️")
+
+    theme_id = data.get("theme", "ALL")
+    theme_names = {
+        "ALL": "全產業鏈整合圖譜",
+        "CPO_OPTICAL": "CPO 光互連與矽光子",
+        "ADV_PACKAGING": "先進封裝 (CoWoS/SoIC)",
+        "POWER_COOLING": "電力與散熱液冷",
+        "AI_CHIPS": "AI 晶片與核心算力",
+        "SERVER_ODM": "伺服器與系統 ODM",
+        "ROBOTICS": "機器人與具身智能",
+        "HBM_STORAGE": "HBM 與高頻寬記憶體",
+    }
+    theme_title = theme_names.get(theme_id, theme_id)
+    total_nodes = data.get("total_nodes", 0)
+    summary = data.get("summary") or ""
+
+    lines = [
+        f"主題圖譜: {theme_title} ({theme_id})",
+        f"節點總數: {total_nodes} 檔核心標的",
+    ]
+    if summary:
+        lines.append(f"概要: {summary}")
+    lines.append("")
+
+    def _format_nodes(title_str: str, nodes: List[Dict[str, Any]], max_n: int = 5):
+        if not nodes:
+            return
+        lines.append(f"[{title_str}]")
+        for n in nodes[:max_n]:
+            if not isinstance(n, dict):
+                continue
+            ticker = n.get("ticker", "")
+            company = n.get("company", "")
+            price = n.get("current_price")
+            chg = n.get("change_pct")
+            role = n.get("role") or n.get("key_focus") or ""
+            streak = n.get("institutional_streak")
+            dual = n.get("dual_model_consensus")
+
+            badges = []
+            if dual:
+                badges.append("雙模型共振")
+            if streak:
+                badges.append(str(streak))
+
+            badge_str = f" [{'|'.join(badges)}]" if badges else ""
+            price_str = f"現價: {price:,.1f}" if price is not None else ""
+            chg_str = f" ({chg:+.2f}%)" if chg is not None else ""
+            lines.append(f"• {ticker} {company} {price_str}{chg_str}{badge_str}".strip())
+            if role:
+                lines.append(f"  ↳ {role[:45]}")
+        lines.append("")
+
+    _format_nodes("上游核心標的 (Upstream)", data.get("upstream_nodes", []))
+    _format_nodes("中游關鍵模組/製造 (Midstream)", data.get("midstream_nodes", []))
+    _format_nodes("下游系統整合/終端 (Downstream)", data.get("downstream_nodes", []))
+
+    edges = data.get("edges", [])
+    if edges:
+        lines.append("[關鍵依賴與傳導關係 (Key Relations)]")
+        for e in edges[:6]:
+            if not isinstance(e, dict):
+                continue
+            src = e.get("source", "")
+            tgt = e.get("target", "")
+            rel = e.get("relation_type", "依賴")
+            desc = e.get("desc", "")
+            w = e.get("weight")
+            w_str = f" (權重:{w})" if w is not None else ""
+            lines.append(f"• {src} ➔ {tgt} [{rel}]{w_str}")
+            if desc:
+                lines.append(f"  ↳ {desc[:45]}")
+
+    pre_content = "\n".join(lines).strip()
+    footer = "產業價值鏈拓撲圖譜；點選下方按鈕切換不同 AI 核心主題。"
+    return format_card(
+        title=f"AI 產業價值鏈拓撲圖譜 ({theme_title})",
+        pre_content=pre_content,
+        emoji="⛓️",
+        footer=footer,
+    )
+
+
+def fetch_tri_bullish_predictions(limit: int = 10) -> List[Dict[str, Any]]:
+    """Fetch multi-model Tri-Bullish consensus predictions (TimesFM ∩ Timestral ∩ MOIRAI-2)."""
+    cache_key = f"tri_bullish:{limit}"
+    cached = _tri_bullish_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/predictions/tri-bullish", params={"limit": limit})
+        if res and res.get("success") and "data" in res:
+            items = res["data"]
+            _tri_bullish_cache.set(cache_key, items)
+            return items
+        stale = _tri_bullish_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_dual_bullish_predictions(limit: int = 10) -> List[Dict[str, Any]]:
+    """Fetch Dual-Bullish consensus predictions."""
+    cache_key = f"dual_bullish:{limit}"
+    cached = _dual_bullish_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/predictions/dual-bullish", params={"limit": limit})
+        if res and res.get("success") and "data" in res:
+            items = res["data"]
+            _dual_bullish_cache.set(cache_key, items)
+            return items
+        stale = _dual_bullish_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_dual_bearish_predictions(limit: int = 10) -> List[Dict[str, Any]]:
+    """Fetch Dual-Bearish consensus predictions."""
+    cache_key = f"dual_bearish:{limit}"
+    cached = _dual_bearish_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/predictions/dual-bearish", params={"limit": limit})
+        if res and res.get("success") and "data" in res:
+            items = res["data"]
+            _dual_bearish_cache.set(cache_key, items)
+            return items
+        stale = _dual_bearish_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_tri_bullish_markdown(items: List[Dict[str, Any]]) -> str:
+    """Format Tri-Bullish consensus picks into clean Telegram HTML card."""
+    if not items or not isinstance(items, list):
+        return format_card("三模型同步看漲共識焦點榜", "目前市場暫無三大時序模型（TimesFM ∩ Timestral ∩ MOIRAI-2）同步看多標的。", emoji="🏆")
+
+    blocks = []
+    for i, p in enumerate(items[:10], 1):
+        if not isinstance(p, dict):
+            continue
+        ticker = p.get("ticker", "")
+        name = p.get("name", "")
+        price = float(p.get("current_price") or 0.0)
+        target = float(p.get("predicted_price") or 0.0)
+        potential = float(p.get("potential") or 0.0)
+        sign = "+" if potential >= 0 else ""
+
+        entry_lines = [
+            f"[{i}] {ticker} {name} [三大模型同步看多]",
+            f"現價: {price:,.1f} ➔ 綜合預期: {target:,.1f} ({sign}{potential:.1f}%)",
+        ]
+
+        # Model potentials breakdown
+        tfm_p = p.get("timesfm_potential")
+        tms_p = p.get("timestral_potential")
+        moi_p = p.get("moirai_potential")
+        model_sub = []
+        if tfm_p is not None:
+            try:
+                model_sub.append(f"TimesFM: {float(tfm_p):+.1f}%")
+            except (ValueError, TypeError):
+                pass
+        if tms_p is not None:
+            try:
+                model_sub.append(f"Timestral: {float(tms_p):+.1f}%")
+            except (ValueError, TypeError):
+                pass
+        if moi_p is not None:
+            try:
+                model_sub.append(f"MOIRAI: {float(moi_p):+.1f}%")
+            except (ValueError, TypeError):
+                pass
+        if model_sub:
+            entry_lines.append(f"模型明細: {' | '.join(model_sub)}")
+
+        # Chips / Fundamentals
+        t_net = p.get("trust_net_5d")
+        f_net = p.get("foreign_net_5d")
+        pe = p.get("pe")
+        extra = []
+        if t_net is not None:
+            try:
+                extra.append(f"投信{int(float(t_net)):+d}")
+            except (ValueError, TypeError):
+                pass
+        if f_net is not None:
+            try:
+                extra.append(f"外資{int(float(f_net)):+d}")
+            except (ValueError, TypeError):
+                pass
+        if pe is not None:
+            try:
+                extra.append(f"PE:{float(pe):.1f}x")
+            except (ValueError, TypeError):
+                pass
+        if extra:
+            entry_lines.append(f"籌碼評價: {' | '.join(extra)}")
+
+        blocks.append("\n".join(entry_lines))
+
+    pre_content = "\n\n".join(blocks) if blocks else "無有效三模型共識資料"
+    footer = "TimesFM ∩ Timestral ∩ MOIRAI-2 三大 AI 時序大模型共識推薦。"
+    return format_card(
+        title="三模型同步看漲共識焦點榜",
+        pre_content=pre_content,
+        emoji="🏆",
+        footer=footer,
+    )
+
+
+def fetch_discovery_signals(limit: int = 6) -> List[Dict[str, Any]]:
+    """Fetch academic paper breakthrough discovery signals and mapped tickers."""
+    cache_key = f"discovery:signals:{limit}"
+    cached = _discovery_signals_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/discovery/signals", params={"limit": limit})
+        if res and res.get("success") and "data" in res:
+            items = res["data"]
+            _discovery_signals_cache.set(cache_key, items)
+            return items
+        stale = _discovery_signals_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def fetch_discovery_candidates(limit: int = 10) -> List[Dict[str, Any]]:
+    """Fetch frontier technological discovery candidates."""
+    cache_key = f"discovery:candidates:{limit}"
+    cached = _discovery_candidates_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/discovery/candidates", params={"limit": limit})
+        if res and res.get("success") and "data" in res:
+            items = res["data"]
+            _discovery_candidates_cache.set(cache_key, items)
+            return items
+        stale = _discovery_candidates_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return []
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_discovery_markdown(data: Any) -> str:
+    """Format discovery signals and candidates into Telegram HTML card."""
+    signals: List[Dict[str, Any]] = []
+    candidates: List[Dict[str, Any]] = []
+
+    if isinstance(data, list):
+        signals = data
+    elif isinstance(data, dict):
+        signals = data.get("signals") or []
+        candidates = data.get("candidates") or []
+        if not signals and not candidates and "data" in data and isinstance(data["data"], list):
+            sample = data["data"][:1]
+            if sample and isinstance(sample[0], dict):
+                if "signal_id" in sample[0] or "detected_at" in sample[0]:
+                    signals = data["data"]
+                else:
+                    candidates = data["data"]
+
+    if not signals and not candidates:
+        return format_card("產業前沿雷達與學術瓶頸突破", "目前暫無前沿技術突破訊號或候選標的資料。", emoji="🛰️")
+
+    lines = []
+    if signals:
+        lines.append("[前沿論文技術突破與映射標的]")
+        for s in signals[:5]:
+            if not isinstance(s, dict):
+                continue
+            theme = s.get("theme_id", "")
+            ticker = s.get("ticker", "")
+            title = s.get("title", "")
+            content = s.get("content", "")
+            score = s.get("sentiment_score")
+            dt = str(s.get("detected_at", ""))[:10]
+            lines.append(f"• 【{theme}】{ticker} (情感分: {score})")
+            if title:
+                lines.append(f"  標題: {title[:50]}")
+            if content:
+                lines.append(f"  內容: {content[:60]}")
+            if dt:
+                lines.append(f"  時間: {dt}")
+        lines.append("")
+
+    if candidates:
+        lines.append("[前沿突破潛力候選池]")
+        for c in candidates[:5]:
+            if not isinstance(c, dict):
+                continue
+            ticker = c.get("ticker", "")
+            name = c.get("name", "")
+            mkt = c.get("market", "")
+            theme_name = c.get("theme_name", "")
+            score = c.get("total_score")
+            catalyst = c.get("catalyst_summary", "")
+            anchor = c.get("us_anchor", "")
+            score_str = f" - 總分: {score:.1f}" if score is not None else ""
+            lines.append(f"• {ticker} {name} ({mkt}){score_str}")
+            if theme_name:
+                lines.append(f"  主題: {theme_name}")
+            if catalyst:
+                lines.append(f"  催化: {catalyst[:50]}")
+            if anchor:
+                lines.append(f"  美股錨點: {anchor}")
+
+    pre_content = "\n".join(lines).strip()
+    footer = "前沿學術論文與技術瓶頸映射；結合產業鏈 /chain 與即時快訊 /hot 交叉驗證。"
+    return format_card(
+        title="產業前沿雷達與技術論文瓶頸突破",
+        pre_content=pre_content,
+        emoji="🛰️",
+        footer=footer,
+    )
+
+
+def fetch_portfolio_risk_xray(tickers: List[str], window: int = 60) -> Dict[str, Any]:
+    """Fetch multi-market portfolio risk X-ray analysis via POST."""
+    clean_tickers = [t.strip().upper() for t in tickers if t and t.strip()]
+    cache_key = f"risk_xray:{','.join(sorted(clean_tickers))}:{window}"
+    cached = _risk_xray_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        url = f"{STOCKDATA_BASE_URL.rstrip('/')}/api/v1/risk/xray"
+        headers = {"User-Agent": USER_AGENT, "Content-Type": "application/json"}
+        try:
+            resp = requests.post(
+                url,
+                json={"tickers": clean_tickers, "window": window},
+                headers=headers,
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                d = resp.json()
+                _risk_xray_cache.set(cache_key, d)
+                return d
+            logger.warning(f"StockData Risk X-Ray returned status {resp.status_code}")
+        except Exception as e:
+            logger.error(f"StockData Risk X-Ray error for {clean_tickers}: {e}")
+        return _risk_xray_cache.get_stale(cache_key) or {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_portfolio_risk_xray_markdown(data: Dict[str, Any]) -> str:
+    """Format Portfolio Risk X-Ray analysis into clean Telegram HTML card."""
+    if not data or not isinstance(data, dict) or data.get("status") not in ("ok", "success"):
+        return format_card("多市場投資組合風險 X 光片", "無法取得投資組合風險評估資料，請確認標的代碼是否正確。", emoji="🩻")
+
+    vol_total = float(data.get("annualized_volatility_total") or 0.0)
+    vol_sleeve = float(data.get("annualized_volatility_risk_sleeve") or 0.0)
+    eff_n = float(data.get("effective_n_risk_sleeve") or 0.0)
+    available = data.get("available_tickers") or []
+
+    lines = [
+        f"監控標的: {', '.join(available) if isinstance(available, list) else str(available)}",
+        f"組合年化波動率: {vol_total:.2%}",
+        f"風險資產年化波動: {vol_sleeve:.2%}",
+        f"有效資產數 (Effective N): {eff_n:.1f}",
+        "",
+        "[資產配置權重與歐拉波動貢獻 (PCV%)]",
+    ]
+
+    contributions = data.get("euler_contributions", [])
+    for c in contributions:
+        if not isinstance(c, dict):
+            continue
+        ticker = c.get("ticker", "")
+        weight = float(c.get("weight") or 0.0)
+        ann_vol = float(c.get("annualized_volatility") or 0.0)
+        pcv = float(c.get("percentage_contribution") or 0.0)
+        lines.append(f"• {ticker}: 權重 {weight:.1%} | 年化波動 {ann_vol:.1%} | 波動貢獻 PCV: {pcv:.1%}")
+
+    suspects = data.get("corporate_action_suspects", [])
+    if suspects:
+        lines.append("")
+        lines.append("[異常跳空/除權息事件警示]")
+        for s in suspects[:3]:
+            if not isinstance(s, dict):
+                continue
+            ticker = s.get("ticker", "")
+            dt = s.get("date", "")
+            ret_pct = s.get("return_pct", "")
+            thresh = float(s.get("threshold") or 0.25)
+            lines.append(f"• {ticker} ({dt}): 跳空幅度 {ret_pct} (門檻 {thresh:.0%})")
+
+    pairs = data.get("high_correlation_pairs", [])
+    if pairs:
+        lines.append("")
+        lines.append("[高相關性風險對]")
+        for p in pairs[:3]:
+            if not isinstance(p, dict):
+                continue
+            t1 = p.get("ticker1", "")
+            t2 = p.get("ticker2", "")
+            corr = float(p.get("correlation") or 0.0)
+            lines.append(f"• {t1} & {t2}: 相關係數 {corr:.2f}")
+
+    warnings = []
+    if data.get("fx_unhedged_warning"):
+        warnings.append(data["fx_unhedged_warning"])
+    if data.get("calendar_mismatch_warning"):
+        warnings.append(data["calendar_mismatch_warning"])
+    if warnings:
+        lines.append("")
+        lines.append("[跨市場風險提示]")
+        for w in warnings:
+            lines.append(f"• {w}")
+
+    pre_content = "\n".join(lines).strip()
+    footer = "歐拉波動分解 (Euler PCV%) 評估各標的對整體組合波動之邊際風險貢獻。"
+    return format_card(
+        title="多市場投資組合風險 X 光片 (Portfolio Risk X-Ray)",
+        pre_content=pre_content,
+        emoji="🩻",
+        footer=footer,
+    )
+
+
+def fetch_stock_history_trajectory(ticker: str, limit: int = 10) -> Dict[str, Any]:
+    """Fetch historical predictions and chip trajectory for a stock."""
+    clean_ticker = _normalize_quant_ticker(ticker)
+    cache_key = f"stock_history:{clean_ticker}:{limit}"
+    cached = _stock_history_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json(f"/api/v1/predictions/history/{quote(clean_ticker, safe='')}", params={"limit": limit})
+        if res and res.get("success"):
+            _stock_history_cache.set(cache_key, res)
+            return res
+        stale = _stock_history_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_stock_history_markdown(data: Dict[str, Any]) -> str:
+    """Format stock history predictions trajectory into clean Telegram HTML card."""
+    if not data or not isinstance(data, dict):
+        return format_card("個股歷史量化預測軌跡", "查無該標的之歷史量化預測軌跡資料。", emoji="📈")
+
+    records = data.get("data")
+    if not isinstance(records, list) or not records:
+        return format_card("個股歷史量化預測軌跡", "查無該標的之歷史量化預測軌跡資料。", emoji="📈")
+
+    first = records[0] if isinstance(records[0], dict) else {}
+    ticker = first.get("ticker") or "未知"
+    name = first.get("name") or ""
+
+    lines = [
+        f"標的代碼: {ticker} {name}".strip(),
+        f"歷史預測紀錄數: {len(records)} 筆",
+        "",
+    ]
+
+    for r in records[:8]:
+        if not isinstance(r, dict):
+            continue
+        ts = r.get("timestamp") or r.get("created_at") or "歷史時序"
+        ts_display = str(ts)[:10]
+        model = r.get("model_name") or "時序模型"
+        cur = float(r.get("current_price") or 0.0)
+        pred = float(r.get("predicted_price") or 0.0)
+        pot = float(r.get("potential") or 0.0)
+        sign = "+" if pot >= 0 else ""
+        t_net = r.get("trust_net_5d")
+        f_net = r.get("foreign_net_5d")
+
+        chips = []
+        if t_net is not None:
+            try:
+                chips.append(f"投信{int(float(t_net)):+d}")
+            except (ValueError, TypeError):
+                pass
+        if f_net is not None:
+            try:
+                chips.append(f"外資{int(float(f_net)):+d}")
+            except (ValueError, TypeError):
+                pass
+        chip_str = f" [{'|'.join(chips)}]" if chips else ""
+
+        lines.append(f"• [{ts_display}] {model}: 現價 {cur:,.1f} ➔ 預測 {pred:,.1f} ({sign}{pot:.1f}%){chip_str}")
+
+    pre_content = "\n".join(lines).strip()
+    footer = "歷史時序預測軌跡；可搭配 /chip 籌碼與 /s K線圖綜合研判。"
+    return format_card(
+        title=f"個股歷史量化預測軌跡 ({ticker})",
+        pre_content=pre_content,
+        emoji="📈",
+        footer=footer,
+    )
+
+
+def fetch_model_performance_scorecard(market: str = "ALL", horizon: int = 5) -> Dict[str, Any]:
+    """Fetch model performance backtest scorecard."""
+    clean_market = market.strip().upper()
+    cache_key = f"perf_models:{clean_market}:{horizon}"
+    cached = _model_performance_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        params: Dict[str, Any] = {"horizon": horizon}
+        if clean_market in ("TW", "US", "JP"):
+            params["market"] = clean_market
+        res = _get_json("/api/v1/performance/models", params=params)
+        if res and isinstance(res, dict):
+            _model_performance_cache.set(cache_key, res)
+            return res
+        stale = _model_performance_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_model_performance_markdown(data: Dict[str, Any]) -> str:
+    """Format model performance backtest scorecard into clean Telegram HTML card."""
+    if not data or not isinstance(data, dict):
+        return format_card("時序模型回測計分卡", "無回測計分卡資料", emoji="📊")
+
+    status = data.get("status") or "normal"
+    excluded = int(data.get("excluded_count") or 0)
+    score_ver = data.get("score_version") or "forecast-score-v1"
+    records = data.get("data", [])
+
+    lines = [
+        f"評估狀態: {status}",
+        f"計分版本: {score_ver}",
+        f"已排除樣本數: {excluded:,} 筆",
+        "",
+    ]
+
+    if records:
+        lines.append("[模型歷史預測準確率與回測表現]")
+        for r in records[:5]:
+            if not isinstance(r, dict):
+                continue
+            name = r.get("model_name", "Model")
+            acc = r.get("directional_accuracy")
+            mae = r.get("mae")
+            acc_str = f"方向勝率: {float(acc):.1%}" if acc is not None else ""
+            mae_str = f"MAE: {float(mae):.2f}" if mae is not None else ""
+            lines.append(f"• {name}: {acc_str} | {mae_str}".strip(" |"))
+    else:
+        lines.append("目前回測樣本累積中 (insufficient_data)，大模型樣本達標後將自動公布完整計分卡。")
+
+    pre_content = "\n".join(lines).strip()
+    footer = "時序大模型歷史樣本預測準確度回測評估計分卡。"
+    return format_card(
+        title="時序模型回測計分卡 (Model Performance Scorecard)",
+        pre_content=pre_content,
+        emoji="📊",
+        footer=footer,
+    )
+
+
+def fetch_canary_health() -> Dict[str, Any]:
+    """Fetch health probe and latency status for all 8 upstream data sources."""
+    cache_key = "canary_health"
+    cached = _canary_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/stats/canary-health")
+        if res and isinstance(res, dict) and "sources" in res:
+            _canary_cache.set(cache_key, res)
+            return res
+        stale = _canary_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return {}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_canary_health_markdown(data: Dict[str, Any]) -> str:
+    """Format canary health status into clean Telegram HTML card."""
+    if not data or not isinstance(data, dict):
+        return format_card("上游資料源金絲雀健康度", "無法取得資料源健康狀態資料。", emoji="🐤")
+
+    status = data.get("status", "unknown")
+    checked_at = str(data.get("checked_at", "未知時間"))[:19].replace("T", " ")
+    sources = data.get("sources", {})
+
+    status_icon = "🟢" if status == "healthy" else ("🟡" if status == "degraded" else "🔴")
+    lines = [
+        f"系統整體狀態: {status_icon} {status.upper()}",
+        f"最近檢測時間: {checked_at} (UTC)",
+        f"監控資料源數: {len(sources)} 個",
+        "",
+        "[各核心資料源即時連線與延遲指標]",
+    ]
+
+    for name, info in sources.items():
+        if not isinstance(info, dict):
+            continue
+        s_stat = info.get("status", "unknown")
+        lat = info.get("latency_ms")
+        lat_str = f" ({float(lat):,.0f}ms)" if lat is not None else " (N/A)"
+        badge = "🟢 正常" if s_stat == "healthy" else ("🟡 延遲/降級" if "degraded" in s_stat else "🔴 異常")
+        lines.append(f"• {name.upper()}: {badge}{lat_str}")
+        reason = info.get("sanitized_reason")
+        if reason:
+            lines.append(f"  ↳ 原因: {str(reason)[:60]}")
+
+    pre_content = "\n".join(lines).strip()
+    footer = "金絲雀健康探針每 2 分鐘定期巡檢各核心資料源可用性。"
+    return format_card(
+        title="上游資料源金絲雀健康度 (Canary Health)",
+        pre_content=pre_content,
+        emoji="🐤",
+        footer=footer,
+    )
+
+
+def fetch_podcast_intel(limit: int = 8) -> Dict[str, Any]:
+    """Fetch top podcast discussion entities and latest episodes."""
+    cache_key = f"podcast_intel:{limit}"
+    cached = _podcast_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        topics_res = _get_json("/api/v1/podcast/topics", params={"limit": max(5, limit)})
+        episodes_res = _get_json("/api/v1/podcast/episodes", params={"limit": limit})
+        if not topics_res and not episodes_res:
+            stale = _podcast_cache.get_stale(cache_key)
+            if stale:
+                return stale
+        topics = topics_res.get("data", []) if topics_res and isinstance(topics_res, dict) else []
+        episodes = episodes_res.get("data", []) if episodes_res and isinstance(episodes_res, dict) else []
+        result = {
+            "success": True,
+            "topics": topics,
+            "episodes": episodes,
+        }
+        if topics or episodes:
+            _podcast_cache.set(cache_key, result)
+        return result
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_podcast_intel_markdown(data: Dict[str, Any]) -> str:
+    """Format podcast intelligence into clean Telegram HTML card."""
+    if not data or not isinstance(data, dict):
+        return format_card("頂級財經與科技 Podcast 話題熱榜", "暫無 Podcast 話題與單集情報。", emoji="🎙️")
+
+    topics = data.get("topics", [])
+    episodes = data.get("episodes", [])
+    if not topics and not episodes:
+        return format_card("頂級財經與科技 Podcast 話題熱榜", "暫無 Podcast 話題與單集情報。", emoji="🎙️")
+
+    lines = []
+    if topics:
+        lines.append("[熱門討論實體排行 (Top Entities)]")
+        topic_strs = []
+        for i, t in enumerate(topics[:8], 1):
+            if isinstance(t, dict):
+                top_name = t.get("topic", "")
+                cnt = t.get("count", 0)
+                topic_strs.append(f"[{i}] {top_name} ({cnt}次)")
+        lines.append("  ".join(topic_strs[:4]))
+        if len(topic_strs) > 4:
+            lines.append("  ".join(topic_strs[4:8]))
+        lines.append("")
+
+    if episodes:
+        lines.append("[最新科技財經單集精選]")
+        for ep in episodes[:4]:
+            if not isinstance(ep, dict):
+                continue
+            title = str(ep.get("title") or "單集分享")
+            channel = str(ep.get("channel_title") or ep.get("channel_name") or "Podcast")
+            dur = str(ep.get("duration_formatted") or "")
+            dur_str = f", {dur}" if dur else ""
+            tldr = str(ep.get("tldr_zh_tw") or ep.get("ai_takeaways") or ep.get("summary") or "")
+            tickers = ep.get("tickers") or ep.get("mentioned_tickers") or []
+            lines.append(f"• {title[:40]} ({channel}{dur_str})")
+            if tldr:
+                lines.append(f"  核心摘要: {tldr[:70]}...")
+            if tickers:
+                lines.append(f"  提及標的: {', '.join(tickers)}")
+
+    pre_content = "\n".join(lines).strip()
+    footer = "精選頂級科技與財經 Podcast 原生內容與 AI 實體提取。"
+    return format_card(
+        title="頂級財經與科技 Podcast 話題熱榜",
+        pre_content=pre_content,
+        emoji="🎙️",
+        footer=footer,
+    )
+
+
+def fetch_watchlist() -> Dict[str, Any]:
+    """Fetch DuckDB cloud watchlist and predictions."""
+    cache_key = "watchlist:default"
+    cached = _watchlist_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    def _fetch():
+        res = _get_json("/api/v1/watchlist")
+        if res and isinstance(res, dict) and res.get("success"):
+            _watchlist_cache.set(cache_key, res)
+            return res
+        stale = _watchlist_cache.get_stale(cache_key)
+        if stale:
+            return stale
+        return {"success": False, "items": []}
+
+    return _sd_singleflight.run(cache_key, _fetch)
+
+
+def format_watchlist_markdown(data: Dict[str, Any]) -> str:
+    """Format DuckDB watchlist into clean Telegram HTML card."""
+    if not data or not isinstance(data, dict) or not data.get("success"):
+        return format_card("DuckDB 雲端自選股監控清單", "無法取得雲端自選股清單資料。", emoji="⭐")
+
+    items = data.get("items", [])
+    if not items:
+        return format_card(
+            "DuckDB 雲端自選股監控清單",
+            "目前自選股監控清單為空。\n\n💡 可透過 StockData Web 端或 API 新增關注標的，系統將自動啟動跨模型每日預測追蹤。",
+            emoji="⭐"
+        )
+
+    lines = [
+        f"自選股總數: {len(items)} 檔",
+        "",
+    ]
+
+    for i, it in enumerate(items[:10], 1):
+        if not isinstance(it, dict):
+            continue
+        ticker = it.get("ticker", "")
+        name = it.get("name", "")
+        cur = float(it.get("current_price") or 0.0)
+        pred = float(it.get("predicted_price") or 0.0)
+        pot = float(it.get("potential") or 0.0)
+        tags = it.get("tags") or ""
+        lines.append(f"[{i}] {ticker} {name}: 現價 {cur:,.1f} ➔ 預測 {pred:,.1f} ({pot:+.1f}%)")
+        if tags:
+            lines.append(f"  標籤: {tags[:45]}")
+
+    pre_content = "\n".join(lines).strip()
+    footer = "DuckDB 雲端自選股跨模型同步追蹤清單。"
+    return format_card(
+        title="DuckDB 雲端自選股監控清單",
+        pre_content=pre_content,
+        emoji="⭐",
+        footer=footer,
+    )
+
+
+# ==========================================
+# 10. Extended LangChain Tool Definitions
+# ==========================================
+
+@tool
+def get_industry_chain(theme: str = "ALL") -> Dict[str, Any]:
+    """
+    Fetches the AI Industry Value Chain graph topology (Upstream/Midstream/Downstream nodes, current prices, potentials, and dependencies like 大客戶依賴, 資本開支):
+    - Supported themes: ALL, CPO_OPTICAL (cpo), ADV_PACKAGING (cowos, pkg), POWER_COOLING (cooling, power), AI_CHIPS (chip, gpu), SERVER_ODM (server, odm), ROBOTICS (robot), HBM_STORAGE (hbm)
+    Use when users ask:
+    - '查詢 CPO 光互連/矽光子產業鏈上下游標的'
+    - 'CoWoS 先進封裝供應鏈關係與關鍵台美股'
+    - '散熱液冷或 AI 晶片價值鏈圖譜'
+    """
+    logger.info(f"=== [Tool] get_industry_chain called for theme: {theme} ===")
+    canonical_theme = resolve_industry_theme(theme)
+    data = fetch_industry_chain_graph(canonical_theme)
+    summary = format_industry_chain_markdown(data)
+    return {
+        "theme": canonical_theme,
+        "graph_data": data,
+        "formatted_summary": summary,
+    }
+
+
+@tool
+def get_tri_bullish_predictions_tool(limit: int = 8) -> Dict[str, Any]:
+    """
+    Fetches the Tri-Bullish Consensus stock leaderboard where all 3 foundational time-series models (Google TimesFM ∩ Mistral Timestral-209M ∩ Salesforce MOIRAI-2) simultaneously predict strong bullish gains.
+    Use when users ask:
+    - '有哪些三模型同步看漲的股票？'
+    - 'TimesFM、Timestral 與 MOIRAI 同步看多的交集標的'
+    - '三大時序模型共識推薦'
+    """
+    logger.info(f"=== [Tool] get_tri_bullish_predictions_tool called with limit: {limit} ===")
+    items = fetch_tri_bullish_predictions(limit)
+    summary = format_tri_bullish_markdown(items)
+    return {
+        "count": len(items),
+        "predictions": items,
+        "formatted_summary": summary,
+    }
+
+
+@tool
+def get_discovery_signals_tool(limit: int = 6) -> Dict[str, Any]:
+    """
+    Fetches technological bottleneck breakthroughs and academic paper discovery radar signals (arXiv frontier breakthroughs mapped to Taiwan and US listed equities).
+    Use when users ask:
+    - '最新學術論文突破映射受惠股票'
+    - '產業前沿技術雷達與突破候選標的'
+    - '前沿論文發現訊號'
+    """
+    logger.info(f"=== [Tool] get_discovery_signals_tool called with limit: {limit} ===")
+    signals = fetch_discovery_signals(limit)
+    candidates = fetch_discovery_candidates(limit)
+    summary = format_discovery_markdown({"signals": signals, "candidates": candidates})
+    return {
+        "signals_count": len(signals),
+        "candidates_count": len(candidates),
+        "signals": signals,
+        "candidates": candidates,
+        "formatted_summary": summary,
+    }
+
+
+@tool
+def get_portfolio_risk_xray_tool(tickers: str, window: int = 60) -> Dict[str, Any]:
+    """
+    Computes multi-market portfolio risk X-ray analysis, annualized total volatility, asset weights, and Euler Percentage Contribution to Volatility (PCV%), plus corporate action/jump alerts.
+    - tickers: comma-separated or space-separated ticker symbols (e.g. '2330.TW,NVDA,2317.TW')
+    - window: historical lookback window in trading days (default: 60)
+    Use when users ask:
+    - '幫我做投資組合風險 X 光片'
+    - '計算我持股的年化波動度與歐拉風險貢獻 (PCV%)'
+    - '多市場投資組合波動風險診斷'
+    """
+    logger.info(f"=== [Tool] get_portfolio_risk_xray_tool called for: {tickers} (window: {window}) ===")
+    raw_list = re.split(r"[,;\s]+", (tickers or "").strip())
+    ticker_list = [t.strip().upper() for t in raw_list if t.strip()]
+    data = fetch_portfolio_risk_xray(ticker_list, window)
+    summary = format_portfolio_risk_xray_markdown(data)
+    return {
+        "tickers": ticker_list,
+        "window": window,
+        "risk_data": data,
+        "formatted_summary": summary,
+    }
+
+
+@tool
+def get_stock_history_trajectory_tool(ticker: str, limit: int = 10) -> Dict[str, Any]:
+    """
+    Fetches the historical quantitative predictions trajectory and institutional chips flow across prior trading days for a specific stock.
+    Use when users ask:
+    - '查詢台積電 2330 過去幾天模型的預測目標價軌跡'
+    - '個股歷史量化預測驗證與法人買賣超走勢'
+    """
+    logger.info(f"=== [Tool] get_stock_history_trajectory_tool called for: {ticker} ===")
+    data = fetch_stock_history_trajectory(ticker, limit)
+    summary = format_stock_history_markdown(data)
+    return {
+        "ticker": ticker,
+        "history_data": data,
+        "formatted_summary": summary,
+    }
+
+
+@tool
+def get_model_performance_scorecard_tool(market: str = "ALL", horizon: int = 5) -> Dict[str, Any]:
+    """
+    Fetches the historical prediction accuracy scorecard and backtest metrics across time-series models (TimesFM, Timestral, MOIRAI-2).
+    - market: 'ALL', 'TW', 'US', or 'JP'
+    - horizon: forecast horizon in days (default: 5)
+    Use when users ask:
+    - '各時序大模型的預測準確率與回測計分卡'
+    - 'TimesFM 或 Timestral 在台股/美股的勝率如何？'
+    """
+    logger.info(f"=== [Tool] get_model_performance_scorecard_tool called for market: {market} ===")
+    data = fetch_model_performance_scorecard(market, horizon)
+    summary = format_model_performance_markdown(data)
+    return {
+        "market": market,
+        "horizon": horizon,
+        "performance_data": data,
+        "formatted_summary": summary,
+    }
+
+
+@tool
+def get_canary_health_tool() -> Dict[str, Any]:
+    """
+    Fetches the real-time probe latency and health status across all 8 core upstream data sources (TWSE, TPEx, yfinance, Investing, Polymarket, BigGo, arXiv).
+    Use when users ask:
+    - '資料源連線正常嗎？'
+    - '查詢金絲雀健康度與各資料源延遲'
+    - '系統上游 API 狀態'
+    """
+    logger.info("=== [Tool] get_canary_health_tool called ===")
+    data = fetch_canary_health()
+    summary = format_canary_health_markdown(data)
+    return {
+        "health_data": data,
+        "formatted_summary": summary,
+    }
+
+
+@tool
+def get_podcast_intel_tool(limit: int = 8) -> Dict[str, Any]:
+    """
+    Fetches top tech & finance podcast entity discussions (OpenAI, Anthropic, NVIDIA, etc.) and latest episode AI takeaways.
+    Use when users ask:
+    - '科技財經 Podcast 最近在討論什麼？'
+    - 'Podcast 熱門話題榜與單集摘要'
+    """
+    logger.info(f"=== [Tool] get_podcast_intel_tool called with limit: {limit} ===")
+    data = fetch_podcast_intel(limit)
+    summary = format_podcast_intel_markdown(data)
+    return {
+        "podcast_data": data,
+        "formatted_summary": summary,
+    }
+
+
+@tool
+def get_watchlist_tool() -> Dict[str, Any]:
+    """
+    Fetches the DuckDB cloud-synced watchlist and multi-model forecast tracking for user's watched tickers.
+    Use when users ask:
+    - '查詢我的雲端自選股'
+    - '自選股清單與各標的最新潛力'
+    """
+    logger.info("=== [Tool] get_watchlist_tool called ===")
+    data = fetch_watchlist()
+    summary = format_watchlist_markdown(data)
+    return {
+        "watchlist_data": data,
+        "formatted_summary": summary,
+    }
+

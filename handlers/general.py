@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
-BOT_VERSION = "2.21.0"
+BOT_VERSION = "2.22.0"
 BOT_RELEASE_DATE = "2026-11-12"
 
 
@@ -200,7 +200,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• `/broker <股票代碼>` - 🏢 查詢個股近 20 日券商主力關鍵分點進出排行 (範例：`/broker 2330.TW`)\n"
         "• `/cal [earn|econ|fed|comm]` - 📅 全球總經、美股重磅財報與 CME 利率行事曆\n"
         "• `/pm [關鍵字]` - 🔮 Polymarket 預測市場前瞻機率與總經政策定價 (範例：`/pm fed`、`/pm recession`)\n"
-        "• `/chain 事件或主題` - ⛓️ 金融邏輯傳導鏈分析與因果流程圖 (範例：`/chain 聯準會降息`)\n"
+        "• `/chain [主題]` - ⛓️ AI 產業價值鏈拓撲圖譜 (CPO/CoWoS/散熱/算力/ODM) 或金融傳導鏈 (範例：`/chain cpo`、`/chain cooling`)\n"
+        "• `/tribull` - 🏆 三大時序模型 (TimesFM ∩ Timestral ∩ MOIRAI) 同步看漲共識焦點榜\n"
+        "• `/discovery` - 🛰️ 產業前沿論文學術突破與台美股映射受惠池雷達\n"
+        "• `/xray [代碼1,代碼2,...]` - 🩻 多市場投資組合風險 X 光片與歐拉風險貢獻 (Euler PCV%) (範例：`/xray 2330.TW,NVDA,2317.TW`)\n"
+        "• `/history <股票代碼>` - 📈 個股歷史量化預測目標價與三大法人買賣超軌跡 (範例：`/history 2330.TW`)\n"
+        "• `/canary` - 🐤 8 大上游核心資料源金絲雀健康度與連線延遲監控\n"
+        "• `/podcast` - 🎙️ 頂級財經與科技 Podcast 話題熱榜與最新單集 AI 摘要\n"
+        "• `/watchlist` - ⭐ DuckDB 雲端自選股跨模型同步追蹤清單\n"
         "• `/hot [來源]` - 🔥 財聯社/華爾街見聞/雪球即時快訊 (範例：`/hot` 或 `/hot wallstreetcn`)\n"
         "• `/chip 股票代碼` - 🏢 台股三大法人買賣超、連買連賣與主力分點 (範例：`/chip 2330.TW`)\n"
         "• `/ff 股票代碼` - 📊 Fama-French 多因子風險歸因與 Alpha (範例：`/ff NVDA`)\n"
@@ -548,9 +555,41 @@ async def callback_prompt_handler(update: Update, context: ContextTypes.DEFAULT_
             from handlers.ai_cmds import ai2_analysis
             await ai2_analysis(update, context)
             return
-        elif cmd == "/chain":
+        elif cmd in ("/chain", "/industry"):
+            from handlers.stock_cmds import industry_chain_query
+            await industry_chain_query(update, context)
+            return
+        elif cmd in ("/trans", "/transmission", "/tx"):
             from handlers.stock_cmds import chain_analysis
             await chain_analysis(update, context)
+            return
+        elif cmd in ("/tribull", "/tribullish"):
+            from handlers.stock_cmds import tri_bullish_query
+            await tri_bullish_query(update, context)
+            return
+        elif cmd in ("/discovery", "/frontier"):
+            from handlers.stock_cmds import discovery_signals_query
+            await discovery_signals_query(update, context)
+            return
+        elif cmd in ("/xray", "/risk"):
+            from handlers.stock_cmds import portfolio_risk_xray_query
+            await portfolio_risk_xray_query(update, context)
+            return
+        elif cmd in ("/history", "/thist"):
+            from handlers.stock_cmds import stock_history_query
+            await stock_history_query(update, context)
+            return
+        elif cmd == "/canary":
+            from handlers.stock_cmds import canary_health_query
+            await canary_health_query(update, context)
+            return
+        elif cmd in ("/podcast", "/pod"):
+            from handlers.stock_cmds import podcast_intel_query
+            await podcast_intel_query(update, context)
+            return
+        elif cmd in ("/watchlist", "/wl"):
+            from handlers.stock_cmds import watchlist_query
+            await watchlist_query(update, context)
             return
         elif cmd == "/hot":
             from handlers.stock_cmds import hot_news_query
@@ -598,7 +637,15 @@ async def reset_commands(application: Application):
         BotCommand("xt", "玄鐵重劍 MA60/120 均線波段回調買點"),
         BotCommand("broker", "查詢個股近 20 日券商主力關鍵分點進出"),
         BotCommand("cal", "全球總經/美股重磅財報/CME 利率行事曆"),
-        BotCommand("chain", "金融邏輯傳導鏈分析 (因果流程圖)"),
+        BotCommand("chain", "AI 產業價值鏈拓撲圖譜 (CPO/CoWoS/散熱/算力/ODM)"),
+        BotCommand("trans", "金融邏輯傳導鏈分析 (因果流程圖)"),
+        BotCommand("tribull", "TimesFM ∩ Timestral ∩ MOIRAI 三模型看漲共識"),
+        BotCommand("discovery", "產業前沿論文學術突破與標的映射雷達"),
+        BotCommand("xray", "多市場投資組合風險 X 光片與歐拉波動貢獻"),
+        BotCommand("history", "個股歷史量化預測與法人籌碼軌跡"),
+        BotCommand("canary", "8大上游資料源金絲雀健康度與延遲監控"),
+        BotCommand("podcast", "頂級財經與科技 Podcast 話題熱榜與情報"),
+        BotCommand("watchlist", "DuckDB 雲端自選股跨模型預測監控清單"),
         BotCommand("pm", "Polymarket 預測市場前瞻機率與總經定價"),
         BotCommand("hot", "即時重大財經快訊 (財聯社/華爾街見聞)"),
         BotCommand("chip", "台股三大法人買賣超與連買連賣籌碼分析"),

@@ -2,6 +2,54 @@
 
 All notable changes to the `telegram-bot-stock2` project are documented in this file.
 
+## [2.22.0] - 2026-11-12
+
+### 🚀 888 Stock Quant 上游全功能進階模組整合 (AI 產業鏈拓撲/三模型看漲/前沿論文雷達/組合風險X光片/歷史軌跡/模型計分卡/金絲雀健康/Podcast話題/自選股)
+- **AI 產業價值鏈拓撲圖譜 (`/chain [主題]`, `/industry [主題]`)**：
+  - 串接 `stockdata.david888.com` 上游 `/api/v1/industry-chain/themes` 與 `/api/v1/industry-chain/graph`。
+  - 完整支援別名解析（CPO、CoWoS、散熱液冷、AI晶片算力、伺服器ODM、機器人、HBM高頻寬記憶體、全部主題總覽）。
+  - 輸出原生 `<pre><code>` 卡片，涵蓋上游/中游/下游核心標的（現價、漲跌%、雙模型共振、投信外資連買連賣）與關鍵依賴關係 (`大客戶依賴`, `產業鏈`, `資本開支` 等)。
+  - 附帶 4 排 8 鍵行內切換按鈕，可一鍵直連切換各大 AI 核心產業主題。
+  - 註冊 LangChain Tool：`get_industry_chain`。
+- **三模型同步看漲專屬共識榜 (`/tribull`, `/tribullish`)**：
+  - 串接 `/api/v1/predictions/tri-bullish`、`/api/v1/predictions/dual-bullish`、`/api/v1/predictions/dual-bearish`。
+  - 展示 Google TimesFM ∩ Mistral Timestral-209M ∩ Salesforce MOIRAI-2 三大 AI 時序基礎大模型同步看多標的、目標價、各模型預期漲幅與籌碼估值。
+  - 註冊 LangChain Tool：`get_tri_bullish_predictions_tool`。
+- **產業前沿雷達與技術論文瓶頸突破 (`/discovery`, `/frontier`)**：
+  - 串接 `/api/v1/discovery/signals` 與 `/api/v1/discovery/candidates`。
+  - 深度解析 arXiv 前沿學術突破，映射至受惠台美股核心標的（含情感評分、催化劑摘要、美股錨點連動）。
+  - 註冊 LangChain Tool：`get_discovery_signals_tool`。
+- **多市場投資組合風險 X 光片 (`/xray [代碼1,代碼2,...]`, `/risk`)**：
+  - POST 串接 `/api/v1/risk/xray`，未指定代碼時預設提供範例組合 (`2330.TW,NVDA,2317.TW`)。
+  - 計算投資組合年化波動率、有效資產數 (Effective N)、各標的權重與歐拉波動貢獻 (Euler PCV%)、異常跳空事件 (Corporate Action / Jump) 警示與跨市場交易日曆/未避險匯率提示。
+  - 註冊 LangChain Tool：`get_portfolio_risk_xray_tool`。
+- **個股歷史量化預測軌跡 (`/history [代碼]`, `/thist`)**：
+  - 串接 `/api/v1/predictions/history/{ticker}`。
+  - 追蹤特定標的在歷史各交易日之時序大模型預測目標價、實際價格與三大法人籌碼連買連賣軌跡。
+  - 註冊 LangChain Tool：`get_stock_history_trajectory_tool`。
+- **時序模型回測計分卡 (`/api/v1/performance/models`)**：
+  - 串接 `/api/v1/performance/models`，支援跨市場 (TW/US/JP/ALL) 與天數視窗參數防護（針對非 TW/US/JP 參數進行優雅過濾防止 422 錯誤）。
+  - 展示時序基礎大模型歷史預測方向勝率 (Directional Accuracy) 與 MAE 回測計分。
+  - 註冊 LangChain Tool：`get_model_performance_scorecard_tool`。
+- **上游資料源金絲雀健康度探針 (`/canary`)**：
+  - 串接 `/api/v1/stats/canary-health`。
+  - 即時監控 TWSE, TPEx, yfinance, Investing, Polymarket, BigGo, AnswerBook, arXiv 等 8 大資料源延遲 (ms) 與在線健康狀態。
+  - 註冊 LangChain Tool：`get_canary_health_tool`。
+- **頂級財經與科技 Podcast 話題熱榜 (`/podcast`, `/pod`)**：
+  - 串接 `/api/v1/podcast/topics` 與 `/api/v1/podcast/episodes`。
+  - 統計熱門科技實體（OpenAI、Anthropic、Claude、輝達等）討論次數排行與最新單集 AI 繁中核心論點摘要與提及標的。
+  - 註冊 LangChain Tool：`get_podcast_intel_tool`。
+- **DuckDB 自選股雲端監控清單 (`/watchlist`, `/wl`)**：
+  - 串接 `/api/v1/watchlist`。
+  - 呈現使用者 DuckDB 自選股跨模型每日預測追蹤與潛力評估。
+  - 註冊 LangChain Tool：`get_watchlist_tool`。
+- **Telegram 機器人核心與指令系統全面整合**：
+  - `main.py` 註冊所有新指令，支援雙別名。
+  - `handlers/general.py` 全面升級 `BOT_VERSION` 為 `2.22.0`，在 `callback_prompt_handler` 加入按鈕高速直連，在 `reset_commands` 中登錄所有 BotCommand。
+  - `ai_core.py` 註冊 9 大全新 LangChain 工具與系統提示詞零幻覺調用原則。
+  - **OpenCode + Codex + OMP 三方全量審查修復**：修正 `handlers/stock_cmds.py` 缺少 `import re` 缺陷、全面實裝上游 API `null` 欄位型別安全萃取防護、修復 `/chain` 雙字宏觀關鍵詞（如降息、關稅）轉導判定、補充 `chain_analysis` 之 CallbackQuery 防護、以及 Podcast 雙端點超時降級 Stale Cache 機制。
+  - `tests/test_telegram_formatter_cards.py` 增加 12 項完整測試案例（含 null 欄位邊界回歸測試），全套 86 項單元測試 100% 通過。
+
 ## [2.21.0] - 2026-11-12
 
 ### 💳 Telegram 原生卡片化重構與全功能 Inline Keyboard 互動按鈕矩陣 (`<pre><code>` 卡片風)

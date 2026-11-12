@@ -30,6 +30,16 @@ from tools.stockdata_quant import (
     format_xuantie_markdown,
     format_broker_summary_markdown,
     format_calendar_markdown,
+    format_industry_chain_markdown,
+    format_tri_bullish_markdown,
+    format_discovery_markdown,
+    format_portfolio_risk_xray_markdown,
+    format_stock_history_markdown,
+    format_canary_health_markdown,
+    format_podcast_intel_markdown,
+    format_watchlist_markdown,
+    format_model_performance_markdown,
+    resolve_industry_theme,
 )
 from handlers.stock_cmds import (
     format_sepa_card,
@@ -521,6 +531,303 @@ class TestTelegramFormatterCards(unittest.TestCase):
         card = format_corr_card({})
         self.assertIn("無相關性資料", card)
 
+        # 11. format_industry_chain_markdown
+        card = format_industry_chain_markdown(None)
+        self.assertIn("無產業鏈圖譜資料", card)
+        card = format_industry_chain_markdown({})
+        self.assertIn("無產業鏈圖譜資料", card)
+        card = format_industry_chain_markdown({"success": False})
+        self.assertIn("無產業鏈圖譜資料", card)
+
+        # 12. format_tri_bullish_markdown
+        card = format_tri_bullish_markdown(None)
+        self.assertIn("目前市場暫無三大時序模型", card)
+        card = format_tri_bullish_markdown([])
+        self.assertIn("目前市場暫無三大時序模型", card)
+
+        # 13. format_discovery_markdown
+        card = format_discovery_markdown(None)
+        self.assertIn("目前暫無前沿技術突破訊號", card)
+        card = format_discovery_markdown({})
+        self.assertIn("目前暫無前沿技術突破訊號", card)
+
+        # 14. format_portfolio_risk_xray_markdown
+        card = format_portfolio_risk_xray_markdown(None)
+        self.assertIn("無法取得投資組合風險評估資料", card)
+        card = format_portfolio_risk_xray_markdown({})
+        self.assertIn("無法取得投資組合風險評估資料", card)
+        card = format_portfolio_risk_xray_markdown({"status": "error"})
+        self.assertIn("無法取得投資組合風險評估資料", card)
+
+        # 15. format_stock_history_markdown
+        card = format_stock_history_markdown(None)
+        self.assertIn("查無該標的之歷史量化預測軌跡資料", card)
+        card = format_stock_history_markdown({})
+        self.assertIn("查無該標的之歷史量化預測軌跡資料", card)
+
+        # 16. format_canary_health_markdown
+        card = format_canary_health_markdown(None)
+        self.assertIn("無法取得資料源健康狀態資料", card)
+        card = format_canary_health_markdown({})
+        self.assertIn("無法取得資料源健康狀態資料", card)
+
+        # 17. format_podcast_intel_markdown
+        card = format_podcast_intel_markdown(None)
+        self.assertIn("暫無 Podcast 話題與單集情報", card)
+        card = format_podcast_intel_markdown({})
+        self.assertIn("暫無 Podcast 話題與單集情報", card)
+
+        # 18. format_watchlist_markdown
+        card = format_watchlist_markdown(None)
+        self.assertIn("無法取得雲端自選股清單資料", card)
+        card = format_watchlist_markdown({})
+        self.assertIn("無法取得雲端自選股清單資料", card)
+        card = format_watchlist_markdown({"success": True, "items": []})
+        self.assertIn("目前自選股監控清單為空", card)
+
+        # 19. format_model_performance_markdown
+        card = format_model_performance_markdown(None)
+        self.assertIn("無回測計分卡資料", card)
+        card = format_model_performance_markdown({})
+        self.assertIn("無回測計分卡資料", card)
+
+    def test_resolve_industry_theme(self):
+        self.assertEqual(resolve_industry_theme("cpo"), "CPO_OPTICAL")
+        self.assertEqual(resolve_industry_theme("CPO光互連"), "CPO_OPTICAL")
+        self.assertEqual(resolve_industry_theme("cowos"), "ADV_PACKAGING")
+        self.assertEqual(resolve_industry_theme("pkg"), "ADV_PACKAGING")
+        self.assertEqual(resolve_industry_theme("cooling"), "POWER_COOLING")
+        self.assertEqual(resolve_industry_theme("power"), "POWER_COOLING")
+        self.assertEqual(resolve_industry_theme("chip"), "AI_CHIPS")
+        self.assertEqual(resolve_industry_theme("gpu"), "AI_CHIPS")
+        self.assertEqual(resolve_industry_theme("server"), "SERVER_ODM")
+        self.assertEqual(resolve_industry_theme("odm"), "SERVER_ODM")
+        self.assertEqual(resolve_industry_theme("robot"), "ROBOTICS")
+        self.assertEqual(resolve_industry_theme("hbm"), "HBM_STORAGE")
+        self.assertEqual(resolve_industry_theme("all"), "ALL")
+        self.assertEqual(resolve_industry_theme(""), "ALL")
+        self.assertEqual(resolve_industry_theme(None), "ALL")
+
+    def test_format_industry_chain_normal(self):
+        sample_data = {
+            "success": True,
+            "theme": "CPO_OPTICAL",
+            "total_nodes": 2,
+            "summary": "共同封裝光學與矽光子",
+            "upstream_nodes": [
+                {
+                    "ticker": "2368",
+                    "company": "金像電",
+                    "current_price": 1050.0,
+                    "change_pct": 6.82,
+                    "role": "高層數 PCB 龍頭",
+                    "institutional_streak": "投信連買5D",
+                    "dual_model_consensus": True,
+                }
+            ],
+            "midstream_nodes": [
+                {
+                    "ticker": "3081",
+                    "company": "聯亞",
+                    "current_price": 2215.0,
+                    "change_pct": 4.73,
+                    "role": "磊晶片供應商",
+                }
+            ],
+            "downstream_nodes": [],
+            "edges": [
+                {
+                    "source": "2330",
+                    "target": "NVDA",
+                    "relation_type": "大客戶依賴",
+                    "desc": "獨家代工",
+                    "weight": 0.98,
+                }
+            ]
+        }
+        card = format_industry_chain_markdown(sample_data)
+        self.assertIn("CPO 光互連與矽光子", card)
+        self.assertIn("金像電", card)
+        self.assertIn("雙模型共振", card)
+        self.assertIn("大客戶依賴", card)
+
+    def test_format_tri_bullish_normal(self):
+        sample_items = [
+            {
+                "ticker": "2360.TW",
+                "name": "致茂",
+                "current_price": 1370.0,
+                "predicted_price": 1415.22,
+                "potential": 3.3,
+                "timesfm_potential": 3.62,
+                "timestral_potential": 1.79,
+                "moirai_potential": 4.90,
+                "trust_net_5d": 120,
+                "foreign_net_5d": 350,
+                "pe": 28.5,
+            }
+        ]
+        card = format_tri_bullish_markdown(sample_items)
+        self.assertIn("三模型同步看漲共識焦點榜", card)
+        self.assertIn("2360.TW", card)
+        self.assertIn("致茂", card)
+        self.assertIn("TimesFM: +3.6%", card)
+        self.assertIn("MOIRAI: +4.9%", card)
+
+    def test_format_discovery_normal(self):
+        sample_data = {
+            "signals": [
+                {
+                    "ticker": "2330",
+                    "theme_id": "cpo_optical",
+                    "title": "CPO前沿突破",
+                    "content": "矽光子封裝架構創新",
+                    "sentiment_score": 88.5,
+                    "detected_at": "2026-11-12",
+                }
+            ],
+            "candidates": [
+                {
+                    "ticker": "TSM",
+                    "name": "TSMC ADR",
+                    "market": "US",
+                    "theme_name": "先進封裝",
+                    "total_score": 85.0,
+                    "catalyst_summary": "CoWoS 3D先進封裝",
+                    "us_anchor": "TSM",
+                }
+            ]
+        }
+        card = format_discovery_markdown(sample_data)
+        self.assertIn("前沿論文技術突破與映射標的", card)
+        self.assertIn("2330", card)
+        self.assertIn("TSM", card)
+        self.assertIn("先進封裝", card)
+
+    def test_format_portfolio_risk_xray_normal(self):
+        sample_data = {
+            "status": "ok",
+            "annualized_volatility_total": 0.245,
+            "annualized_volatility_risk_sleeve": 0.245,
+            "effective_n_risk_sleeve": 2.8,
+            "available_tickers": ["2330.TW", "NVDA"],
+            "euler_contributions": [
+                {
+                    "ticker": "2330.TW",
+                    "weight": 0.5,
+                    "annualized_volatility": 0.28,
+                    "percentage_contribution": 0.45,
+                },
+                {
+                    "ticker": "NVDA",
+                    "weight": 0.5,
+                    "annualized_volatility": 0.38,
+                    "percentage_contribution": 0.55,
+                }
+            ],
+            "corporate_action_suspects": [
+                {
+                    "ticker": "2330.TW",
+                    "date": "2026-08-31",
+                    "return_pct": "30.00%",
+                    "threshold": 0.25,
+                }
+            ]
+        }
+        card = format_portfolio_risk_xray_markdown(sample_data)
+        self.assertIn("多市場投資組合風險 X 光片", card)
+        self.assertIn("24.50%", card)
+        self.assertIn("波動貢獻 PCV: 45.0%", card)
+        self.assertIn("異常跳空/除權息事件警示", card)
+
+    def test_format_stock_history_normal(self):
+        sample_data = {
+            "success": True,
+            "data": [
+                {
+                    "ticker": "2330.TW",
+                    "name": "台積電",
+                    "timestamp": "2026-11-12",
+                    "model_name": "TimesFM",
+                    "current_price": 2395.0,
+                    "predicted_price": 2420.0,
+                    "potential": 1.04,
+                    "trust_net_5d": 500,
+                    "foreign_net_5d": -1200,
+                }
+            ]
+        }
+        card = format_stock_history_markdown(sample_data)
+        self.assertIn("個股歷史量化預測軌跡 (2330.TW)", card)
+        self.assertIn("TimesFM", card)
+        self.assertIn("2,395.0", card)
+
+    def test_format_canary_health_normal(self):
+        sample_data = {
+            "status": "healthy",
+            "checked_at": "2026-11-12T09:00:00Z",
+            "sources": {
+                "twse": {"status": "healthy", "latency_ms": 150.0},
+                "yfinance": {"status": "healthy", "latency_ms": 220.0},
+            }
+        }
+        card = format_canary_health_markdown(sample_data)
+        self.assertIn("上游資料源金絲雀健康度", card)
+        self.assertIn("TWSE", card)
+        self.assertIn("150ms", card)
+
+    def test_format_podcast_intel_normal(self):
+        sample_data = {
+            "topics": [
+                {"topic": "OpenAI", "count": 256},
+                {"topic": "Anthropic", "count": 255},
+            ],
+            "episodes": [
+                {
+                    "title": "AI 晶片與臨床試驗",
+                    "channel_title": "The Top Line",
+                    "duration_formatted": "25:30",
+                    "tldr_zh_tw": "針對生命科學與 AI 模型的探討",
+                    "tickers": ["IQV", "NVDA"],
+                }
+            ]
+        }
+        card = format_podcast_intel_markdown(sample_data)
+        self.assertIn("頂級財經與科技 Podcast 話題熱榜", card)
+        self.assertIn("OpenAI (256次)", card)
+        self.assertIn("AI 晶片與臨床試驗", card)
+
+    def test_format_watchlist_normal(self):
+        sample_data = {
+            "success": True,
+            "items": [
+                {
+                    "ticker": "2330.TW",
+                    "name": "台積電",
+                    "current_price": 2395.0,
+                    "predicted_price": 2450.0,
+                    "potential": 2.3,
+                    "tags": "TimesFM看漲 | 雙模型共振",
+                }
+            ]
+        }
+        card = format_watchlist_markdown(sample_data)
+        self.assertIn("DuckDB 雲端自選股監控清單", card)
+        self.assertIn("2330.TW", card)
+        self.assertIn("+2.3%", card)
+
+    def test_format_model_performance_normal(self):
+        sample_data = {
+            "status": "insufficient_data",
+            "excluded_count": 50000,
+            "score_version": "forecast-score-v1",
+            "data": []
+        }
+        card = format_model_performance_markdown(sample_data)
+        self.assertIn("時序模型回測計分卡", card)
+        self.assertIn("insufficient_data", card)
+        self.assertIn("50,000", card)
+
     def test_callback_prompt_handler_fast_routing(self):
         from unittest.mock import patch
         from handlers.general import callback_prompt_handler, PROMPT_CACHE
@@ -539,6 +846,14 @@ class TestTelegramFormatterCards(unittest.TestCase):
             async def mock_broker(u, c): routed["broker"] = c.args
             async def mock_cal(u, c): routed["cal"] = c.args
             async def mock_pm(u, c): routed["pm"] = c.args
+            async def mock_chain(u, c): routed["chain"] = c.args
+            async def mock_tribull(u, c): routed["tribull"] = c.args
+            async def mock_discovery(u, c): routed["discovery"] = c.args
+            async def mock_xray(u, c): routed["xray"] = c.args
+            async def mock_history(u, c): routed["history"] = c.args
+            async def mock_canary(u, c): routed["canary"] = c.args
+            async def mock_podcast(u, c): routed["podcast"] = c.args
+            async def mock_watchlist(u, c): routed["watchlist"] = c.args
 
             with patch("handlers.stock_cmds.stock_info", mock_stock_info), \
                  patch("handlers.stock_cmds.valuation_analysis", mock_val), \
@@ -550,7 +865,15 @@ class TestTelegramFormatterCards(unittest.TestCase):
                  patch("handlers.stock_cmds.xuantie_pullback_query", mock_xt), \
                  patch("handlers.stock_cmds.broker_trades_query", mock_broker), \
                  patch("handlers.stock_cmds.calendar_query", mock_cal), \
-                 patch("handlers.stock_cmds.polymarket_query", mock_pm):
+                 patch("handlers.stock_cmds.polymarket_query", mock_pm), \
+                 patch("handlers.stock_cmds.industry_chain_query", mock_chain), \
+                 patch("handlers.stock_cmds.tri_bullish_query", mock_tribull), \
+                 patch("handlers.stock_cmds.discovery_signals_query", mock_discovery), \
+                 patch("handlers.stock_cmds.portfolio_risk_xray_query", mock_xray), \
+                 patch("handlers.stock_cmds.stock_history_query", mock_history), \
+                 patch("handlers.stock_cmds.canary_health_query", mock_canary), \
+                 patch("handlers.stock_cmds.podcast_intel_query", mock_podcast), \
+                 patch("handlers.stock_cmds.watchlist_query", mock_watchlist):
 
                 commands_to_test = [
                     ("/s 2330.TW", "stock_info", ["2330.TW"]),
@@ -564,6 +887,15 @@ class TestTelegramFormatterCards(unittest.TestCase):
                     ("/broker 2330.TW", "broker", ["2330.TW"]),
                     ("/cal earn", "cal", ["earn"]),
                     ("/pm fed", "pm", ["fed"]),
+                    ("/chain cpo", "chain", ["cpo"]),
+                    ("/industry all", "chain", ["all"]),
+                    ("/tribull", "tribull", []),
+                    ("/discovery", "discovery", []),
+                    ("/xray 2330.TW,NVDA", "xray", ["2330.TW,NVDA"]),
+                    ("/history 2330.TW", "history", ["2330.TW"]),
+                    ("/canary", "canary", []),
+                    ("/podcast", "podcast", []),
+                    ("/watchlist", "watchlist", []),
                 ]
 
                 for raw_cmd, key, expected_args in commands_to_test:
@@ -577,6 +909,107 @@ class TestTelegramFormatterCards(unittest.TestCase):
                     self.assertEqual(routed[key], expected_args)
 
         asyncio.run(run_test())
+
+    def test_null_field_resilience_across_all_new_formatters(self):
+        """Regression test ensuring formatters handle upstream null/None fields without TypeError."""
+        # 1. Tri-Bullish with null fields
+        tri_null = [{
+            "ticker": "2330.TW",
+            "name": "台積電",
+            "current_price": None,
+            "predicted_price": None,
+            "potential": None,
+            "pe": "N/A",
+            "trust_net_5d": None,
+            "foreign_net_5d": None,
+        }]
+        card = format_tri_bullish_markdown(tri_null)
+        self.assertIn("三大模型同步看多", card)
+        self.assertIn("現價: 0.0", card)
+
+        # 2. Portfolio Risk X-Ray with null fields
+        xray_null = {
+            "status": "ok",
+            "annualized_volatility_total": None,
+            "annualized_volatility_risk_sleeve": None,
+            "effective_n_risk_sleeve": None,
+            "available_tickers": ["2330.TW"],
+            "euler_contributions": [{
+                "ticker": "2330.TW",
+                "weight": None,
+                "annualized_volatility": None,
+                "percentage_contribution": None,
+            }],
+            "corporate_action_suspects": [{
+                "ticker": "2330.TW",
+                "date": "2026-08-31",
+                "return_pct": "30%",
+                "threshold": None,
+            }],
+        }
+        card = format_portfolio_risk_xray_markdown(xray_null)
+        self.assertIn("多市場投資組合風險 X 光片", card)
+        self.assertIn("組合年化波動率: 0.00%", card)
+
+        # 3. Stock History with null fields
+        hist_null = {
+            "data": [{
+                "ticker": "2330.TW",
+                "name": "台積電",
+                "current_price": None,
+                "predicted_price": None,
+                "potential": None,
+                "trust_net_5d": None,
+            }]
+        }
+        card = format_stock_history_markdown(hist_null)
+        self.assertIn("個股歷史量化預測軌跡", card)
+        self.assertIn("現價 0.0", card)
+
+        # 4. Canary Health with null latency
+        canary_null = {
+            "status": "degraded",
+            "checked_at": "2026-11-12T10:00:00Z",
+            "sources": {
+                "tpex": {
+                    "status": "error",
+                    "latency_ms": None,
+                    "sanitized_reason": "Timeout",
+                }
+            }
+        }
+        card = format_canary_health_markdown(canary_null)
+        self.assertIn("上游資料源金絲雀健康度", card)
+        self.assertIn("TPEX: 🔴 異常 (N/A)", card)
+
+        # 5. Podcast with null fields
+        pod_null = {
+            "topics": [{"topic": "OpenAI", "count": 10}],
+            "episodes": [{
+                "title": None,
+                "channel_title": None,
+                "duration_formatted": None,
+                "tldr_zh_tw": None,
+            }]
+        }
+        card = format_podcast_intel_markdown(pod_null)
+        self.assertIn("頂級財經與科技 Podcast 話題熱榜", card)
+        self.assertIn("OpenAI", card)
+
+        # 6. Watchlist with null fields
+        wl_null = {
+            "success": True,
+            "items": [{
+                "ticker": "2330.TW",
+                "name": None,
+                "current_price": None,
+                "predicted_price": None,
+                "potential": None,
+            }]
+        }
+        card = format_watchlist_markdown(wl_null)
+        self.assertIn("DuckDB 雲端自選股監控清單", card)
+        self.assertIn("現價 0.0", card)
 
 
 if __name__ == "__main__":

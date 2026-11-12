@@ -4,6 +4,7 @@ import asyncio
 import io
 import json
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple
 import yfinance as yf
 import matplotlib.pyplot as plt
@@ -778,16 +779,22 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ 預測時發生錯誤：{str(e)}")
 
-# Financial Transmission Chain Analysis (/chain)
+# Financial Transmission Chain Analysis (/chain, /trans, /tx)
 async def chain_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Analyze financial logic transmission chain for macro/industry events."""
-    if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供要分析的事件或主題，例如：/chain 聯準會降息 或 /chain 中東局勢升溫")
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in chain_analysis")
+        return
+
+    if not context.args or len(context.args) == 0:
+        await msg.reply_text("❌ 請提供要分析的事件或主題，例如：/trans 聯準會降息 或 /chain 中東局勢升溫")
         return
 
     topic = " ".join(context.args)
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    processing_msg = await update.message.reply_text(f"⛓️ 正在解析【{topic}】的三級金融邏輯傳導鏈與受惠/受害標的，請稍候...")
+    if update.effective_chat:
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    processing_msg = await msg.reply_text(f"⛓️ 正在解析【{topic}】的三級金融邏輯傳導鏈與受惠/受害標的，請稍候...")
 
     from ai_core import process_chat_message
     prompt = (
@@ -800,20 +807,20 @@ async def chain_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        thread_id = str(update.effective_chat.id)
+        thread_id = str(update.effective_chat.id) if update.effective_chat else "default"
         response = await process_chat_message(prompt, thread_id=thread_id)
         try:
             await processing_msg.delete()
         except Exception:
             pass
-        await safe_reply_formatted(update.message, response)
+        await safe_reply_formatted(msg, response)
     except Exception as e:
         logger.error(f"Chain analysis error: {e}")
         try:
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 分析傳導鏈時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 分析傳導鏈時發生錯誤：{str(e)}")
 
 # Real-time Breaking Financial News (/hot)
 async def hot_news_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1405,4 +1412,429 @@ async def calendar_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
         await msg.reply_text(f"❌ 查詢行事曆資料時發生錯誤：{str(e)}")
+
+
+async def industry_chain_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /chain or /industry [theme]: AI Industry Value Chain graph topology."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in industry_chain_query")
+        return
+
+    raw_theme = " ".join(context.args).strip() if context.args else "ALL"
+
+    # Check if this is a macro transmission chain topic (e.g. "降息", "地緣政治", "關稅")
+    macro_transmission_keywords = ["降息", "升息", "地緣", "關稅", "戰爭", "通膨", "非農", "衰退"]
+    if any(k in raw_theme for k in macro_transmission_keywords):
+        return await chain_analysis(update, context)
+
+    from tools.stockdata_quant import (
+        resolve_industry_theme,
+        fetch_industry_chain_graph,
+        format_industry_chain_markdown,
+    )
+
+    canonical_theme = resolve_industry_theme(raw_theme)
+    processing_msg = await msg.reply_text(f"⛓️ 正在解析【{canonical_theme}】AI 產業價值鏈拓撲圖譜與上下游核心標的...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        data = await loop.run_in_executor(None, fetch_industry_chain_graph, canonical_theme)
+        reply_text = format_industry_chain_markdown(data)
+
+        buttons = [
+            [
+                {"text": "⚡ CPO光互連", "callback_data": cache_prompt("/chain cpo")},
+                {"text": "📦 CoWoS封裝", "callback_data": cache_prompt("/chain cowos")},
+            ],
+            [
+                {"text": "❄️ 散熱液冷", "callback_data": cache_prompt("/chain cooling")},
+                {"text": "💻 AI晶片算力", "callback_data": cache_prompt("/chain chip")},
+            ],
+            [
+                {"text": "🖥️ 伺服器ODM", "callback_data": cache_prompt("/chain server")},
+                {"text": "🤖 機器人", "callback_data": cache_prompt("/chain robot")},
+            ],
+            [
+                {"text": "💾 HBM存儲", "callback_data": cache_prompt("/chain hbm")},
+                {"text": "🌐 全部主題總覽", "callback_data": cache_prompt("/chain all")},
+            ],
+            [
+                {"text": "👑 多模型共振", "callback_data": cache_prompt("/pick")},
+                {"text": "🏆 三模型看漲", "callback_data": cache_prompt("/tribull")},
+            ],
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Industry chain handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await msg.reply_text(f"❌ 查詢產業鏈圖譜時發生錯誤：{str(e)}")
+
+
+async def tri_bullish_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /tribull or /tribullish: 3 Foundation Models (TimesFM ∩ Timestral ∩ MOIRAI-2) consensus."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in tri_bullish_query")
+        return
+
+    limit = 10
+    if context.args:
+        try:
+            limit = int(context.args[0])
+        except ValueError:
+            pass
+
+    processing_msg = await msg.reply_text("🏆 正在掃描三大時序模型（TimesFM ∩ Timestral ∩ MOIRAI-2）同步看漲焦點名單...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import (
+            fetch_tri_bullish_predictions,
+            format_tri_bullish_markdown,
+        )
+
+        items = await loop.run_in_executor(None, fetch_tri_bullish_predictions, limit)
+        reply_text = format_tri_bullish_markdown(items)
+
+        buttons = [
+            [
+                {"text": "👑 四重共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🧠 TimesFM 5日看漲榜", "callback_data": cache_prompt("/tfm top")},
+            ],
+            [
+                {"text": "🛡️ 大盤風控與曝險", "callback_data": cache_prompt("/macro")},
+                {"text": "⛓️ AI 產業鏈圖譜", "callback_data": cache_prompt("/chain")},
+            ],
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Tri-bullish query handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await msg.reply_text(f"❌ 查詢三模型看漲名單時發生錯誤：{str(e)}")
+
+
+async def discovery_signals_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /discovery or /frontier: Academic breakthrough discovery radar signals & candidates."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in discovery_signals_query")
+        return
+
+    processing_msg = await msg.reply_text("🛰️ 正在檢索前沿學術論文瓶頸突破與台美股映射受惠標的...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import (
+            fetch_discovery_signals,
+            fetch_discovery_candidates,
+            format_discovery_markdown,
+        )
+
+        def _fetch():
+            sig = fetch_discovery_signals(6)
+            cand = fetch_discovery_candidates(8)
+            return {"signals": sig, "candidates": cand}
+
+        data = await loop.run_in_executor(None, _fetch)
+        reply_text = format_discovery_markdown(data)
+
+        buttons = [
+            [
+                {"text": "⛓️ AI 產業鏈圖譜", "callback_data": cache_prompt("/chain")},
+                {"text": "🔥 重大即時快訊", "callback_data": cache_prompt("/hot")},
+            ],
+            [
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🏆 三模型看漲焦點", "callback_data": cache_prompt("/tribull")},
+            ],
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Discovery signals handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await msg.reply_text(f"❌ 查詢前沿技術雷達時發生錯誤：{str(e)}")
+
+
+async def portfolio_risk_xray_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /xray or /risk [ticker1,ticker2,...]: Multi-market portfolio risk X-ray analysis."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in portfolio_risk_xray_query")
+        return
+
+    raw_input = " ".join(context.args).strip() if context.args else ""
+    if not raw_input:
+        tickers = ["2330.TW", "NVDA", "2317.TW"]
+        notice_prefix = "💡 <i>(未指定標的，預設執行範例組合：<code>2330.TW, NVDA, 2317.TW</code>)</i>\n\n"
+    else:
+        split_raw = re.split(r"[,;\s]+", raw_input)
+        tickers = [t.strip().upper() for t in split_raw if t.strip()]
+        notice_prefix = ""
+
+    processing_msg = await msg.reply_text(f"🩻 正在運算投資組合【{', '.join(tickers)}】風險 X 光片與歐拉風險貢獻 (Euler PCV%)...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import (
+            fetch_portfolio_risk_xray,
+            format_portfolio_risk_xray_markdown,
+        )
+
+        data = await loop.run_in_executor(None, fetch_portfolio_risk_xray, tickers, 60)
+        card_text = format_portfolio_risk_xray_markdown(data)
+        reply_text = f"{notice_prefix}{card_text}" if notice_prefix else card_text
+
+        buttons = [
+            [
+                {"text": "🛡️ 大盤風控與曝險", "callback_data": cache_prompt("/macro")},
+                {"text": "📊 多股相關係數", "callback_data": cache_prompt(f"/corr {','.join(tickers[:3])}")},
+            ],
+            [
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🏆 三模型看漲焦點", "callback_data": cache_prompt("/tribull")},
+            ],
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Portfolio risk xray handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await msg.reply_text(f"❌ 計算投資組合風險 X 光片時發生錯誤：{str(e)}")
+
+
+async def stock_history_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /history or /thist [ticker]: Stock historical predictions & institutional chip trajectory."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in stock_history_query")
+        return
+
+    raw_ticker = context.args[0].strip().upper() if context.args else "2330.TW"
+    from tools.stock import resolve_ticker
+    ticker = resolve_ticker(raw_ticker)
+
+    processing_msg = await msg.reply_text(f"📈 正在載入【{ticker}】歷史量化預測軌跡與法人買賣超...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import (
+            fetch_stock_history_trajectory,
+            format_stock_history_markdown,
+        )
+
+        data = await loop.run_in_executor(None, fetch_stock_history_trajectory, ticker, 10)
+        reply_text = format_stock_history_markdown(data)
+
+        buttons = [
+            [
+                {"text": f"📊 即時行情與K線", "callback_data": cache_prompt(f"/s {ticker}")},
+                {"text": f"🧠 TimesFM預測", "callback_data": cache_prompt(f"/tfm {ticker}")},
+            ],
+            [
+                {"text": f"🏛️ 主力分點籌碼", "callback_data": cache_prompt(f"/broker {ticker}")},
+                {"text": f"🚢 三大法人連買", "callback_data": cache_prompt(f"/chip {ticker}")},
+            ],
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Stock history query handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await msg.reply_text(f"❌ 查詢個股歷史預測軌跡時發生錯誤：{str(e)}")
+
+
+async def canary_health_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /canary: Upstream data sources latency & probe health status."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in canary_health_query")
+        return
+
+    processing_msg = await msg.reply_text("🐤 正在巡檢 8 大上游核心資料源探針狀態與延遲...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import (
+            fetch_canary_health,
+            format_canary_health_markdown,
+        )
+
+        data = await loop.run_in_executor(None, fetch_canary_health)
+        reply_text = format_canary_health_markdown(data)
+
+        buttons = [
+            [
+                {"text": "🛡️ 大盤風控與曝險", "callback_data": cache_prompt("/macro")},
+                {"text": "📅 全球總經行事曆", "callback_data": cache_prompt("/cal")},
+            ],
+            [
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🔥 重大財經快訊", "callback_data": cache_prompt("/hot")},
+            ],
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Canary health query handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await msg.reply_text(f"❌ 查詢資料源健康度時發生錯誤：{str(e)}")
+
+
+async def podcast_intel_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /podcast or /pod: Top finance & tech podcast intel and takeaways."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in podcast_intel_query")
+        return
+
+    processing_msg = await msg.reply_text("🎙️ 正在同步頂級科技與財經 Podcast 話題熱榜與最新單集...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import (
+            fetch_podcast_intel,
+            format_podcast_intel_markdown,
+        )
+
+        data = await loop.run_in_executor(None, fetch_podcast_intel, 8)
+        reply_text = format_podcast_intel_markdown(data)
+
+        buttons = [
+            [
+                {"text": "🔥 即時重大快訊", "callback_data": cache_prompt("/hot")},
+                {"text": "🛰️ 前沿技術雷達", "callback_data": cache_prompt("/discovery")},
+            ],
+            [
+                {"text": "⛓️ AI 產業鏈圖譜", "callback_data": cache_prompt("/chain")},
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+            ],
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Podcast intel query handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await msg.reply_text(f"❌ 查詢 Podcast 情報時發生錯誤：{str(e)}")
+
+
+async def watchlist_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler for /watchlist or /wl: DuckDB cloud watchlist and cross-model predictions."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in watchlist_query")
+        return
+
+    processing_msg = await msg.reply_text("⭐ 正在讀取 DuckDB 雲端自選股清單與跨模型潛力...")
+
+    try:
+        loop = asyncio.get_running_loop()
+        from tools.stockdata_quant import (
+            fetch_watchlist,
+            format_watchlist_markdown,
+        )
+
+        data = await loop.run_in_executor(None, fetch_watchlist)
+        reply_text = format_watchlist_markdown(data)
+
+        buttons = [
+            [
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🏆 三模型看漲焦點", "callback_data": cache_prompt("/tribull")},
+            ],
+            [
+                {"text": "🛡️ 大盤風控與曝險", "callback_data": cache_prompt("/macro")},
+                {"text": "🧠 TimesFM 5日看漲榜", "callback_data": cache_prompt("/tfm top")},
+            ],
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
+
+    except Exception as e:
+        logger.error(f"Watchlist query handler error: {e}")
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+        await msg.reply_text(f"❌ 查詢自選股清單時發生錯誤：{str(e)}")
+
 

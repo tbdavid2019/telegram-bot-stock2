@@ -94,7 +94,15 @@
 - **關鍵券商分點同步連動**：深度整合 `stockdata.david888.com`，在籌碼報告末端自動附帶 Top 3 買超主力分點與 Top 3 賣超分點進出張數。
 - **多執行緒與本地磁碟快取**：內建 `data/cache/institutional/` 磁碟快取與 `ThreadPoolExecutor` 平行擷取，毫秒級極速回傳。
 
-### 10. ⚡ 888 Stock Quant 智能量化平台深層整合 (`/pick` / `/macro` / `/tfm` / `/xt` / `/broker` / `/cal` 與自然語言工具)
+### 10. ⚡ 888 Stock Quant 智能量化平台深層整合 (`/pick` / `/macro` / `/tfm` / `/xt` / `/broker` / `/cal` / `/chain` / `/tribull` / `/discovery` / `/xray` / `/history` / `/canary` / `/podcast` / `/watchlist` 與自然語言工具)
+- ⛓️ **AI 產業價值鏈拓撲圖譜 (`/chain [主題]` 或 `/industry [主題]`)**：以原生 `<pre><code>` 卡片展示 AI 核心主題（CPO光互連、CoWoS先進封裝、散熱液冷、AI晶片算力、伺服器ODM、機器人具身智能、HBM高頻寬記憶體與全產業鏈總覽）之上游、中游、下游核心標的（帶現價、漲跌%、雙模型共振標籤）與關鍵依賴關係 (`大客戶依賴`, `產業鏈`, `資本開支` 等)，附帶 8 鍵行內切換按鈕。
+- 🏆 **三模型同步看漲共識焦點榜 (`/tribull` 或 `/tribullish`)**：展示 Google TimesFM ∩ Mistral Timestral-209M ∩ Salesforce MOIRAI-2 三大 AI 時序基礎大模型同步看多標的、目標價、各模型預期漲幅與籌碼估值。
+- 🛰️ **產業前沿學術突破與標的映射雷達 (`/discovery` 或 `/frontier`)**：解析 arXiv 前沿學術突破與技術瓶頸，精準映射至受惠台美股核心標的（含情感評分、催化劑摘要、美股錨點連動）。
+- 🩻 **多市場投資組合風險 X 光片 (`/xray [代碼1,代碼2,...]` 或 `/risk`)**：計算多市場投資組合年化波動率、有效資產數 (Effective N)、各標的權重與歐拉波動貢獻 (Euler PCV%)、異常跳空事件 (Corporate Action / Jump) 警示與跨市場交易日曆/未避險匯率提示。
+- 📈 **個股歷史量化預測軌跡 (`/history [代碼]` 或 `/thist`)**：追蹤特定標的在歷史各交易日之時序大模型預測目標價、實際價格與三大法人籌碼連買連賣軌跡。
+- 🐤 **上游資料源金絲雀健康度探針 (`/canary`)**：即時監控 TWSE, TPEx, yfinance, Investing, Polymarket, BigGo, AnswerBook, arXiv 等 8 大資料源延遲 (ms) 與在線健康狀態。
+- 🎙️ **頂級財經與科技 Podcast 話題熱榜 (`/podcast` 或 `/pod`)**：統計熱門科技實體（OpenAI、Anthropic、Claude、輝達等）討論次數排行與最新單集 AI 繁中核心論點摘要與提及標的。
+- ⭐ **DuckDB 雲端自選股監控清單 (`/watchlist` 或 `/wl`)**：呈現使用者 DuckDB 自選股跨模型每日預測追蹤與潛力評估。
 - 👑 **四維共振飆股雷達 (`/pick` 或 `/resonance`)**：四維指標共振（趨勢動能/籌碼法人/型態/波動）∩ 雙模型交集篩選（雙重機器學習模型）∩ 高風報比過濾，精選當前市場最強勢主升段標的與進出場點位。
 - 🛡️ **宏觀市場體制與部位建議 (`/macro` 或 `/regime`)**：即時市場週期狀態判定（Bullish Trend / High Volatility / Risk-Off），動態提供股票部位曝險指引（0%~100%），有效抵禦系統性下行風險。
 - 🧠 **Google TimesFM 2.5 500M 時間序列大模型預測 (`/tfm 股票代碼`)**：採用 Google 最新 500M 參數時間序列基礎大模型，計算未來目標價、預期漲幅、ATR 動態波動度、建議進場價、停損價與風報比 (R/R Ratio)。
@@ -185,7 +193,14 @@
 | `/xt` | 🗡️ 玄鐵重劍戰法突破回測均線選股 | `/xt` 或 `/xuantie` |
 | `/broker` | 🏢 台股關鍵券商分點進出明細 (Top 3 買賣超主力) | `/broker 2330.TW` 或 `/broker 3293.TWO` |
 | `/cal` | 📅 結構化全球財經與跨市場法說會日曆 (法說會/財報/宏觀/聯準會/商品) | `/cal`、`/cal earn`、`/cal macro`、`/cal fed` 或 `/cal commodities` |
-| `/chain` | ⛓️ 金融邏輯傳導鏈分析與因果流程圖 | `/chain 聯準會降息` 或 `/chain 輝達財報` |
+| `/chain` / `/industry` | ⛓️ AI 產業價值鏈拓撲圖譜 (CPO/CoWoS/散熱/算力/ODM) 或金融傳導鏈 | `/chain cpo`、`/chain cooling` 或 `/chain 聯準會降息` |
+| `/tribull` / `/tribullish` | 🏆 三大時序大模型 (TimesFM ∩ Timestral ∩ MOIRAI) 同步看漲共識榜 | `/tribull` 或 `/tribullish` |
+| `/discovery` / `/frontier` | 🛰️ 產業前沿學術突破與標的映射雷達 (arXiv 最新技術瓶頸突破) | `/discovery` 或 `/frontier` |
+| `/xray` / `/risk` | 🩻 多市場投資組合風險 X 光片與歐拉風險貢獻 (Euler PCV%) | `/xray 2330.TW,NVDA,2317.TW` 或 `/risk` |
+| `/history` / `/thist` | 📈 個股歷史量化預測目標價與三大法人買賣超軌跡 | `/history 2330.TW` 或 `/thist NVDA` |
+| `/canary` | 🐤 8 大上游核心資料源金絲雀健康度與連線延遲監控 | `/canary` |
+| `/podcast` / `/pod` | 🎙️ 頂級財經與科技 Podcast 話題熱榜與最新單集 AI 摘要 | `/podcast` 或 `/pod` |
+| `/watchlist` / `/wl` | ⭐ DuckDB 雲端自選股跨模型同步追蹤清單 | `/watchlist` 或 `/wl` |
 | `/hot` | 🔥 即時快訊：財聯社/華爾街見聞/雪球/Investing.com (繁中焦點、大宗商品、美債利率) | `/hot`、`/hot investing_hk` 或 `/hot commodities` |
 | `/chip` | 🏢 台股三大法人買賣超、連買連賣與關鍵券商分點 | `/chip 2330.TW` 或 `/chip 3293.TWO` |
 | `/ff` | 📊 Fama-French 多因子風險歸因與 Alpha | `/ff NVDA` 或 `/ff TSLA` |
@@ -236,6 +251,14 @@
 | 📅 **聯準會點陣圖與利率** | `/cal fed` | CME FOMC 利率決議日程與降息預期。 |
 | 📅 **大宗商品期貨結算** | `/cal commodities` | 原油、黃金等重大期貨結算與交割日曆。 |
 | 🔮 **Polymarket 預測市場** | `/pm fed` 或 `/pm recession` | 鏈上真實資本押注的降息機率分布或美國經濟衰退定價進度條。 |
+| ⛓️ **AI 產業價值鏈拓撲圖譜** | `/chain cpo` 或 `/chain cooling` | CPO、先進封裝或散熱等核心主題之上中下游核心標的現價、漲跌%、雙模型共振與關鍵依賴關係 (`大客戶依賴`, `產業鏈`, `資本開支`)。 |
+| 🏆 **三模型同步看漲共識榜** | `/tribull` 或 `/tribullish` | TimesFM ∩ Timestral ∩ MOIRAI-2 三大 AI 時序模型同步看多焦點股、目標價與籌碼估值。 |
+| 🛰️ **前沿技術論文瓶頸突破** | `/discovery` 或 `/frontier` | arXiv 最新學術論文突破映射至受惠台美股核心池、情感分與美股錨點。 |
+| 🩻 **多市場組合風險 X 光片** | `/xray 2330.TW,NVDA,2317.TW` | 投資組合年化波動率、有效資產數、各標的權重與歐拉波動貢獻 (Euler PCV%)、異常跳空事件警示。 |
+| 📈 **個股歷史預測與籌碼軌跡** | `/history 2330.TW` | 追蹤特定標的在歷史各交易日之時序大模型預測目標價、實際價格與三大法人籌碼連買連賣軌跡。 |
+| 🐤 **上游資料源金絲雀健康度** | `/canary` | TWSE、TPEx、yfinance、Investing、Polymarket、BigGo、arXiv 等 8 大資料源延遲與在線健康狀態。 |
+| 🎙️ **科技財經 Podcast 話題熱榜** | `/podcast` 或 `/pod` | OpenAI、Anthropic、輝達等實體討論熱度與最新單集 AI 繁中核心論點摘要。 |
+| ⭐ **DuckDB 雲端自選股清單** | `/watchlist` 或 `/wl` | 呈現使用者 DuckDB 自選股跨模型每日預測追蹤與潛力評估。 |
 
 ---
 

@@ -33,6 +33,14 @@ from handlers.stock_cmds import (
     xuantie_pullback_query,
     broker_trades_query,
     calendar_query,
+    industry_chain_query,
+    tri_bullish_query,
+    discovery_signals_query,
+    portfolio_risk_xray_query,
+    stock_history_query,
+    canary_health_query,
+    podcast_intel_query,
+    watchlist_query,
 )
 from handlers.ai_cmds import (
     ai_query,
@@ -84,11 +92,19 @@ def main():
     app.add_handler(CommandHandler(["xt", "xuantie"], xuantie_pullback_query))
     app.add_handler(CommandHandler("broker", broker_trades_query))
     app.add_handler(CommandHandler(["cal", "calendar"], calendar_query))
+    app.add_handler(CommandHandler(["chain", "industry"], industry_chain_query))
+    app.add_handler(CommandHandler(["trans", "transmission", "tx"], chain_analysis))
+    app.add_handler(CommandHandler(["tribull", "tribullish"], tri_bullish_query))
+    app.add_handler(CommandHandler(["discovery", "frontier"], discovery_signals_query))
+    app.add_handler(CommandHandler(["xray", "risk"], portfolio_risk_xray_query))
+    app.add_handler(CommandHandler(["history", "thist"], stock_history_query))
+    app.add_handler(CommandHandler("canary", canary_health_query))
+    app.add_handler(CommandHandler(["podcast", "pod"], podcast_intel_query))
+    app.add_handler(CommandHandler(["watchlist", "wl"], watchlist_query))
     app.add_handler(CommandHandler("s", stock_info))
     app.add_handler(CommandHandler("n", stock_news))
     app.add_handler(CommandHandler("ny", taiwan_stock_news))
     app.add_handler(CommandHandler("hot", hot_news_query))
-    app.add_handler(CommandHandler("chain", chain_analysis))
     app.add_handler(CommandHandler("pm", polymarket_query))
     app.add_handler(CommandHandler("chip", institutional_chip_analysis))
     app.add_handler(CommandHandler("ff", fama_french_analysis))

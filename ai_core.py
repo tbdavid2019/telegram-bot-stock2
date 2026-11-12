@@ -50,6 +50,15 @@ from tools.stockdata_quant import (
     get_xuantie_pullback_picks,
     get_broker_branch_trades,
     get_market_investing_calendars,
+    get_industry_chain,
+    get_tri_bullish_predictions_tool,
+    get_discovery_signals_tool,
+    get_portfolio_risk_xray_tool,
+    get_stock_history_trajectory_tool,
+    get_model_performance_scorecard_tool,
+    get_canary_health_tool,
+    get_podcast_intel_tool,
+    get_watchlist_tool,
 )
 from tools.tw_tenders import (
     get_company_government_tenders,
@@ -97,6 +106,15 @@ main_agent_tools = [
     get_xuantie_pullback_picks,
     get_broker_branch_trades,
     get_market_investing_calendars,
+    get_industry_chain,
+    get_tri_bullish_predictions_tool,
+    get_discovery_signals_tool,
+    get_portfolio_risk_xray_tool,
+    get_stock_history_trajectory_tool,
+    get_model_performance_scorecard_tool,
+    get_canary_health_tool,
+    get_podcast_intel_tool,
+    get_watchlist_tool,
     get_sepa_analysis,
     get_dcf_valuation,
     get_earnings_briefing,
@@ -182,6 +200,15 @@ You have access to dynamic real-time tools:
 - `get_xuantie_pullback_picks`: Xuantie Heavy Sword trend-pullback swing trading opportunities (MA60 > MA120 upward trend + price pulling back to MA60/120 support ±3%).
 - `get_broker_branch_trades`: Top 10 buyer and seller broker branches (如港商麥格理、美商高盛、富邦、國泰等分點明細) and accumulated shares for a Taiwan stock.
 - `get_market_investing_calendars`: Forward-looking structural investing calendars (US Major Corporate Earnings calendar, Global Macroeconomic events CPI/NFP, CME FedWatch, Commodities).
+- `get_industry_chain`: AI Industry Value Chain graph topology (CPO optical interconnect, CoWoS packaging, power & liquid cooling, AI chips, server ODM, robotics, HBM storage) with upstream/midstream/downstream nodes and dependency edges.
+- `get_tri_bullish_predictions_tool`: Tri-Bullish consensus stock leaderboard where TimesFM ∩ Timestral-209M ∩ MOIRAI-2 foundational time-series models simultaneously predict strong upside potential.
+- `get_discovery_signals_tool`: Academic paper breakthrough discovery radar signals (arXiv cutting-edge AI bottlenecks mapped to Taiwan and US listed equities).
+- `get_portfolio_risk_xray_tool`: Multi-market portfolio risk X-ray, annualized volatility, asset weights, Euler Percentage Contribution to Volatility (PCV%), jump alerts, and calendar/currency warnings.
+- `get_stock_history_trajectory_tool`: Historical quantitative predictions trajectory, target prices, and institutional buy/sell streak trajectory for a specific stock.
+- `get_model_performance_scorecard_tool`: Historical prediction accuracy scorecard and backtest directional accuracy / MAE across time-series models.
+- `get_canary_health_tool`: Real-time probe latency and health status across all 8 core upstream data sources (TWSE, TPEx, yfinance, Investing, Polymarket, BigGo, arXiv).
+- `get_podcast_intel_tool`: Top tech & finance podcast entity discussions (OpenAI, Anthropic, NVIDIA, etc.) and latest episode AI takeaways.
+- `get_watchlist_tool`: DuckDB cloud-synced watchlist and multi-model forecast tracking for user's watched tickers.
 - `search_financial_web`: 2MD live SERP search engine for company backgrounds, IPO status, ticker lookups, breaking news, and macroeconomic events.
 - `get_sepa_analysis`: Mark Minervini 8-point Trend Template, Stage 2 status, pivot, stops, and VCP diagnostics.
 - `get_dcf_valuation`: Five-year FCFF DCF with live `^TNX` risk-free rate, WACC, scenarios, and sensitivity matrix.
@@ -215,7 +242,14 @@ Specialized macro commands available for users:
 - **/xt [index]**: Xuantie Heavy Sword MA60/120 pullback swing trading signals.
 - **/broker <ticker>**: Top 10 buyer and seller broker branches for Taiwan stocks.
 - **/cal [earn|econ|fed|comm]**: Global macro, US earnings, and CME rate calendars.
-- **/chain <事件/主題>**: Financial logic transmission chain analysis (e.g. `/chain 聯準會降息` or `/chain 地緣政治升溫`) with Mermaid causal flowcharts.
+- **/chain [主題]**: AI 產業價值鏈拓撲圖譜 (CPO/CoWoS/散熱/算力/ODM/機器人/HBM) 或三級金融邏輯傳導鏈分析。
+- **/tribull**: 三大時序基礎模型 (TimesFM ∩ Timestral ∩ MOIRAI) 同步看漲共識焦點榜。
+- **/discovery**: 產業前沿學術突破與標的映射雷達 (arXiv 最新論文突破映射台美股受惠池)。
+- **/xray <代碼1,代碼2,...>**: 多市場投資組合風險 X 光片與歐拉風險貢獻 (Euler PCV%)。
+- **/history <代碼>**: 個股歷史量化預測目標價與法人買賣超軌跡。
+- **/canary**: 8大上游資料源金絲雀健康度與即時連線延遲監控。
+- **/podcast**: 頂級財經與科技 Podcast 話題熱榜與最新單集 AI 摘要。
+- **/watchlist**: DuckDB 雲端自選股跨模型同步追蹤清單。
 - **/pm [關鍵字]**: Polymarket prediction market forward odds & macro policy pricing (e.g. `/pm fed`, `/pm recession`, `/pm ai`).
 - **/hot [cls|wallstreetcn|xueqiu]**: Real-time breaking financial news headlines from 財聯社, 華爾街見聞, or 雪球.
 - **/chip <ticker>**: Taiwan stock institutional investors (TWSE/TPEX 三大法人) breakdown, foreign & trust streaks (連買/連賣天數), and 5-day accumulation (e.g. `/chip 2330.TW`, `/chip 3293`).
@@ -265,6 +299,15 @@ Specialized macro commands available for users:
      - 若使用者明確詢問「某公司最近拿到什麼政府標案？」、「列出得標標案明細清單」，請調用 **`get_company_winning_tenders`**。
      - 若使用者詢問特定廠商是否名列停權黑名單、違反政府採購法第 101 條或合規風險查核，請調用 **`check_vendor_procurement_compliance`**。
      - 若使用者詢問「國防部近期公開招標有哪些？」、「台灣電力公司有哪些發包採購案？」、「關鍵字（如無人機、變壓器、公共工程）標案搜尋」或「全市場標案預告 / 未來採購預告」，請務必調用 **`search_government_procurement_tenders`**！
+     - 若使用者詢問「CPO 光互連/矽光子產業鏈有哪些上下游標的？」、「CoWoS/散熱/AI晶片/伺服器/機器人產業鏈關係」，請調用 **`get_industry_chain`** 取得產業拓撲圖譜！
+     - 若使用者詢問「三大模型（TimesFM/Timestral/MOIRAI）同步看多的股票有哪些？」、「三模型共識看漲清單」，請調用 **`get_tri_bullish_predictions_tool`**！
+     - 若使用者詢問「最新學術論文突破映射受惠股票」或「產業前沿技術突破訊號與候選池」，請調用 **`get_discovery_signals_tool`**！
+     - 若使用者詢問「幫我做持股投資組合風險 X 光片」、「計算我的投資組合年化波動與歐拉風險貢獻 (Euler PCV%)」，請調用 **`get_portfolio_risk_xray_tool`**！
+     - 若使用者詢問「特定個股過去幾天時序模型預測目標價軌跡」或「歷史預測驗證與法人籌碼動向」，請調用 **`get_stock_history_trajectory_tool`**！
+     - 若使用者詢問「各時序大模型的預測準確率、勝率與回測計分卡」，請調用 **`get_model_performance_scorecard_tool`**！
+     - 若使用者詢問「8大資料源連線正常嗎？」或「金絲雀健康度與各資料源延遲」，請調用 **`get_canary_health_tool`**！
+     - 若使用者詢問「科技與財經 Podcast 最近在討論什麼？」或「熱門 Podcast 話題榜與單集情報」，請調用 **`get_podcast_intel_tool`**！
+     - 若使用者詢問「我的雲端自選股」或「自選股清單跨模型追蹤」，請調用 **`get_watchlist_tool`**！
   3. **嚴禁任何自行腦補、猜測假新聞、假日期、假上市狀態或假數字**！
   4. 若工具搜尋結果為空或回傳錯誤，必須如實告知：「目前搜尋模組查無即時資訊/模組故障」，絕不准自行編造任何假資訊。
   5. 回覆時必須引述工具檢索到的實際內容與 Markdown 來源連結 (`[標題](URL)`)。
