@@ -488,9 +488,45 @@ async def callback_prompt_handler(update: Update, context: ContextTypes.DEFAULT_
             from handlers.stock_cmds import institutional_chip_analysis
             await institutional_chip_analysis(update, context)
             return
-        elif cmd == "/val":
+        elif cmd in ("/val", "/dcf"):
             from handlers.stock_cmds import valuation_analysis
             await valuation_analysis(update, context)
+            return
+        elif cmd in ("/s", "/stock"):
+            from handlers.stock_cmds import stock_info
+            await stock_info(update, context)
+            return
+        elif cmd in ("/macro", "/regime"):
+            from handlers.stock_cmds import macro_regime_query
+            await macro_regime_query(update, context)
+            return
+        elif cmd in ("/pick", "/resonance"):
+            from handlers.stock_cmds import resonance_picks_query
+            await resonance_picks_query(update, context)
+            return
+        elif cmd in ("/tfm", "/timesfm"):
+            from handlers.stock_cmds import timesfm_predictions_query
+            await timesfm_predictions_query(update, context)
+            return
+        elif cmd in ("/xt", "/xuantie"):
+            from handlers.stock_cmds import xuantie_pullback_query
+            await xuantie_pullback_query(update, context)
+            return
+        elif cmd == "/broker":
+            from handlers.stock_cmds import broker_trades_query
+            await broker_trades_query(update, context)
+            return
+        elif cmd in ("/cal", "/calendar"):
+            from handlers.stock_cmds import calendar_query
+            await calendar_query(update, context)
+            return
+        elif cmd in ("/pm", "/polymarket"):
+            from handlers.stock_cmds import polymarket_query
+            await polymarket_query(update, context)
+            return
+        elif cmd in ("/p", "/prophet"):
+            from handlers.stock_cmds import prophet_predict
+            await prophet_predict(update, context)
             return
         elif cmd == "/sepa":
             from handlers.stock_cmds import sepa_analysis
@@ -520,7 +556,7 @@ async def callback_prompt_handler(update: Update, context: ContextTypes.DEFAULT_
             from handlers.stock_cmds import hot_news_query
             await hot_news_query(update, context)
             return
-        elif cmd == "/n" or cmd == "/ny":
+        elif cmd in ("/n", "/ny"):
             from handlers.stock_cmds import stock_news
             await stock_news(update, context)
             return

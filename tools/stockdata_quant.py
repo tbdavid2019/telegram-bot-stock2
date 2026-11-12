@@ -26,6 +26,7 @@ import requests
 
 from config import STOCKDATA_BASE_URL
 from tools.cache_util import TTLCache, SingleFlight
+from tools.telegram_formatter import format_card
 
 try:
     from langchain_core.tools import tool
@@ -99,52 +100,55 @@ def fetch_macro_regime(market: str = "tw") -> Dict[str, Any]:
 
 
 def format_macro_regime_markdown(data: Dict[str, Any]) -> str:
-    """Format macro regime into clean Telegram Markdown."""
-    if not data or not data.get("success"):
-        return "⚠️ 目前暫時無法取得大盤風控資料，請稍後重試。"
+    """Format macro regime into clean Telegram HTML card with pre code block."""
+    if not data or not isinstance(data, dict) or not data.get("success"):
+        return format_card("大盤風控制度與部位曝險指南", "無大盤風控資料", emoji="🛡️")
 
-    market_code = str(data.get("requested_market") or data.get("market", "US")).upper()
-    m_name = "🇹🇼 台股市場" if market_code == "TW" else "🇺🇸 美股市場"
-    regime = data.get("regime_name", "評估中")
-    exposure = data.get("exposure", 0.0)
+    market_code = str(data.get("requested_market") or data.get("market") or "US").upper()
+    m_name = "台股市場" if market_code == "TW" else "美股市場"
+    regime = data.get("regime_name") or "評估中"
+    exposure = data.get("macro_exposure_limit") or data.get("exposure") or 0.0
     exp_pct = int(round(exposure * 100))
-    vix = data.get("vix", 0.0)
+    vix = data.get("vix") or 0.0
 
     # Status badges
-    spy_status = "✅ 季線上" if data.get("spy_above_ma60") else "⚠️ 跌破季線"
-    twii_status = "✅ 季線上" if data.get("twii_above_ma60") else "⚠️ 跌破季線"
-    sox_status = "✅ 季線上" if data.get("sox_above_ma60") else "⚠️ 跌破季線"
+    spy_status = "季線上" if data.get("spy_above_ma60") else "跌破季線"
+    twii_status = "季線上" if data.get("twii_above_ma60") else "跌破季線"
+    sox_status = "季線上" if data.get("sox_above_ma60") else "跌破季線"
 
-    # Exposure bar
-    filled = exp_pct // 10
+    # Exposure bar (prevent negative or overflow)
+    filled = max(0, min(10, exp_pct // 10))
     bar = "█" * filled + "░" * (10 - filled)
 
-    lines = [
-        f"🛡️ **【大盤風控制度與部位曝險指南】**",
-        f"🌐 **監控市場**：{m_name}",
-        f"📊 **市場狀態**：`{regime}`",
-        f"💼 **建議投資曝險**：`[{bar}]` **{exp_pct}%**",
-        "━━━━━━━━━━━━━━━━━━━━",
-        f"📈 **核心指數技術均線**：",
-        f"  • 台股加權 (`^TWII`)：{twii_status}",
-        f"  • 美股標普 (`SPY`)：{spy_status}",
-        f"  • 費城半導體 (`^SOX`)：{sox_status}",
-        f"  • VIX 恐慌指數：`{vix:.2f}`",
+    card_lines = [
+        f"監控市場: {m_name} ({market_code})",
+        f"市場狀態: {regime}",
+        f"建議曝險: [{bar}] {exp_pct}%",
+        "",
+        "[核心指數均線狀態]",
+        f"台股加權 (^TWII): {twii_status}",
+        f"美股標普 (SPY):   {spy_status}",
+        f"費城半導 (^SOX): {sox_status}",
+        f"VIX 恐慌指數:    {vix:.2f}",
     ]
 
     if data.get("market_mismatch"):
-        lines.insert(3, f"⚠️ **{data['market_mismatch']}**")
+        card_lines.insert(3, f"市場偏離: {data['market_mismatch']}")
 
     warnings = data.get("warnings", [])
     if warnings:
-        lines.append("━━━━━━━━━━━━━━━━━━━━")
-        lines.append("⚠️ **關鍵風控警語**：")
+        card_lines.append("")
+        card_lines.append("[關鍵風控警語]")
         for w in warnings[:3]:
-            lines.append(f"  • {w}")
+            card_lines.append(f"• {w}")
 
-    lines.append("")
-    lines.append("💡 *量化建議：請依建議曝險動態調節持股水位，若科技/半導體破季線請嚴格防守。*")
-    return "\n".join(lines)
+    footer = "量化建議：請依建議曝險動態調節持股水位，防守優先。"
+    return format_card(
+        title=f"大盤風控制度與部位曝險指南 ({m_name})",
+        pre_content="\n".join(card_lines),
+        emoji="🛡️",
+        footer=footer,
+    )
 
 
 # ==========================================
@@ -174,59 +178,65 @@ def fetch_resonance_picks(index_name: str = "台灣50", limit: int = 12) -> List
 
 
 def format_resonance_markdown(picks: List[Dict[str, Any]], title: str = "") -> str:
-    """Format resonance picks into Telegram Markdown."""
+    """Format resonance picks into clean Telegram HTML card with pre code block."""
     if not picks:
-        return "👑 **多模型共振推薦選股**\n\n目前市場暫無觸發共振門檻之焦點標的，建議觀望或查看大盤風控。"
+        return format_card("多模型交集共振焦點選股推薦", "目前市場暫無觸發共振門檻之焦點標的，建議觀望或查看大盤風控。", emoji="👑")
 
-    header = title if title else "👑 **【多模型交集共振焦點選股推薦】**"
-    lines = [
-        header,
-        "*(玄鐵均線回調 ∩ 三大法人鎖碼 ∩ LSTM/TimesFM看漲 ∩ 估值合理)*",
-        ""
-    ]
+    clean_title = re.sub(r"[\*【】]", "", title).strip() if title else "多模型交集共振選股推薦"
+    clean_title = re.sub(r"^[👑\s]+", "", clean_title)
 
+    blocks = []
     for i, p in enumerate(picks[:10], 1):
-        ticker = p.get("ticker", "未知")
-        name = p.get("name", "")
+        if not isinstance(p, dict):
+            continue
+        ticker = p.get("ticker") or "未知"
+        name = p.get("name") or ""
         t_display = f"{ticker} {name}".strip()
-        price = p.get("current_price", 0.0)
-        target = p.get("predicted_price", 0.0)
-        potential = p.get("potential", 0.0)
-        model = p.get("model_name", "Quant")
-        strategy = p.get("strategy_type", "")
+        price = p.get("current_price") or 0.0
+        target = p.get("predicted_price") or 0.0
+        potential = p.get("potential") or 0.0
+        model = p.get("model_name") or "Quant"
+        strategy = p.get("strategy_type") or ""
         pe = p.get("pe")
-        t_net = p.get("trust_net_5d", 0)
-        f_net = p.get("foreign_net_5d", 0)
+        t_net = p.get("trust_net_5d") or 0
+        f_net = p.get("foreign_net_5d") or 0
 
-        # Tags / Badges
         badges = []
         if "玄鐵" in strategy:
-            badges.append("🗡️玄鐵")
+            badges.append("玄鐵")
         if "TimesFM" in model:
-            badges.append("🧠TimesFM")
+            badges.append("TimesFM")
         elif "LSTM" in model:
-            badges.append("📈LSTM")
+            badges.append("LSTM")
         if t_net and t_net > 0:
             badges.append(f"投信+{t_net}")
         if f_net and f_net > 0:
             badges.append(f"外資+{f_net}")
 
-        badge_str = f" [{' | '.join(badges)}]" if badges else ""
-
+        badge_str = f" [{'|'.join(badges)}]" if badges else ""
         sign = "+" if potential >= 0 else ""
-        lines.append(f"*{i}. {t_display}*{badge_str}")
-        lines.append(f"  💰 現價: `{price:,.1f}` ➔ 預期: `{target:,.1f}` (`{sign}{potential:.1f}%`)")
-        extra = []
-        if pe:
-            extra.append(f"PE: `{pe:.1f}x`")
-        if p.get("risk_reward_ratio"):
-            extra.append(f"盈虧比: `{p['risk_reward_ratio']:.2f}`")
-        if extra:
-            lines.append(f"  📊 {' | '.join(extra)}")
-        lines.append("")
 
-    lines.append("⚠️ *提醒：共振選股為多重模型交集訊號，進場前請先執行 /macro 確認整體部位曝險。*")
-    return "\n".join(lines)
+        entry_lines = [
+            f"[{i}] {t_display}{badge_str}",
+            f"現價: {price:,.1f} ➔ 預期: {target:,.1f} ({sign}{potential:.1f}%)"
+        ]
+        extra = []
+        if pe is not None:
+            extra.append(f"PE: {float(pe):.1f}x")
+        if p.get("risk_reward_ratio") is not None:
+            extra.append(f"盈虧比: {float(p['risk_reward_ratio']):.2f}")
+        if extra:
+            entry_lines.append(" | ".join(extra))
+        blocks.append("\n".join(entry_lines))
+
+    pre_content = "\n\n".join(blocks) if blocks else "無有效共振標的資料"
+    footer = "多重模型交集訊號；進場前請先以 /macro 確認整體部位曝險。"
+    return format_card(
+        title=clean_title,
+        pre_content=pre_content,
+        emoji="👑",
+        footer=footer,
+    )
 
 
 # ==========================================
@@ -320,41 +330,45 @@ def fetch_timesfm_predictions(
 
 
 def format_timesfm_markdown(items: List[Dict[str, Any]], is_bearish: bool = False) -> str:
-    """Format TimesFM predictions into Telegram Markdown."""
+    """Format TimesFM predictions into clean Telegram HTML card with pre code block."""
+    title = "Google TimesFM 5日看跌避險榜" if is_bearish else "Google TimesFM 5日時序大模型看漲榜"
     if not items:
-        return "🧠 **Google TimesFM 時序大模型預測**\n\n查無相關預測數據。"
+        return format_card(title, "查無相關預測數據。", emoji="🧠")
 
-    title = "🧠 **【Google TimesFM 5日看跌避險榜】**" if is_bearish else "🧠 **【Google TimesFM 5日時序大模型看漲榜】**"
-    lines = [
-        title,
-        "*(Google Research 預訓練 500M 時序基礎模型 + 真實盈虧比 RR 排行)*",
-        ""
-    ]
-
+    blocks = []
     for i, p in enumerate(items[:10], 1):
-        ticker = p.get("ticker", "未知")
-        name = p.get("name", "")
+        if not isinstance(p, dict):
+            continue
+        ticker = p.get("ticker") or "未知"
+        name = p.get("name") or ""
         t_display = f"{ticker} {name}".strip()
-        price = p.get("current_price", 0.0)
-        target = p.get("predicted_price", 0.0)
-        potential = p.get("potential", 0.0)
+        price = p.get("current_price") or 0.0
+        target = p.get("predicted_price") or 0.0
+        potential = p.get("potential") or 0.0
         rr = p.get("risk_reward_ratio")
 
         sign = "+" if potential >= 0 else ""
-        lines.append(f"*{i}. {t_display}*")
-        lines.append(f"  🎯 現價: `{price:,.1f}` ➔ 5日中位目標: `{target:,.1f}` (`{sign}{potential:.1f}%`)")
-        
+        entry_lines = [
+            f"[{i}] {t_display}",
+            f"現價: {price:,.1f} ➔ 5日目標: {target:,.1f} ({sign}{potential:.1f}%)"
+        ]
         info = []
         if rr is not None:
-            info.append(f"⚖️ 盈虧比: `{rr:.2f}`")
-        if p.get("pe"):
-            info.append(f"PE: `{p['pe']:.1f}x`")
+            info.append(f"盈虧比: {float(rr):.2f}")
+        if p.get("pe") is not None:
+            info.append(f"PE: {float(p['pe']):.1f}x")
         if info:
-            lines.append(f"  {' | '.join(info)}")
-        lines.append("")
+            entry_lines.append(" | ".join(info))
+        blocks.append("\n".join(entry_lines))
 
-    lines.append("💡 *指標說明：盈虧比 RR >= 1.5 且看漲具備統計顯著性，P10 可作為嚴格下行停損參考點。*")
-    return "\n".join(lines)
+    pre_content = "\n\n".join(blocks) if blocks else "查無有效預測數據。"
+    footer = "Google Research 500M 基礎模型；盈虧比 RR >= 1.5 具統計顯著性。"
+    return format_card(
+        title=title,
+        pre_content=pre_content,
+        emoji="🧠",
+        footer=footer,
+    )
 
 
 # ==========================================
@@ -384,41 +398,46 @@ def fetch_xuantie_pullbacks(index_name: str = "台灣50", limit: int = 10) -> Li
 
 
 def format_xuantie_markdown(items: List[Dict[str, Any]]) -> str:
-    """Format Xuantie pullbacks into Telegram Markdown."""
+    """Format Xuantie pullbacks into clean Telegram HTML card with pre code block."""
     if not items:
-        return "🗡️ **玄鐵重劍波段回調策略**\n\n目前市場無回踩季線/半年線支撐之標的。"
+        return format_card("玄鐵重劍：MA60/120 均線波段回踩買點", "目前市場無回踩季線/半年線支撐之標的。", emoji="🗡️")
 
-    lines = [
-        "🗡️ **【玄鐵重劍：MA60/120 均線波段回調買點】**",
-        "*(順大勢 MA60>120 向上 ∩ 逆小勢回踩支撐帶 ±3% 起漲買點)*",
-        ""
-    ]
-
+    blocks = []
     for i, p in enumerate(items[:10], 1):
-        ticker = p.get("ticker", "未知")
-        name = p.get("name", "")
+        if not isinstance(p, dict):
+            continue
+        ticker = p.get("ticker") or "未知"
+        name = p.get("name") or ""
         t_display = f"{ticker} {name}".strip()
-        price = p.get("current_price", 0.0)
-        target = p.get("predicted_price", 0.0)
-        potential = p.get("potential", 0.0)
+        price = p.get("current_price") or 0.0
+        target = p.get("predicted_price") or 0.0
+        potential = p.get("potential") or 0.0
         pullback_type = p.get("pullback_type") or "季線/半年線支撐"
         ma60 = p.get("ma60")
         ma120 = p.get("ma120")
 
-        lines.append(f"*{i}. {t_display}* — `{pullback_type}`")
         sign = "+" if potential >= 0 else ""
-        lines.append(f"  💰 現價: `{price:,.1f}` ➔ 預期: `{target:,.1f}` (`{sign}{potential:.1f}%`)")
+        entry_lines = [
+            f"[{i}] {t_display} ({pullback_type})",
+            f"現價: {price:,.1f} ➔ 預期: {target:,.1f} ({sign}{potential:.1f}%)"
+        ]
         ma_info = []
-        if ma60:
-            ma_info.append(f"MA60: `{ma60:.1f}`")
-        if ma120:
-            ma_info.append(f"MA120: `{ma120:.1f}`")
+        if ma60 is not None:
+            ma_info.append(f"MA60: {float(ma60):.1f}")
+        if ma120 is not None:
+            ma_info.append(f"MA120: {float(ma120):.1f}")
         if ma_info:
-            lines.append(f"  📐 {' | '.join(ma_info)}")
-        lines.append("")
+            entry_lines.append(" | ".join(ma_info))
+        blocks.append("\n".join(entry_lines))
 
-    lines.append("💡 *策略精粹：重劍無鋒，大巧不工。不追高突圍，專注季線半年線強支撐低吸。*")
-    return "\n".join(lines)
+    pre_content = "\n\n".join(blocks) if blocks else "目前無有效回踩標的。"
+    footer = "重劍無鋒，大巧不工。順大勢逆小勢，專注強支撐低吸。"
+    return format_card(
+        title="玄鐵重劍：MA60/120 均線波段回踩買點",
+        pre_content=pre_content,
+        emoji="🗡️",
+        footer=footer,
+    )
 
 
 # ==========================================
@@ -451,9 +470,9 @@ def fetch_broker_summary(ticker: str, days: int = 20) -> Dict[str, Any]:
 
 
 def format_broker_summary_markdown(data: Dict[str, Any]) -> str:
-    """Format broker summary into Telegram Markdown."""
+    """Format broker summary into clean Telegram HTML card with pre code block."""
     if not data or "top_buyers" not in data:
-        return "🏢 **券商關鍵主力分點進出**\n\n查無該標的近期的券商分點買賣資料（僅支援台股上市公司，如 2330.TW）。"
+        return "🏢 <b>券商關鍵主力分點進出</b>\n\n查無該標的近期的券商分點買賣資料（僅支援台股上市公司，如 2330.TW）。"
 
     ticker = data.get("ticker", "")
     days = data.get("days", 20)
@@ -463,33 +482,35 @@ def format_broker_summary_markdown(data: Dict[str, Any]) -> str:
     buyers = data.get("top_buyers", [])
     sellers = data.get("top_sellers", [])
 
-    lines = [
-        f"🏢 **【{ticker}】近 {days} 日券商主力關鍵分點排行**",
-        f"📅 **統計區間**：`{start_d}` ~ `{end_d}`",
-        "━━━━━━━━━━━━━━━━━━━━",
-        "🟢 **主力買超分點 Top 5**："
+    card_lines = [
+        f"統計區間: {start_d} ~ {end_d}",
+        "",
+        "[主力買超分點 Top 5]"
     ]
-
     for i, b in enumerate(buyers[:5], 1):
         b_name = b.get("broker_name", "未知分點")
-        net = int(round(b.get("total_net", 0)))
-        buy = int(round(b.get("total_buy", 0)))
-        sell = int(round(b.get("total_sell", 0)))
+        net = int(round(b.get("total_net") or 0))
+        buy = int(round(b.get("total_buy") or 0))
+        sell = int(round(b.get("total_sell") or 0))
         sign = "+" if net > 0 else ""
-        lines.append(f"  {i}. **{b_name}**：`{sign}{net:,} 張` (買: `{buy:,}` | 賣: `{sell:,}`)")
+        card_lines.append(f"{i}. {b_name} {sign}{net:,}張 (買{buy:,}|賣{sell:,})")
 
-    lines.append("")
-    lines.append("🔴 **主力賣超分點 Top 5**：")
+    card_lines.append("")
+    card_lines.append("[主力賣超分點 Top 5]")
     for i, s in enumerate(sellers[:5], 1):
         s_name = s.get("broker_name", "未知分點")
-        net = int(round(s.get("total_net", 0)))
-        buy = int(round(s.get("total_buy", 0)))
-        sell = int(round(s.get("total_sell", 0)))
-        lines.append(f"  {i}. **{s_name}**：`{net:,} 張` (買: `{buy:,}` | 賣: `{sell:,}`)")
+        net = int(round(s.get("total_net") or 0))
+        buy = int(round(s.get("total_buy") or 0))
+        sell = int(round(s.get("total_sell") or 0))
+        card_lines.append(f"{i}. {s_name} {net:,}張 (買{buy:,}|賣{sell:,})")
 
-    lines.append("")
-    lines.append("💡 *分析心法：外資常透過港商麥格理、高盛、摩根大通下單；本土主力常盤踞於地緣或特選券商分點。*")
-    return "\n".join(lines)
+    footer = "外資多經外資券商下單；本土主力常盤踞於地緣或特選券商分點。"
+    return format_card(
+        title=f"{ticker} 近 {days} 日券商主力關鍵分點排行",
+        pre_content="\n".join(card_lines),
+        emoji="🏢",
+        footer=footer,
+    )
 
 
 # ==========================================
@@ -560,55 +581,72 @@ def fetch_calendar_data(category: str = "all") -> Dict[str, Any]:
 
 
 def format_calendar_markdown(data: Dict[str, Any], cat: str = "all") -> str:
-    """Format calendar and catalyst data into Telegram Markdown."""
-    lines = ["📅 **【全球總經與美股重磅行事曆】**", ""]
+    """Format calendar and catalyst data into clean Telegram HTML card with pre code block."""
+    if not data or not isinstance(data, dict):
+        return format_card("全球市場總經與美股日曆", "無行事曆資料", emoji="📅")
 
-    if "fed" in data:
+    card_lines = []
+
+    if "fed" in data and isinstance(data["fed"], dict):
         fed = data["fed"]
-        lines.append("🏦 **CME FedWatch 官方聯準會利率路徑**：")
-        lines.append(f"  • 下次會議日期：`{fed.get('meeting_date', '近期')}`")
-        lines.append(f"  • 更新時間：`{fed.get('updated_at', '')}`")
-        probs = fed.get("probabilities") or fed.get("target_rates", [])
-        for p in probs[:3]:
-            rate = p.get("rate_range", "")
-            prob = p.get("probability") or p.get("current_probability") or p.get("probability_value", "")
-            lines.append(f"    - 利率區間 `{rate}`：**{prob}**")
-        lines.append("")
+        card_lines.append("[CME 聯準會利率路徑]")
+        meeting = fed.get("meeting_date", "近期")
+        upd = fed.get("updated_at", "")
+        card_lines.append(f"下次會議: {meeting}" + (f" (更新: {upd})" if upd else ""))
+        probs = fed.get("probabilities") or fed.get("target_rates") or []
+        if isinstance(probs, list):
+            for p in probs[:3]:
+                if isinstance(p, dict):
+                    rate = p.get("rate_range", "")
+                    prob = p.get("probability") or p.get("current_probability") or p.get("probability_value", "")
+                    card_lines.append(f"• 區間 {rate}: {prob}")
+        card_lines.append("")
 
-    if "earnings" in data:
+    if "earnings" in data and isinstance(data["earnings"], list):
         earns = data["earnings"]
-        lines.append("💼 **美股重磅企業近期財報行事曆**：")
+        card_lines.append("[美股重磅企業財報]")
         for e in earns[:5]:
-            t = e.get("ticker", "")
-            name = e.get("name", "")
-            d = e.get("date", "")
-            eps = e.get("eps_forecast", "N/A")
-            lines.append(f"  • `{t}` {name}：`{d}` (預估EPS: `{eps}`)")
-        lines.append("")
+            if isinstance(e, dict):
+                t = e.get("ticker", "")
+                name = e.get("name", "")
+                d = e.get("date", "")
+                eps = e.get("eps_forecast", "N/A")
+                card_lines.append(f"• {t} {name}: {d} (預估EPS: {eps})")
+        card_lines.append("")
 
-    if "economic" in data:
+    if "economic" in data and isinstance(data["economic"], list):
         econs = data["economic"]
-        lines.append("🌐 **全球重要總經指標公布行事曆**：")
+        card_lines.append("[全球重要總經指標公布]")
         for ec in econs[:5]:
-            country = ec.get("country", "")
-            time_str = ec.get("time", "")
-            ev = ec.get("event", "")
-            lines.append(f"  • `[{country}] {time_str}`：{ev}")
-        lines.append("")
+            if isinstance(ec, dict):
+                country = ec.get("country", "")
+                time_str = ec.get("time", "")
+                ev = ec.get("event", "")
+                card_lines.append(f"• [{country}] {time_str} {ev}")
+        card_lines.append("")
 
-    if "commodities" in data:
+    if "commodities" in data and isinstance(data["commodities"], dict):
         comm = data["commodities"]
-        lines.append("🪙 **大宗商品週期行情總結**：")
+        card_lines.append("[大宗商品週期行情]")
         for k, v in comm.items():
             if isinstance(v, dict):
                 c_name = v.get("name", k)
                 d_chg = v.get("daily_change", "0")
                 sign = "+" if not str(d_chg).startswith("-") else ""
-                lines.append(f"  • {c_name}：日漲跌 `{sign}{d_chg}%` ({v.get('indicator', '')})")
-        lines.append("")
+                ind = f" ({v.get('indicator', '')})" if v.get("indicator") else ""
+                card_lines.append(f"• {c_name}: 日漲跌 {sign}{d_chg}%{ind}")
+        card_lines.append("")
 
-    lines.append("💡 *前瞻日曆由 stockdata.david888.com 實時自動同步。*")
-    return "\n".join(lines)
+    if not card_lines:
+        card_lines.append("暫無近期行事曆或總經催化劑資料。")
+
+    footer = "前瞻日曆由 stockdata.david888.com 實時自動同步。"
+    return format_card(
+        title="全球總經與美股重磅行事曆",
+        pre_content="\n".join(card_lines).strip(),
+        emoji="📅",
+        footer=footer,
+    )
 
 
 # ==========================================

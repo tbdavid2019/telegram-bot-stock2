@@ -10,7 +10,14 @@ import requests
 from telegram import Update
 from telegram.ext import ContextTypes
 from bs4 import BeautifulSoup
-from tools.telegram_formatter import safe_reply_formatted
+from tools.telegram_formatter import safe_reply_formatted, format_card, build_inline_keyboard
+
+try:
+    from handlers.general import cache_prompt
+except Exception:
+    def cache_prompt(prompt_text: str) -> str:
+        import hashlib
+        return f"p:{hashlib.md5(prompt_text.encode('utf-8')).hexdigest()[:12]}"
 
 # Setup Font (run once at import time or lazily)
 try:
@@ -45,8 +52,13 @@ def generate_stock_charts(stock_code: str, hist) -> list:
     return charts
 
 async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in stock_info")
+        return
+
     if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/s 2330.TW 或 /s TSLA")
+        await msg.reply_text("❌ 請提供股票代碼，例如：/s 2330.TW 或 /s TSLA")
         return
 
     from tools.stock import resolve_ticker
@@ -70,7 +82,7 @@ async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stock, hist, info = await loop.run_in_executor(None, fetch_data)
 
         if hist.empty:
-            await update.message.reply_text(f"⚠️ 無法找到 {stock_code} 的股價數據，請確認股票代碼是否正確。")
+            await msg.reply_text(f"⚠️ 無法找到 {stock_code} 的股價數據，請確認股票代碼是否正確。")
             return
 
         current_price = info.get("currentPrice", hist["Close"].iloc[-1])
@@ -80,28 +92,51 @@ async def stock_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         low_price = hist["Low"].iloc[-1]
         volume = hist["Volume"].iloc[-1]
 
-        message = (
-            f"📊 **{stock_code} 股價資訊**\n\n"
-            f"🔹 **現價 / 收盤價**：{current_price:.2f}\n"
-            f"🔸 **開盤價**：{open_price:.2f}\n"
-            f"🔺 **最高價**：{high_price:.2f}\n"
-            f"🔻 **最低價**：{low_price:.2f}\n"
-            f"📈 **成交量**：{volume:,}"
+        card_content = (
+            f"現價/收盤: {current_price:>12,.2f}\n"
+            f"開盤價:    {open_price:>12,.2f}\n"
+            f"最高價:    {high_price:>12,.2f}\n"
+            f"最低價:    {low_price:>12,.2f}\n"
+            f"成交量:    {volume:>12,}"
         )
-        await update.message.reply_text(message, parse_mode="Markdown")
+        message = format_card(
+            title=f"{stock_code} 即時行情",
+            pre_content=card_content,
+            emoji="📊",
+            footer="點擊卡片可複製數值；下方快捷鍵深入分析"
+        )
+
+        buttons = [
+            [
+                {"text": "📊 SEPA 趨勢分析", "callback_data": cache_prompt(f"/sepa {stock_code}")},
+                {"text": "🏢 三大法人籌碼", "callback_data": cache_prompt(f"/chip {stock_code}")}
+            ],
+            [
+                {"text": "💰 DCF 折現估值", "callback_data": cache_prompt(f"/val {stock_code}")},
+                {"text": "🏢 券商主力分點", "callback_data": cache_prompt(f"/broker {stock_code}")}
+            ],
+            [
+                {"text": "🧠 TimesFM 5日預測", "callback_data": cache_prompt(f"/tfm {stock_code}")},
+                {"text": "🛡️ 大盤風控", "callback_data": cache_prompt("/macro")}
+            ]
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+        await safe_reply_formatted(msg, message, reply_markup=reply_markup)
 
         # Generate Charts in worker thread (non-blocking)
         charts = await loop.run_in_executor(None, generate_stock_charts, stock_code, hist)
         for label, chart_bytes in charts:
-            await update.message.reply_photo(photo=chart_bytes, caption=f"📊 {label}")
+            if hasattr(msg, "reply_photo"):
+                await msg.reply_photo(photo=chart_bytes, caption=f"📊 {label}")
 
     except Exception as e:
         logger.error(f"Stock info error: {e}")
-        await update.message.reply_text(f"❌ 查詢股價時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢股價時發生錯誤：{str(e)}")
 
-async def safe_reply_news(update: Update, text: str):
+async def safe_reply_news(update: Any, text: str):
     """Safely reply with 3-tier Markdown/HTML/Plain delivery."""
-    await safe_reply_formatted(update.message, text, disable_web_page_preview=True)
+    msg = _get_target_message(update) or update
+    await safe_reply_formatted(msg, text, disable_web_page_preview=True)
 
 
 def _split_telegram_text(text: str, limit: int = 3900) -> list[str]:
@@ -123,204 +158,258 @@ def _split_telegram_text(text: str, limit: int = 3900) -> list[str]:
     return chunks
 
 
-async def safe_reply_analysis(update: Update, text: str):
+async def safe_reply_analysis(update: Any, text: str):
     """Send analysis in bounded chunks using 3-tier delivery."""
-    await safe_reply_formatted(update.message, text, disable_web_page_preview=True)
+    msg = _get_target_message(update) or update
+    await safe_reply_formatted(msg, text, disable_web_page_preview=True)
+
+
+def _get_target_message(update: Any) -> Any:
+    """Extract effective target message from Update, Message, or CallbackQuery."""
+    if update is None:
+        return None
+    if hasattr(update, "reply_text"):
+        return update
+    if hasattr(update, "effective_message") and update.effective_message:
+        return update.effective_message
+    if hasattr(update, "callback_query") and update.callback_query and getattr(update.callback_query, "message", None):
+        return update.callback_query.message
+    if hasattr(update, "message") and update.message:
+        return update.message
+    return update
 
 
 def format_sepa_card(res: dict) -> str:
+    if not res or not isinstance(res, dict):
+        return format_card("SEPA 動能策略分析", "無分析資料", emoji="📈")
+
     stock_name = res.get("stock", "")
     if "error" in res and not res.get("rules"):
         err = res.get("error", "")
-        return f"❌ **【{stock_name}】SEPA 分析失敗**\n{err}"
-    
-    stage = res.get("stage", "未確認")
-    stage_emoji = "🟢" if "Stage 2" in stage else "🟡"
-    template_score = res.get("template_score", "0/8")
-    metrics = res.get("metrics", {})
-    price = metrics.get("price", 0)
-    ma50 = metrics.get("ma50", 0)
-    ma150 = metrics.get("ma150", 0)
-    ma200 = metrics.get("ma200", 0)
-    low52 = metrics.get("52_week_low", 0)
-    high52 = metrics.get("52_week_high", 0)
+        return f"❌ <b>{stock_name} SEPA 分析失敗</b>\n{err}"
+
+    stage = res.get("stage") or "未確認"
+    template_score = res.get("template_score") or "0/8"
+    metrics = res.get("metrics") or {}
+    price = metrics.get("price") or 0.0
+    ma50 = metrics.get("ma50") or 0.0
+    ma150 = metrics.get("ma150") or 0.0
+    ma200 = metrics.get("ma200") or 0.0
+    low52 = metrics.get("52_week_low") or metrics.get("low52") or 0.0
+    high52 = metrics.get("52_week_high") or metrics.get("high52") or 0.0
+    atr14 = metrics.get("atr14") or 0.0
+    rs_rating = metrics.get("rs_rating") or 0.0
     rel3m = metrics.get("relative_3m_return")
     spy3m = metrics.get("spy_3m_return")
 
-    rules = res.get("rules", [])
-    stops = res.get("risk_stops", {})
-    pivot = res.get("pivot_entry", 0)
-    stop7 = stops.get("7_percent_stop", 0)
-    stop_atr = stops.get("2_atr_stop", 0)
-    vcp = res.get("vcp", {})
+    rules = res.get("rules") or []
+    stops = res.get("risk_stops") or {}
+    pivot = res.get("pivot_entry") or metrics.get("pivot") or 0.0
+    stop7 = stops.get("7_percent_stop") or 0.0
+    stop_atr = stops.get("2_atr_stop") or 0.0
+    vcp = res.get("vcp") or {}
 
-    lines = [
-        f"📊 **【{stock_name}】Mark Minervini SEPA 趨勢與 VCP 分析**",
-        "━━━━━━━━━━━━━━━━━━━━",
-        f"{stage_emoji} **趨勢階段**：`{stage}` (符合度：`{template_score}`)",
-        f"💰 **最新股價**：`${price:,.2f}`",
-        f"📈 **均線系統**：MA50 `${ma50:,.2f}` | MA150 `${ma150:,.2f}` | MA200 `${ma200:,.2f}`",
-        f"🏔️ **52 週區間**：最低 `${low52:,.2f}` ~ 最高 `${high52:,.2f}`",
+    card_lines = [
+        f"趨勢階段: {stage} (符合度: {template_score})",
+        f"最新股價: ${price:,.2f}",
+        f"均線系統: MA50 ${ma50:,.2f} | MA150 ${ma150:,.2f} | MA200 ${ma200:,.2f}",
+        f"52週區間: 最低 ${low52:,.2f} ~ 最高 ${high52:,.2f}",
     ]
     if rel3m is not None:
-        lines.append(f"⚡ **近 3 月報酬 vs SPY**：`{rel3m}%` (SPY: `{spy3m}%`)")
+        card_lines.append(f"3月報酬 vs SPY: {rel3m}% (SPY: {spy3m}%)")
 
-    lines.append("\n📋 **SEPA 8 項趨勢模板檢驗清單**：")
-    for r in rules:
-        status_icon = "✅" if r.get("passed") else "❌"
-        rule_num = r.get("rule")
-        crit = r.get("criterion")
-        lines.append(f"  {status_icon} Rule {rule_num}: {crit}")
+    card_lines.append("")
+    card_lines.append("[關鍵進出場與風險控管]")
+    card_lines.append(f"• 突破買點 (Pivot): ${pivot:,.2f}")
+    card_lines.append(f"• 7% 硬停損價位:    ${stop7:,.2f}")
+    card_lines.append(f"• 2 ATR 停損價位:   ${stop_atr:,.2f}")
 
-    lines.append("\n🎯 **關鍵進出場與風險控管**：")
-    lines.append(f"  • **突破買點 (Pivot Entry)**：`${pivot:,.2f}`")
-    lines.append(f"  • **7% 硬停損價位**：`${stop7:,.2f}`")
-    lines.append(f"  • **2 ATR 停損價位**：`${stop_atr:,.2f}`")
-
-    vcp_status = "✅ 偵測到波動度收縮 (VCP 特徵符合)" if vcp.get("detected") else "ℹ️ 未出現明顯 VCP 收縮 (需確認型態)"
-    lines.append(f"\n🌀 **VCP 波動收縮診斷**：{vcp_status}")
+    vcp_desc = "符合收縮" if vcp.get("detected") else "未明顯收縮"
     v_ratio = vcp.get("volume_10d_vs_50d")
-    if v_ratio is not None:
-        lines.append(f"  • 10日/50日量比：`{v_ratio}` (收縮量通常 < 1.0)")
+    v_ratio_str = f" (量比 {v_ratio})" if v_ratio is not None else ""
+    card_lines.append(f"• VCP 波動診斷:     {vcp_desc}{v_ratio_str}")
 
-    return "\n".join(lines)
+    if rules:
+        card_lines.append("")
+        card_lines.append("[SEPA 8項檢驗清單]")
+        for r in rules:
+            status_mark = "[V]" if r.get("passed") else "[X]"
+            rule_num = r.get("rule")
+            crit = r.get("criterion")
+            card_lines.append(f"{status_mark} R{rule_num}: {crit}")
+
+    footer = "Mark Minervini SEPA 成長股動能篩選系統"
+    return format_card(
+        title=f"{stock_name} SEPA 趨勢與 VCP 分析",
+        pre_content="\n".join(card_lines),
+        emoji="📊",
+        footer=footer
+    )
 
 
 def format_dcf_card(res: dict) -> str:
+    if not res or not isinstance(res, dict):
+        return format_card("DCF 現金流折現估值", "無估值資料", emoji="💰")
+
     stock_name = res.get("stock", "")
     if "error" in res and res.get("method") != "relative_revenue_fallback":
         err = res.get("error", "")
-        return f"❌ **【{stock_name}】DCF 估值失敗**\n{err}"
+        return f"❌ <b>{stock_name} DCF 估值失敗</b>\n{err}"
 
-    price = res.get("current_price", 0)
+    price = res.get("current_price") or 0.0
     if res.get("method") == "relative_revenue_fallback":
-        rev = res.get("revenue") or 0
-        ps = res.get("price_to_sales", 0)
-        err = res.get("error", "")
-        lim = res.get("limitation", "")
-        lines = [
-            f"💰 **【{stock_name}】估值分析報告 (相對營收倍數法)**",
-            "━━━━━━━━━━━━━━━━━━━━",
-            f"💵 **最新市價**：`${price:,.2f}`",
-            f"🏢 **年度營收**：`${rev/1e9:,.2f}B USD`",
-            f"📊 **市銷率 (P/S Multiple)**：`{ps:,.2f}x`",
-            "\n⚠️ **DCF 限制說明**：",
-            f"{err}",
-            f"💡 *{lim}*"
+        rev = res.get("revenue") or 0.0
+        ps = res.get("price_to_sales") or 0.0
+        card_lines = [
+            f"最新市價: ${price:,.2f}",
+            f"年度營收: ${rev/1e9:,.2f}B USD",
+            f"市銷率:   {ps:,.2f}x",
         ]
-        return "\n".join(lines)
+        lim = res.get("limitation") or res.get("error", "")
+        return format_card(
+            title=f"{stock_name} 估值分析 (相對營收倍數法)",
+            pre_content="\n".join(card_lines),
+            emoji="💰",
+            footer=f"限制說明：{lim}" if lim else ""
+        )
 
-    scenarios = res.get("projected_fair_value_per_share", {})
+    scenarios = res.get("projected_fair_value_per_share") or {}
     mos = res.get("margin_of_safety_at_base")
-    mos_text = f"`{mos:+,.1f}%`" if mos is not None else "N/A"
-    mos_emoji = "🟢" if (mos or 0) > 0 else "🔴"
-    wacc = res.get("wacc", 0)
-    rf = res.get("risk_free_rate", 0)
-    beta = res.get("beta", 0)
-    bear = scenarios.get("bear", 0)
-    base = scenarios.get("base", 0)
-    bull = scenarios.get("bull", 0)
+    mos_text = f"{mos:+,.1f}%" if mos is not None else "N/A"
+    wacc = res.get("wacc") or 0.0
+    rf = res.get("risk_free_rate") or 0.0
+    beta = res.get("beta") or 0.0
+    bear = scenarios.get("bear") or 0.0
+    base = scenarios.get("base") or 0.0
+    bull = scenarios.get("bull") or 0.0
 
-    lines = [
-        f"💰 **【{stock_name}】五年 FCFF 折現估值模型 (DCF)**",
-        "━━━━━━━━━━━━━━━━━━━━",
-        f"💵 **當前市價**：`${price:,.2f}`",
-        f"📈 **折現率 (WACC)**：`{wacc}%` (無風險利率: `{rf}%`, Beta: `{beta}`)",
-        "━━━━━━━━━━━━━━━━━━━━",
-        "🎯 **情境公允價值預估 (Fair Value)**：",
-        f"  🐻 **保守悲觀 (Bear)**：`${bear:,.2f}`",
-        f"  ⚖️ **基準中性 (Base)**：`${base:,.2f}`",
-        f"  🐂 **樂觀進取 (Bull)**：`${bull:,.2f}`",
-        f"\n{mos_emoji} **基準安全邊際 (Margin of Safety)**：{mos_text}",
-        "💡 *安全邊際為正代表目前市價低於基準內在價值，具備折價保護空間。*"
+    card_lines = [
+        f"當前市價: ${price:,.2f}",
+        f"折現率:   WACC {wacc}% (無風險 {rf}%, Beta {beta})",
+        "",
+        "[情境公允價值預估 (Fair Value)]",
+        f"• 保守悲觀 (Bear): ${bear:,.2f}",
+        f"• 基準中性 (Base): ${base:,.2f}",
+        f"• 樂觀進取 (Bull): ${bull:,.2f}",
+        "",
+        f"基準安全邊際 (MoS): {mos_text}",
     ]
-    return "\n".join(lines)
+    footer = "安全邊際為正代表市價低於基準內在價值，具安全保護空間。"
+    return format_card(
+        title=f"{stock_name} 5年 FCFF 折現估值模型 (DCF)",
+        pre_content="\n".join(card_lines),
+        emoji="💰",
+        footer=footer
+    )
 
 
 def format_earn_card(res: dict) -> str:
+    if not res or not isinstance(res, dict):
+        return format_card("財報預期與盈餘簡報", "無財報資料", emoji="🗓️")
+
     stock_name = res.get("stock", "")
     if "error" in res:
         err = res.get("error", "")
-        return f"❌ **【{stock_name}】財報簡報失敗**\n{err}"
+        return f"❌ <b>{stock_name} 財報簡報失敗</b>\n{err}"
 
-    con = res.get("consensus", {})
-    hist = res.get("last_four_quarters", [])
+    con = res.get("consensus") or {}
+    hist = res.get("last_four_quarters") or []
     beat_rate = res.get("beat_rate_last_four")
     next_date = res.get("upcoming_earnings_date") or "即將公布"
 
-    lines = [
-        f"🗓️ **【{stock_name}】財報預期與盈餘驚喜簡報**",
-        "━━━━━━━━━━━━━━━━━━━━",
-        f"📅 **下次財報預計發布日**：`{next_date}`",
+    card_lines = [
+        f"下次財報預計發布日: {next_date}",
     ]
     if con.get("eps") is not None:
         eps_val = con["eps"]
-        lines.append(f"🎯 **市場共識 EPS 預估**：`${eps_val:,.2f}`")
+        card_lines.append(f"市場共識 EPS 預估:  ${eps_val:,.2f}")
     if con.get("revenue") is not None:
         rev = con["revenue"]
         rev_b = rev / 1e9 if rev > 1e6 else rev
-        lines.append(f"💰 **市場共識營收預估**：`${rev_b:,.2f}B`")
+        card_lines.append(f"市場共識營收預估:  ${rev_b:,.2f}B")
     if con.get("analyst_target_mean") is not None:
         mean_p = con["analyst_target_mean"]
         low_p = con.get("analyst_target_low", 0)
         high_p = con.get("analyst_target_high", 0)
-        lines.append(f"🎯 **分析師平均目標價**：`${mean_p:,.2f}` (區間: `${low_p:,.2f}` ~ `${high_p:,.2f}`)")
-
+        card_lines.append(f"分析師目標價均值:  ${mean_p:,.2f} (${low_p:,.2f} ~ ${high_p:,.2f})")
     if beat_rate is not None:
-        lines.append(f"\n🔥 **過去四季擊敗預期率 (Beat Rate)**：`{beat_rate}%`")
+        card_lines.append(f"近四季擊敗預期率:  {beat_rate}%")
 
     if hist:
-        lines.append("\n📋 **最近季度財報驚喜紀錄**：")
+        card_lines.append("")
+        card_lines.append("[最近季度財報驚喜紀錄]")
         for q in hist:
             d = q.get("date") or "N/A"
             rep_eps = q.get("reported_eps")
             est_eps = q.get("eps_estimate")
             surp = q.get("surprise_percent")
             surp_text = f"{surp:+.1f}%" if surp is not None else "N/A"
-            icon = "🟢" if (surp or 0) > 0 else "🔴"
-            lines.append(f"  • `{d}`: EPS `${rep_eps}` (預估: `${est_eps}`) ➔ {icon} 驚喜度 `{surp_text}`")
+            card_lines.append(f"• {d}: EPS ${rep_eps} (預估 ${est_eps}) | 驚喜度 {surp_text}")
 
-    return "\n".join(lines)
+    footer = "數據來源：分析師共識預測與歷史財報紀錄"
+    return format_card(
+        title=f"{stock_name} 財報預期與盈餘驚喜簡報",
+        pre_content="\n".join(card_lines),
+        emoji="🗓️",
+        footer=footer
+    )
 
 
 def format_corr_card(res: dict) -> str:
+    if not res or not isinstance(res, dict):
+        return format_card("多股相關性分析", "無相關性資料", emoji="🔗")
+
     if "error" in res:
         err = res.get("error", "")
-        return f"❌ **多股相關性分析失敗**\n{err}"
+        return f"❌ <b>多股相關性分析失敗</b>\n{err}"
 
-    tickers = res.get("tickers", [])
-    obs = res.get("observations", 0)
-    matrix = res.get("correlation_matrix", {})
-    betas = res.get("spy_beta", {})
+    tickers = res.get("tickers") or []
+    obs = res.get("observations") or 0
+    matrix = res.get("correlation_matrix") or {}
+    betas = res.get("spy_beta") or {}
 
-    lines = [
-        "🔗 **多股 90 日日報酬相關性與 SPY Beta**",
-        f"📅 **樣本期間**：最近 `{obs}` 個交易日",
-        "━━━━━━━━━━━━━━━━━━━━",
-        "📊 **相關係數矩陣 (Correlation Matrix)**："
+    card_lines = [
+        f"樣本期間: 最近 {obs} 個交易日",
+        "",
+        "[相關係數矩陣 (Correlation Matrix)]"
     ]
-    header = "標的\t" + "\t".join(tickers)
-    lines.append(f"`{header}`")
+    col_width = 8
+    header_str = "標的".ljust(6) + "".join(t.rjust(col_width) for t in tickers)
+    card_lines.append(header_str)
     for t1 in tickers:
-        row_vals = [f"{matrix.get(t1, {}).get(t2, 0):.2f}" for t2 in tickers]
-        lines.append(f"`{t1}\t" + "\t".join(row_vals) + "`")
+        row_str = t1.ljust(6) + "".join(
+            f"{matrix.get(t1, {}).get(t2, 0):.2f}".rjust(col_width) for t2 in tickers
+        )
+        card_lines.append(row_str)
 
-    lines.append("\n📈 **相對於 S&P 500 (SPY) 的市場波動 Beta**：")
-    for t, b in betas.items():
-        desc = "波動大於大盤" if (b or 0) > 1 else "波動小於大盤"
-        lines.append(f"  • **{t}**：`{b}` ({desc})")
+    if betas:
+        card_lines.append("")
+        card_lines.append("[相對於 S&P 500 (SPY) 的市場 Beta]")
+        for t, b in betas.items():
+            desc = "波動大於大盤" if (b or 0) > 1 else "波動小於大盤"
+            card_lines.append(f"• {t}: {b} ({desc})")
 
-    lines.append("\n💡 *解讀*：相關係數 > 0.7 為高度正相關（同向波動），< 0.3 具備良好資產分散效益。")
-    return "\n".join(lines)
+    footer = "係數 > 0.7 為高度正相關（同向波動）；< 0.3 具備良好資產分散效益。"
+    return format_card(
+        title="多股 90 日日報酬相關性與 SPY Beta",
+        pre_content="\n".join(card_lines),
+        emoji="🔗",
+        footer=footer
+    )
 
 
 async def sepa_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in sepa_analysis")
+        return
+
     if not context.args:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/sepa TSLA 或 /sepa 1476")
+        await msg.reply_text("❌ 請提供股票代碼，例如：/sepa TSLA 或 /sepa 1476")
         return
     from tools.stock import resolve_ticker
     ticker = resolve_ticker(context.args[0].strip().split()[0])
-    processing_msg = await update.message.reply_text(f"⏳ 正在分析 {ticker} 之 SEPA 趨勢與 VCP 型態，請稍候...")
+    processing_msg = await msg.reply_text(f"⏳ 正在分析 {ticker} 之 SEPA 趨勢與 VCP 型態，請稍候...")
     from tools.stock_analysis import get_sepa_analysis
     loop = asyncio.get_running_loop()
     try:
@@ -329,23 +418,42 @@ async def sepa_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await processing_msg.delete()
         except Exception:
             pass
-        await safe_reply_analysis(update, format_sepa_card(res))
+        buttons = [
+            [
+                {"text": "🏢 三大法人籌碼", "callback_data": cache_prompt(f"/chip {ticker}")},
+                {"text": "💰 DCF 估值", "callback_data": cache_prompt(f"/val {ticker}")}
+            ],
+            [
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🛡️ 大盤風控", "callback_data": cache_prompt("/macro")}
+            ]
+        ]
+        await safe_reply_formatted(
+            msg,
+            format_sepa_card(res),
+            reply_markup=build_inline_keyboard(buttons)
+        )
     except Exception as exc:
         logger.error("SEPA command error: %s", exc)
         try:
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ SEPA 分析失敗：{exc}")
+        await msg.reply_text(f"❌ SEPA 分析失敗：{exc}")
 
 
 async def valuation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in valuation_analysis")
+        return
+
     if not context.args:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/val AAPL 或 /val 1476")
+        await msg.reply_text("❌ 請提供股票代碼，例如：/val AAPL 或 /val 1476")
         return
     from tools.stock import resolve_ticker
     ticker = resolve_ticker(context.args[0].strip().split()[0])
-    processing_msg = await update.message.reply_text(f"⏳ 正在計算 {ticker} 之 DCF 折現估值模型，請稍候...")
+    processing_msg = await msg.reply_text(f"⏳ 正在計算 {ticker} 之 DCF 折現估值模型，請稍候...")
     from tools.stock_analysis import get_dcf_valuation
     loop = asyncio.get_running_loop()
     try:
@@ -354,23 +462,42 @@ async def valuation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await processing_msg.delete()
         except Exception:
             pass
-        await safe_reply_analysis(update, format_dcf_card(res))
+        buttons = [
+            [
+                {"text": "📊 SEPA 趨勢分析", "callback_data": cache_prompt(f"/sepa {ticker}")},
+                {"text": "🏢 券商主力分點", "callback_data": cache_prompt(f"/broker {ticker}")}
+            ],
+            [
+                {"text": "📅 財報簡報", "callback_data": cache_prompt(f"/earn {ticker}")},
+                {"text": "🛡️ 大盤風控", "callback_data": cache_prompt("/macro")}
+            ]
+        ]
+        await safe_reply_formatted(
+            msg,
+            format_dcf_card(res),
+            reply_markup=build_inline_keyboard(buttons)
+        )
     except Exception as exc:
         logger.error("DCF command error: %s", exc)
         try:
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ DCF 估值失敗：{exc}")
+        await msg.reply_text(f"❌ DCF 估值失敗：{exc}")
 
 
 async def earnings_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in earnings_briefing")
+        return
+
     if not context.args:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/earn NVDA 或 /earn 1476")
+        await msg.reply_text("❌ 請提供股票代碼，例如：/earn NVDA 或 /earn 1476")
         return
     from tools.stock import resolve_ticker
     ticker = resolve_ticker(context.args[0].strip().split()[0])
-    processing_msg = await update.message.reply_text(f"⏳ 正在整理 {ticker} 之財報預期與盈餘簡報，請稍候...")
+    processing_msg = await msg.reply_text(f"⏳ 正在整理 {ticker} 之財報預期與盈餘簡報，請稍候...")
     from tools.stock_analysis import get_earnings_briefing
     loop = asyncio.get_running_loop()
     try:
@@ -379,24 +506,43 @@ async def earnings_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await processing_msg.delete()
         except Exception:
             pass
-        await safe_reply_analysis(update, format_earn_card(res))
+        buttons = [
+            [
+                {"text": "📊 SEPA 趨勢分析", "callback_data": cache_prompt(f"/sepa {ticker}")},
+                {"text": "💰 DCF 估值", "callback_data": cache_prompt(f"/val {ticker}")}
+            ],
+            [
+                {"text": "🏢 三大法人籌碼", "callback_data": cache_prompt(f"/chip {ticker}")},
+                {"text": "🛡️ 大盤風控", "callback_data": cache_prompt("/macro")}
+            ]
+        ]
+        await safe_reply_formatted(
+            msg,
+            format_earn_card(res),
+            reply_markup=build_inline_keyboard(buttons)
+        )
     except Exception as exc:
         logger.error("Earn command error: %s", exc)
         try:
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 財報簡報失敗：{exc}")
+        await msg.reply_text(f"❌ 財報簡報失敗：{exc}")
 
 
 async def correlation_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in correlation_analysis")
+        return
+
     if len(context.args) < 2 and "," not in "".join(context.args):
-        await update.message.reply_text("❌ 請提供 2 至 5 個代碼，例如：/corr TSLA,NVDA,AAPL")
+        await msg.reply_text("❌ 請提供 2 至 5 個代碼，例如：/corr TSLA,NVDA,AAPL")
         return
     from tools.stock import resolve_ticker
     raw_symbols = ",".join(context.args)
     symbols = ",".join(resolve_ticker(s.strip()) for s in raw_symbols.split(",") if s.strip())
-    processing_msg = await update.message.reply_text("⏳ 正在計算多股相關係數與 SPY Beta，請稍候...")
+    processing_msg = await msg.reply_text("⏳ 正在計算多股相關係數與 SPY Beta，請稍候...")
     from tools.stock_analysis import get_correlation_analysis
     loop = asyncio.get_running_loop()
     try:
@@ -405,14 +551,14 @@ async def correlation_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
             await processing_msg.delete()
         except Exception:
             pass
-        await safe_reply_analysis(update, format_corr_card(res))
+        await safe_reply_formatted(msg, format_corr_card(res))
     except Exception as exc:
         logger.error("Corr command error: %s", exc)
         try:
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 相關性分析失敗：{exc}")
+        await msg.reply_text(f"❌ 相關性分析失敗：{exc}")
 
 def is_taiwan_stock(symbol: str, query: str) -> bool:
     s = symbol.upper()
@@ -589,12 +735,10 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Format clean table
             last_5 = forecast.tail(5)
             table_lines = [
-                f"🔮 **【{stock_code}】Facebook Prophet 5 日價格預測**",
-                "━━━━━━━━━━━━━━━━━━━━",
-                f"💵 **基準最新價格**：`${latest_price:,.2f}`",
+                f"基準最新價格: ${latest_price:,.2f}",
                 "",
-                "| 預測日期 | 預測價格 | 樂觀上限 | 保守下限 | 預期幅度 |",
-                "| :--- | :--- | :--- | :--- | :--- |"
+                "預測日期      預測價格    樂觀上限    保守下限   預期幅度",
+                "------------------------------------------------"
             ]
             for _, row in last_5.iterrows():
                 dt_str = row['ds'].strftime('%Y-%m-%d')
@@ -604,11 +748,16 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pct_change = ((yhat - latest_price) / latest_price) * 100
                 sign = "+" if pct_change > 0 else ""
                 table_lines.append(
-                    f"| `{dt_str}` | `${yhat:,.2f}` | `${y_upper:,.2f}` | `${y_lower:,.2f}` | `{sign}{pct_change:.2f}%` |"
+                    f"{dt_str}  ${yhat:>8,.2f}  ${y_upper:>8,.2f}  ${y_lower:>8,.2f}  {sign}{pct_change:>5.2f}%"
                 )
-            
-            table_lines.append("\n💡 *註：Prophet 時序預測基於歷史週期性與趨勢外推，不代表實際交易保證，請結合基本面與籌碼面綜合評估。*")
-            return "\n".join(table_lines), buf.getvalue()
+            footer = "Prophet 時序預測基於歷史週期性與趨勢外推，不代表實際交易保證。"
+            forecast_html = format_card(
+                title=f"{stock_code} Facebook Prophet 5 日價格預測",
+                pre_content="\n".join(table_lines),
+                emoji="🔮",
+                footer=footer
+            )
+            return forecast_html, buf.getvalue()
         except Exception as e:
             logger.error(f"Prophet error: {e}")
             plt.close('all')
@@ -618,11 +767,8 @@ async def prophet_predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
         forecast_text, chart_bytes = await loop.run_in_executor(None, run_prophet)
         
         if chart_bytes and forecast_text:
-            await update.message.reply_photo(photo=chart_bytes, caption=f"📊 **{stock_code} 5 Day Forecast**")
-            try:
-                await update.message.reply_text(forecast_text, parse_mode="Markdown")
-            except Exception:
-                await update.message.reply_text(forecast_text)
+            await update.message.reply_photo(photo=chart_bytes, caption=f"📊 {stock_code} 5 Day Forecast")
+            await safe_reply_formatted(update.message, forecast_text)
         else:
              await update.message.reply_text(f"❌ 無法取得【{stock_code}】足夠的歷史價格數據以進行 Prophet 預測。")
              
@@ -657,10 +803,7 @@ async def chain_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await processing_msg.delete()
         except Exception:
             pass
-        try:
-            await update.message.reply_text(response, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(response)
+        await safe_reply_formatted(update.message, response)
     except Exception as e:
         logger.error(f"Chain analysis error: {e}")
         try:
@@ -721,21 +864,24 @@ async def hot_news_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     reply_text += "💡 *來源切換：`/hot cls`、`/hot wallstreetcn`、`/hot investing_hk` (繁中焦點)、`/hot commodities` (大宗商品)、`/hot bonds` (美債利率)*"
     
-    try:
-        await update.message.reply_text(reply_text, parse_mode="Markdown", disable_web_page_preview=True)
-    except Exception:
-        await update.message.reply_text(reply_text, disable_web_page_preview=True)
+    await safe_reply_formatted(update.message, reply_text, disable_web_page_preview=True)
 
 # Fama-French Multi-Factor Analysis (/ff)
 async def fama_french_analysis(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Run Fama-French multi-factor risk attribution for a ticker."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in fama_french_analysis")
+        return
+
     if len(context.args) == 0:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：/ff NVDA 或 /ff TSLA")
+        await msg.reply_text("❌ 請提供股票代碼，例如：/ff NVDA 或 /ff TSLA")
         return
 
     ticker = context.args[0].upper().strip()
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    processing_msg = await update.message.reply_text(f"📐 正在計算【{ticker}】的 Fama-French 多因子模型與超額報酬 Alpha 歸因，請稍候...")
+    if hasattr(update, "effective_chat") and update.effective_chat:
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    processing_msg = await msg.reply_text(f"📐 正在計算【{ticker}】的 Fama-French 多因子模型與超額報酬 Alpha 歸因，請稍候...")
 
     loop = asyncio.get_running_loop()
     from tools.us_fddk import compute_fama_french_factors
@@ -751,31 +897,37 @@ async def fama_french_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
 
         if "error" in res:
-            await update.message.reply_text(f"❌ {res['error']}")
+            await msg.reply_text(f"❌ {res['error']}")
             return
 
-        alpha_sign = "+" if res["annualized_alpha_pct"] > 0 else ""
-        alpha_emoji = "🟢" if res["annualized_alpha_pct"] > 0 else "🔴"
-
-        reply_text = (
-            f"📊 **【{ticker}】Fama-French 多因子風險歸因模型**\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"{alpha_emoji} **年化超額報酬 (Annualized Alpha)**：`{alpha_sign}{res['annualized_alpha_pct']}%`\n"
-            f"📈 **市場因子曝險 (Market Beta β_mkt)**：`{res['beta_market']}`\n"
-            f"🏢 **市值因子曝險 (Size SMB β_smb)**：`{res['beta_size_smb']}` ({res['style_profile']['size']})\n"
-            f"💎 **估值因子曝險 (Value HML β_hml)**：`{res['beta_value_hml']}` ({res['style_profile']['value_growth']})\n"
-            f"🚀 **動能因子曝險 (Momentum UMD β_umd)**：`{res['beta_momentum_umd']}` ({res['style_profile']['momentum']})\n\n"
-            f"🎯 **模型解釋力 (Adj. R²)**：`{res['adj_r_squared'] * 100:.1f}%` (樣本數：{res['sample_days']} 個交易日)\n\n"
-            f"💡 *因子解讀*：\n"
-            f"• **Alpha > 0**：代表扣除大盤、市值、價值與動能因子後，個股具備實質超額選股能力。\n"
-            f"• **HML < 0**：偏向高估值/高成長科技股；**HML > 0** 偏向低估值/傳統價值股。\n"
-            f"• **SMB < 0**：偏向巨型權值股；**SMB > 0** 偏向中小型股。"
+        alpha_sign = "+" if res.get("annualized_alpha_pct", 0) > 0 else ""
+        card_lines = [
+            f"年化超額 (Alpha): {alpha_sign}{res.get('annualized_alpha_pct', 0)}%",
+            f"市場因子曝險 (Beta):  {res.get('beta_market', 0)}",
+            f"市值因子曝險 (SMB):   {res.get('beta_size_smb', 0)} ({res.get('style_profile', {}).get('size', 'N/A')})",
+            f"估值因子曝險 (HML):   {res.get('beta_value_hml', 0)} ({res.get('style_profile', {}).get('value_growth', 'N/A')})",
+            f"動能因子曝險 (UMD):   {res.get('beta_momentum_umd', 0)} ({res.get('style_profile', {}).get('momentum', 'N/A')})",
+            f"模型解釋力 (Adj R²):  {(res.get('adj_r_squared') or 0) * 100:.1f}% (樣本: {res.get('sample_days', 0)}日)",
+        ]
+        footer = "Alpha > 0 具超額選股能力；HML < 0 偏成長股；SMB < 0 偏權值股"
+        reply_text = format_card(
+            title=f"{ticker} Fama-French 多因子風險歸因模型",
+            pre_content="\n".join(card_lines),
+            emoji="📊",
+            footer=footer
         )
-
-        try:
-            await update.message.reply_text(reply_text, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(reply_text)
+        buttons = [
+            [
+                {"text": f"🏢 {ticker} 三大法人籌碼", "callback_data": cache_prompt(f"/chip {ticker}")},
+                {"text": f"📊 {ticker} 即時行情", "callback_data": cache_prompt(f"/s {ticker}")}
+            ],
+            [
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🛡️ 大盤風控", "callback_data": cache_prompt("/macro")}
+            ]
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
 
     except Exception as e:
         logger.error(f"Fama-French handler error: {e}")
@@ -783,7 +935,7 @@ async def fama_french_analysis(update: Update, context: ContextTypes.DEFAULT_TYP
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 計算因子模型時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 計算因子模型時發生錯誤：{str(e)}")
 
 
 from tools.tw_institutional import get_tw_institutional_analysis
@@ -794,12 +946,17 @@ async def institutional_chip_analysis(update: Update, context: ContextTypes.DEFA
     Fetches TWSE/TPEX institutional investor breakdown (Foreign, Trust, Dealer),
     streaks (連買/連賣天數), and 5d accumulation.
     """
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in institutional_chip_analysis")
+        return
+
     if not context.args:
-        await update.message.reply_text("💡 請提供台股代碼，例如：`/chip 2330.TW` 或 `/chip 3293.TWO` 或 `/chip 2603`", parse_mode="Markdown")
+        await msg.reply_text("💡 請提供台股代碼，例如：`/chip 2330.TW` 或 `/chip 3293.TWO` 或 `/chip 2603`", parse_mode="Markdown")
         return
 
     raw_ticker = context.args[0].strip().upper()
-    processing_msg = await update.message.reply_text(f"⏳ 正在向證交所/櫃買中心取得 {raw_ticker} 三大法人籌碼資料，請稍候...")
+    processing_msg = await msg.reply_text(f"⏳ 正在向證交所/櫃買中心取得 {raw_ticker} 三大法人籌碼資料，請稍候...")
 
     loop = asyncio.get_running_loop()
 
@@ -814,7 +971,7 @@ async def institutional_chip_analysis(update: Update, context: ContextTypes.DEFA
             pass
 
         if "error" in res:
-            await update.message.reply_text(f"❌ {res['error']}")
+            await msg.reply_text(f"❌ {res['error']}")
             return
 
         ld = res.get("latest_day", {})
@@ -831,68 +988,65 @@ async def institutional_chip_analysis(update: Update, context: ContextTypes.DEFA
 
         def fmt_lot(val):
             if val is None:
-                return "0 張"
+                return "0.0 張"
             sign = "+" if val > 0 else ""
             return f"{sign}{val:,.1f} 張"
 
-        reply_text = (
-            f"📊 **【{res['stock']}】三大法人籌碼日報**\n"
-            f"📅 **最新交易日**：`{res['latest_date']}` ({res['market']})\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🏢 **外資法人**：`{fmt_lot(f_lots)}` ({streaks.get('foreign', '持平')})\n"
-            f"🏛️ **投信基金**：`{fmt_lot(t_lots)}` ({streaks.get('trust', '持平')})\n"
-            f"🏦 **自營商總計**：`{fmt_lot(d_lots)}` (自行: `{fmt_lot(d_self)}` | 避險: `{fmt_lot(d_hedge)}`)\n"
-            f"🎯 **三大法人合計**：`{fmt_lot(total_lots)}`\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
-        )
+        card_lines = [
+            f"交易日期: {res['latest_date']} ({res['market']})",
+            f"外資法人: {fmt_lot(f_lots)} ({streaks.get('foreign', '持平')})",
+            f"投信基金: {fmt_lot(t_lots)} ({streaks.get('trust', '持平')})",
+            f"自營總計: {fmt_lot(d_lots)} (自行: {fmt_lot(d_self)} | 避險: {fmt_lot(d_hedge)})",
+            f"三大合計: {fmt_lot(total_lots)}",
+        ]
         if f_ratio is not None:
-            reply_text += f"📈 **外資總持股比例**：`{f_ratio:.2f}%`\n"
+            card_lines.append(f"外資持股: {f_ratio:.2f}%")
 
-        reply_text += (
-            f"🗓️ **近 5 日累計買賣超**：\n"
-            f"  • 外資：`{fmt_lot(acc5.get('foreign_lots', 0))}`\n"
-            f"  • 投信：`{fmt_lot(acc5.get('trust_lots', 0))}`\n"
-            f"  • 合計：`{fmt_lot(acc5.get('total_lots', 0))}`\n\n"
-            f"💡 **籌碼評估**：{res.get('sentiment_evaluation', '中性觀望')}"
-        )
+        card_lines.append("")
+        card_lines.append("[近 5 日累計買賣超]")
+        card_lines.append(f"• 外資: {fmt_lot(acc5.get('foreign_lots', 0))}")
+        card_lines.append(f"• 投信: {fmt_lot(acc5.get('trust_lots', 0))}")
+        card_lines.append(f"• 合計: {fmt_lot(acc5.get('total_lots', 0))}")
 
-        # Enrich with top broker branches from stockdata.david888.com
+        card_lines.append("")
+        card_lines.append(f"籌碼評估: {res.get('sentiment_evaluation', '中性觀望')}")
+
         try:
             from tools.stockdata_quant import fetch_broker_summary
             brk = await loop.run_in_executor(None, fetch_broker_summary, res['stock'], 20)
             if brk and (brk.get("top_buyers") or brk.get("top_sellers")):
-                reply_text += "\n\n━━━━━━━━━━━━━━━━━━━━\n"
+                card_lines.append("")
+                card_lines.append("[近 20 日主力分點 Top 3]")
             if brk and brk.get("top_buyers"):
-                reply_text += "🟢 **近 20 日主力買超券商分點 Top 3**：\n"
-                for b in brk["top_buyers"][:3]:
-                    net = int(round(b.get("total_net", 0)))
-                    reply_text += f"  • {b.get('broker_name')}: `+{net:,} 張`\n"
+                b_strs = [f"{b.get('broker_name')} (+{int(round(b.get('total_net') or 0)):,}張)" for b in brk["top_buyers"][:3]]
+                card_lines.append(f"買超: {' | '.join(b_strs)}")
             if brk and brk.get("top_sellers"):
-                reply_text += "🔴 **近 20 日主力賣超券商分點 Top 3**：\n"
-                for s in brk["top_sellers"][:3]:
-                    net = int(round(s.get("total_net", 0)))
-                    reply_text += f"  • {s.get('broker_name')}: `{net:,} 張`\n"
+                s_strs = [f"{s.get('broker_name')} ({int(round(s.get('total_net') or 0)):,}張)" for s in brk["top_sellers"][:3]]
+                card_lines.append(f"賣超: {' | '.join(s_strs)}")
         except Exception:
             pass
 
-        try:
-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-            from handlers.general import cache_prompt
-            sym = res['stock']
-            buttons = [
-                [
-                    InlineKeyboardButton(f"🏢 {sym} 券商主力分點排行", callback_data=cache_prompt(f"/broker {sym}")),
-                    InlineKeyboardButton(f"📊 {sym} 多因子風險歸因", callback_data=cache_prompt(f"/ff {sym}"))
-                ],
-                [
-                    InlineKeyboardButton("👑 多模型共振選股推薦", callback_data=cache_prompt("/pick")),
-                    InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro"))
-                ]
+        sym = res['stock']
+        footer = "資料來源：TWSE/TPEX 每日三大法人買賣超統計"
+        card_text = format_card(
+            title=f"{sym} 三大法人籌碼日報",
+            pre_content="\n".join(card_lines),
+            emoji="🏢",
+            footer=footer
+        )
+
+        buttons = [
+            [
+                {"text": f"🏢 {sym} 券商主力分點", "callback_data": cache_prompt(f"/broker {sym}")},
+                {"text": f"📊 {sym} 即時行情", "callback_data": cache_prompt(f"/s {sym}")}
+            ],
+            [
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🛡️ 大盤風控", "callback_data": cache_prompt("/macro")}
             ]
-            reply_markup = InlineKeyboardMarkup(buttons)
-            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
-        except Exception:
-            await update.message.reply_text(reply_text)
+        ]
+        reply_markup = build_inline_keyboard(buttons)
+        await safe_reply_formatted(msg, card_text, reply_markup=reply_markup)
 
     except Exception as e:
         logger.error(f"Institutional chip handler error: {e}")
@@ -900,22 +1054,25 @@ async def institutional_chip_analysis(update: Update, context: ContextTypes.DEFA
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 查詢籌碼資料時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢籌碼資料時發生錯誤：{str(e)}")
 
 
 async def polymarket_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /pm [keyword] command: Polymarket prediction market odds."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in polymarket_query")
+        return
+
     keyword = " ".join(context.args).strip() if context.args else ""
     target_desc = f"（搜尋：`{keyword}`）" if keyword else "（熱門總經合約）"
-    processing_msg = await update.message.reply_text(
+    processing_msg = await msg.reply_text(
         f"🔮 正在透過 2MD 專屬代理連接 Polymarket 預測市場{target_desc}..."
     )
 
     try:
         loop = asyncio.get_running_loop()
         from tools.polymarket import fetch_polymarket_markets, format_polymarket_markdown
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.general import cache_prompt
 
         markets = await loop.run_in_executor(None, fetch_polymarket_markets, keyword, 5)
         title = f"🔮 **Polymarket 預測市場：{keyword if keyword else '全球總經與利率前瞻'}**"
@@ -923,34 +1080,27 @@ async def polymarket_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         buttons = [
             [
-                InlineKeyboardButton("🔮 聯準會利率路徑", callback_data=cache_prompt("/pm fed")),
-                InlineKeyboardButton("🔮 2026 經濟衰退", callback_data=cache_prompt("/pm recession"))
+                {"text": "🔮 聯準會利率路徑", "callback_data": cache_prompt("/pm fed")},
+                {"text": "🔮 2026 經濟衰退", "callback_data": cache_prompt("/pm recession")}
             ],
             [
-                InlineKeyboardButton("🔮 AI 與科技催化劑", callback_data=cache_prompt("/pm ai")),
-                InlineKeyboardButton("⛓️ 利率傳導鏈分析", callback_data=cache_prompt("/chain 聯準會降息"))
+                {"text": "🔮 AI 與科技催化劑", "callback_data": cache_prompt("/pm ai")},
+                {"text": "⛓️ 利率傳導鏈分析", "callback_data": cache_prompt("/chain 聯準會降息")}
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(buttons)
+        reply_markup = build_inline_keyboard(buttons)
 
         try:
             await processing_msg.delete()
         except Exception:
             pass
 
-        try:
-            await update.message.reply_text(
-                reply_text,
-                parse_mode="Markdown",
-                reply_markup=reply_markup,
-                disable_web_page_preview=True
-            )
-        except Exception:
-            await update.message.reply_text(
-                reply_text,
-                reply_markup=reply_markup,
-                disable_web_page_preview=True
-            )
+        await safe_reply_formatted(
+            msg,
+            reply_text,
+            reply_markup=reply_markup,
+            disable_web_page_preview=True
+        )
 
     except Exception as e:
         logger.error(f"Polymarket handler error: {e}")
@@ -958,45 +1108,45 @@ async def polymarket_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 查詢 Polymarket 預測市場時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢 Polymarket 預測市場時發生錯誤：{str(e)}")
 
 
 async def macro_regime_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /macro or /regime: Market risk regime and portfolio exposure recommendations."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in macro_regime_query")
+        return
+
     market_arg = context.args[0].lower() if context.args else "tw"
     m_display = "台股" if "tw" in market_arg else "美股"
-    processing_msg = await update.message.reply_text(f"🛡️ 正在運算 {m_display} 宏觀風控制度、均線連動與建議部位曝險...")
+    processing_msg = await msg.reply_text(f"🛡️ 正在運算 {m_display} 宏觀風控制度、均線連動與建議部位曝險...")
 
     try:
         loop = asyncio.get_running_loop()
         from tools.stockdata_quant import fetch_macro_regime, format_macro_regime_markdown
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.general import cache_prompt
 
         data = await loop.run_in_executor(None, fetch_macro_regime, market_arg)
         reply_text = format_macro_regime_markdown(data)
 
         buttons = [
             [
-                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick")),
-                InlineKeyboardButton("🧠 TimesFM 5日看漲榜", callback_data=cache_prompt("/tfm top"))
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🧠 TimesFM 5日看漲榜", "callback_data": cache_prompt("/tfm top")}
             ],
             [
-                InlineKeyboardButton("🗡️ 玄鐵重劍拉回買點", callback_data=cache_prompt("/xt")),
-                InlineKeyboardButton("📅 全球總經與財報日曆", callback_data=cache_prompt("/cal"))
+                {"text": "🗡️ 玄鐵重劍拉回買點", "callback_data": cache_prompt("/xt")},
+                {"text": "📅 全球總經與財報日曆", "callback_data": cache_prompt("/cal")}
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(buttons)
+        reply_markup = build_inline_keyboard(buttons)
 
         try:
             await processing_msg.delete()
         except Exception:
             pass
 
-        try:
-            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
-        except Exception:
-            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
 
     except Exception as e:
         logger.error(f"Macro regime handler error: {e}")
@@ -1004,44 +1154,44 @@ async def macro_regime_query(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 查詢大盤風控資料時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢大盤風控資料時發生錯誤：{str(e)}")
 
 
 async def resonance_picks_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /pick or /resonance: Multi-model resonance stock screening."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in resonance_picks_query")
+        return
+
     idx = context.args[0] if context.args else "台灣50"
-    processing_msg = await update.message.reply_text(f"👑 正在掃描【{idx}】多模型共振焦點（玄鐵 ∩ 籌碼 ∩ LSTM ∩ TimesFM）...")
+    processing_msg = await msg.reply_text(f"👑 正在掃描【{idx}】多模型共振焦點（玄鐵 ∩ 籌碼 ∩ LSTM ∩ TimesFM）...")
 
     try:
         loop = asyncio.get_running_loop()
         from tools.stockdata_quant import fetch_resonance_picks, format_resonance_markdown
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.general import cache_prompt
 
         picks = await loop.run_in_executor(None, fetch_resonance_picks, idx, 12)
         reply_text = format_resonance_markdown(picks, title=f"👑 **【{idx} 多模型交集共振選股推薦】**")
 
         buttons = [
             [
-                InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro")),
-                InlineKeyboardButton("🧠 TimesFM 5日看漲榜", callback_data=cache_prompt("/tfm top"))
+                {"text": "🛡️ 大盤風控與部位曝險", "callback_data": cache_prompt("/macro")},
+                {"text": "🧠 TimesFM 5日看漲榜", "callback_data": cache_prompt("/tfm top")}
             ],
             [
-                InlineKeyboardButton("🗡️ 玄鐵重劍拉回買點", callback_data=cache_prompt("/xt")),
-                InlineKeyboardButton("🔮 Polymarket 全球總經", callback_data=cache_prompt("/pm top"))
+                {"text": "🗡️ 玄鐵重劍拉回買點", "callback_data": cache_prompt("/xt")},
+                {"text": "🔮 Polymarket 全球總經", "callback_data": cache_prompt("/pm top")}
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(buttons)
+        reply_markup = build_inline_keyboard(buttons)
 
         try:
             await processing_msg.delete()
         except Exception:
             pass
 
-        try:
-            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
-        except Exception:
-            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
 
     except Exception as e:
         logger.error(f"Resonance picks handler error: {e}")
@@ -1049,11 +1199,16 @@ async def resonance_picks_query(update: Update, context: ContextTypes.DEFAULT_TY
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 查詢共振選股時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢共振選股時發生錯誤：{str(e)}")
 
 
 async def timesfm_predictions_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /tfm or /timesfm: Google TimesFM 2.5 500M forecasts & Risk/Reward Ratios."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in timesfm_predictions_query")
+        return
+
     raw_action = context.args[0].strip() if context.args else "bullish"
     action = raw_action.lower()
     is_bear = "bear" in action or "跌" in action
@@ -1061,41 +1216,40 @@ async def timesfm_predictions_query(update: Update, context: ContextTypes.DEFAUL
     from tools.stock import resolve_ticker
     ticker = None if is_mode or is_bear else resolve_ticker(raw_action)
     title_act = "看跌避險榜" if is_bear else "5日看漲榜"
-    processing_msg = await update.message.reply_text(f"🧠 正在載入 Google TimesFM 2.5 500M 時序大模型【{title_act}】...")
+    processing_msg = await msg.reply_text(f"🧠 正在載入 Google TimesFM 2.5 500M 時序大模型【{title_act}】...")
 
     try:
         loop = asyncio.get_running_loop()
         from tools.stockdata_quant import fetch_timesfm_predictions, format_timesfm_markdown
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.general import cache_prompt
 
         items = await loop.run_in_executor(
             None, fetch_timesfm_predictions, "bearish" if is_bear else "bullish", 10, ticker
         )
         reply_text = format_timesfm_markdown(items, is_bearish=is_bear)
 
-        toggle_btn = InlineKeyboardButton("🧠 切換看跌避險榜", callback_data=cache_prompt("/tfm bear")) if not is_bear else InlineKeyboardButton("🧠 切換看漲潛力榜", callback_data=cache_prompt("/tfm top"))
+        toggle_btn = (
+            {"text": "🧠 切換看跌避險榜", "callback_data": cache_prompt("/tfm bear")}
+            if not is_bear
+            else {"text": "🧠 切換看漲潛力榜", "callback_data": cache_prompt("/tfm top")}
+        )
         buttons = [
             [
                 toggle_btn,
-                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick"))
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")}
             ],
             [
-                InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro")),
-                InlineKeyboardButton("🗡️ 玄鐵重劍波段買點", callback_data=cache_prompt("/xt"))
+                {"text": "🛡️ 大盤風控與部位曝險", "callback_data": cache_prompt("/macro")},
+                {"text": "🗡️ 玄鐵重劍波段買點", "callback_data": cache_prompt("/xt")}
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(buttons)
+        reply_markup = build_inline_keyboard(buttons)
 
         try:
             await processing_msg.delete()
         except Exception:
             pass
 
-        try:
-            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
-        except Exception:
-            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
 
     except Exception as e:
         logger.error(f"TimesFM handler error: {e}")
@@ -1103,44 +1257,44 @@ async def timesfm_predictions_query(update: Update, context: ContextTypes.DEFAUL
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 查詢 TimesFM 預測時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢 TimesFM 預測時發生錯誤：{str(e)}")
 
 
 async def xuantie_pullback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /xt or /xuantie: Xuantie Heavy Sword MA60/120 pullback swing signals."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in xuantie_pullback_query")
+        return
+
     idx = context.args[0] if context.args else "台灣50"
-    processing_msg = await update.message.reply_text(f"🗡️ 正在掃描【{idx}】玄鐵重劍 MA60/120 均線波段回踩買點...")
+    processing_msg = await msg.reply_text(f"🗡️ 正在掃描【{idx}】玄鐵重劍 MA60/120 均線波段回踩買點...")
 
     try:
         loop = asyncio.get_running_loop()
         from tools.stockdata_quant import fetch_xuantie_pullbacks, format_xuantie_markdown
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.general import cache_prompt
 
         items = await loop.run_in_executor(None, fetch_xuantie_pullbacks, idx, 10)
         reply_text = format_xuantie_markdown(items)
 
         buttons = [
             [
-                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick")),
-                InlineKeyboardButton("🧠 TimesFM 5日看漲榜", callback_data=cache_prompt("/tfm top"))
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🧠 TimesFM 5日看漲榜", "callback_data": cache_prompt("/tfm top")}
             ],
             [
-                InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro")),
-                InlineKeyboardButton("📐 SEPA 突破分析 (TSLA)", callback_data=cache_prompt("/sepa TSLA"))
+                {"text": "🛡️ 大盤風控與部位曝險", "callback_data": cache_prompt("/macro")},
+                {"text": "📐 SEPA 突破分析 (TSLA)", "callback_data": cache_prompt("/sepa TSLA")}
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(buttons)
+        reply_markup = build_inline_keyboard(buttons)
 
         try:
             await processing_msg.delete()
         except Exception:
             pass
 
-        try:
-            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
-        except Exception:
-            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
 
     except Exception as e:
         logger.error(f"Xuantie handler error: {e}")
@@ -1148,49 +1302,49 @@ async def xuantie_pullback_query(update: Update, context: ContextTypes.DEFAULT_T
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 查詢玄鐵重劍買點時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢玄鐵重劍買點時發生錯誤：{str(e)}")
 
 
 async def broker_trades_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /broker <ticker>: Top 10 buyer and seller broker branches."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in broker_trades_query")
+        return
+
     if not context.args:
-        await update.message.reply_text("❌ 請提供股票代碼，例如：`/broker 2330.TW` 或 `/broker 2454`", parse_mode="Markdown")
+        await msg.reply_text("❌ 請提供股票代碼，例如：`/broker 2330.TW` 或 `/broker 2454`", parse_mode="Markdown")
         return
 
     from tools.stock import resolve_ticker
     ticker = resolve_ticker(context.args[0].strip())
-    processing_msg = await update.message.reply_text(f"🏢 正在查詢【{ticker}】近 20 日券商主力關鍵分點進出明細...")
+    processing_msg = await msg.reply_text(f"🏢 正在查詢【{ticker}】近 20 日券商主力關鍵分點進出明細...")
 
     try:
         loop = asyncio.get_running_loop()
         from tools.stockdata_quant import fetch_broker_summary, format_broker_summary_markdown
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.general import cache_prompt
 
         data = await loop.run_in_executor(None, fetch_broker_summary, ticker, 20)
         reply_text = format_broker_summary_markdown(data)
 
         buttons = [
             [
-                InlineKeyboardButton(f"🏢 {ticker} 三大法人籌碼", callback_data=cache_prompt(f"/chip {ticker}")),
-                InlineKeyboardButton(f"📊 {ticker} 多因子歸因", callback_data=cache_prompt(f"/ff {ticker}"))
+                {"text": f"🏢 {ticker} 三大法人籌碼", "callback_data": cache_prompt(f"/chip {ticker}")},
+                {"text": f"📊 {ticker} 即時行情", "callback_data": cache_prompt(f"/s {ticker}")}
             ],
             [
-                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick")),
-                InlineKeyboardButton(f"📈 {ticker} 即時 K 線", callback_data=cache_prompt(f"/s {ticker}"))
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")},
+                {"text": "🛡️ 大盤風控", "callback_data": cache_prompt("/macro")}
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(buttons)
+        reply_markup = build_inline_keyboard(buttons)
 
         try:
             await processing_msg.delete()
         except Exception:
             pass
 
-        try:
-            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
-        except Exception:
-            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
 
     except Exception as e:
         logger.error(f"Broker trades handler error: {e}")
@@ -1198,48 +1352,48 @@ async def broker_trades_query(update: Update, context: ContextTypes.DEFAULT_TYPE
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 查詢券商分點時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢券商分點時發生錯誤：{str(e)}")
 
 
 async def calendar_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /cal [all|earn|econ|fed|comm]: Investing structural calendars."""
+    msg = _get_target_message(update)
+    if not msg:
+        logger.warning("No message target in calendar_query")
+        return
+
     cat = context.args[0].lower() if context.args else "all"
-    processing_msg = await update.message.reply_text(f"📅 正在同步全球總經指標、美股重磅財報與 CME 利率日曆...")
+    processing_msg = await msg.reply_text(f"📅 正在同步全球總經指標、美股重磅財報與 CME 利率日曆...")
 
     try:
         loop = asyncio.get_running_loop()
         from tools.stockdata_quant import fetch_calendar_data, format_calendar_markdown
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.general import cache_prompt
 
         data = await loop.run_in_executor(None, fetch_calendar_data, cat)
         reply_text = format_calendar_markdown(data, cat=cat)
 
         buttons = [
             [
-                InlineKeyboardButton("💼 美股財報行事曆", callback_data=cache_prompt("/cal earn")),
-                InlineKeyboardButton("🌐 全球總經行事曆", callback_data=cache_prompt("/cal econ"))
+                {"text": "💼 美股財報行事曆", "callback_data": cache_prompt("/cal earn")},
+                {"text": "🌐 全球總經行事曆", "callback_data": cache_prompt("/cal econ")}
             ],
             [
-                InlineKeyboardButton("🏦 CME 官方利率期貨", callback_data=cache_prompt("/cal fed")),
-                InlineKeyboardButton("🪙 大宗商品週期行情", callback_data=cache_prompt("/cal comm"))
+                {"text": "🏦 CME 官方利率期貨", "callback_data": cache_prompt("/cal fed")},
+                {"text": "🪙 大宗商品週期行情", "callback_data": cache_prompt("/cal comm")}
             ],
             [
-                InlineKeyboardButton("🛡️ 大盤風控與部位曝險", callback_data=cache_prompt("/macro")),
-                InlineKeyboardButton("👑 多模型共振選股", callback_data=cache_prompt("/pick"))
+                {"text": "🛡️ 大盤風控與部位曝險", "callback_data": cache_prompt("/macro")},
+                {"text": "👑 多模型共振選股", "callback_data": cache_prompt("/pick")}
             ]
         ]
-        reply_markup = InlineKeyboardMarkup(buttons)
+        reply_markup = build_inline_keyboard(buttons)
 
         try:
             await processing_msg.delete()
         except Exception:
             pass
 
-        try:
-            await update.message.reply_text(reply_text, parse_mode="Markdown", reply_markup=reply_markup)
-        except Exception:
-            await update.message.reply_text(reply_text, reply_markup=reply_markup)
+        await safe_reply_formatted(msg, reply_text, reply_markup=reply_markup)
 
     except Exception as e:
         logger.error(f"Calendar handler error: {e}")
@@ -1247,5 +1401,5 @@ async def calendar_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await processing_msg.delete()
         except Exception:
             pass
-        await update.message.reply_text(f"❌ 查詢行事曆資料時發生錯誤：{str(e)}")
+        await msg.reply_text(f"❌ 查詢行事曆資料時發生錯誤：{str(e)}")
 
