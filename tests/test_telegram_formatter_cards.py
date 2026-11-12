@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 # Ensure optional external dependencies don't block formatter card unit tests
 for mod_name in [
     "telegram", "telegram.ext", "yfinance", "matplotlib", "matplotlib.pyplot", "matplotlib.font_manager", "bs4",
-    "pandas", "ai_core", "tools.document_processor", "tools.file_intel", "langgraph", "langgraph.graph", "langchain_core", "langchain_openai"
+    "pandas", "ai_core", "langgraph", "langgraph.graph", "langchain_core", "langchain_openai", "pypdf", "xlrd", "magika"
 ]:
     if mod_name not in sys.modules:
         try:

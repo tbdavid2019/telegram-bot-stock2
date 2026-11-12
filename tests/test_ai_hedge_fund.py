@@ -15,11 +15,11 @@ from tools.ai_hedge_fund import (
 
 class AIHedgeFundPayloadTests(unittest.TestCase):
     def test_help_update_stamp_contains_version_and_taipei_date(self):
+        from handlers.general import BOT_VERSION, BOT_RELEASE_DATE
         stamp = build_help_update_stamp()
 
-        self.assertIn("v2.17.2", stamp)
-        self.assertIn("2026-10-15", stamp)
-        self.assertNotIn("2026-10-20", stamp)
+        self.assertIn(f"v{BOT_VERSION}", stamp)
+        self.assertIn(BOT_RELEASE_DATE, stamp)
 
     def test_analysis_payload_uses_v2_defaults_and_all_sixteen_analysts(self):
         payload = build_analysis_payload("TSLA,NVDA")

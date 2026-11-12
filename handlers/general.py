@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 # Prompt cache to keep Telegram callback_data strictly <= 64 bytes
 PROMPT_CACHE: dict[str, str] = {}
-BOT_VERSION = "2.20.1"
-BOT_RELEASE_DATE = "2026-11-09"
+BOT_VERSION = "2.21.0"
+BOT_RELEASE_DATE = "2026-11-12"
 
 
 def build_help_update_stamp() -> str:
