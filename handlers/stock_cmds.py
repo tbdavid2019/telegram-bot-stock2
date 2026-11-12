@@ -1377,7 +1377,7 @@ async def calendar_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         buttons = [
             [
-                {"text": "💼 美股財報行事曆", "callback_data": cache_prompt("/cal earn")},
+                {"text": "💼 法說會暨財報行事曆", "callback_data": cache_prompt("/cal earn")},
                 {"text": "🌐 全球總經行事曆", "callback_data": cache_prompt("/cal econ")}
             ],
             [

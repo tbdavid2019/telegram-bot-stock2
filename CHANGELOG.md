@@ -29,8 +29,11 @@ All notable changes to the `telegram-bot-stock2` project are documented in this 
   - **跨市場財經行事曆 (`/cal`, `/calendar`)**：重量級除權息、法說會與重要經濟數據時程卡片。
   - **Polymarket 預測市場 (`/pm`, `/polymarket`)**：即時大選與總經預測事件機率走勢卡片。
   - **全面強化防禦性程式碼**：加入 `_get_target_message` 與對 `update.message` / `update.callback_query` 的全域 NoneType 檢查，徹底消除在 Callback Context 下調用 `update.message.reply_text` 產生的 `AttributeError`。
-- **量化工具端卡片化輸出 (`tools/stockdata_quant.py`)**：
+- **量化工具端卡片化輸出與行事曆升級 (`tools/stockdata_quant.py`)**：
   - 將宏觀風控、多模型共振選股、TimesFM 預測、玄鐵均線、券商分點與行事曆的文字輸出全面改寫為無贅詞 `<pre><code>` 卡片格式，並加入嚴密的空值安全防護（Null-safe guards）。
+  - **行事曆升級跨市場法說會暨財報行事曆 (`/api/v1/earnings-call/upcoming`)**：對齊 `stockdata.david888.com` 最新法人說明會與官方 IR 行事曆，優先整合今日進行中與未來 14 天重磅權值股法說日程（如鴻海 2317、廣達 2382、輝達 NVDA 等）。
+  - **總經摘要快速聚合 (`/api/v1/macro/investing/summary`)**：以單次快速快取取得 CME 聯準會利率期貨與大宗商品行情，避免直連爬蟲端逾時。
+  - **大宗商品漲跌幅格式修復**：防禦清除重複之 `+`、`-` 與 `%` 符號，徹底解決 `++0.11%%` 排版問題，並移除空資料區塊之殘留標題。
 - **按鈕點擊高速直連路由 (`handlers/general.py`)**：
   - 在 `callback_prompt_handler` 中擴充完整快取路由，點擊按鈕可直接跳轉執行 `/s`, `/val`, `/dcf`, `/macro`, `/regime`, `/pick`, `/resonance`, `/tfm`, `/timesfm`, `/xt`, `/xuantie`, `/broker`, `/cal`, `/calendar`, `/pm`, `/polymarket` 等指令。
 - **單元測試全覆蓋 (`tests/test_telegram_formatter_cards.py`)**：

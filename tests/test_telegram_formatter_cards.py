@@ -368,16 +368,56 @@ class TestTelegramFormatterCards(unittest.TestCase):
 
     def test_format_calendar_markdown(self):
         data = {
+            "earnings_calls": [
+                {
+                    "market": "TW",
+                    "ticker": "2317",
+                    "name": "鴻海 (Foxconn)",
+                    "call_date": "2026-11-12",
+                    "call_time": "15:00",
+                    "countdown_days": 0,
+                    "status": "today",
+                },
+                {
+                    "market": "US",
+                    "ticker": "NVDA",
+                    "name": "輝達 (NVIDIA)",
+                    "call_date": "2026-11-18",
+                    "call_time": "06:00",
+                    "countdown_days": 6,
+                },
+            ],
             "fed": {"meeting_date": "2026-12-18", "updated_at": "2026-11-10", "probabilities": [{"rate_range": "4.25%-4.50%", "probability": "78.5%"}]},
             "earnings": [{"ticker": "NVDA", "name": "輝達", "date": "2026-11-20", "eps_forecast": "0.75"}],
             "economic": [{"country": "US", "time": "20:30", "event": "CPI 年增率"}],
-            "commodities": {"wti": {"name": "WTI原油", "daily_change": "1.8", "indicator": "反彈"}},
+            "commodities": {
+                "copper": {"name": "銅 (Copper)", "daily_change": "+0.11%", "indicator": "AI硬體景氣"},
+                "gold": {"name": "黃金 (Gold)", "daily_change": "11.8335", "indicator": "避險"},
+            },
         }
         card = format_calendar_markdown(data)
         self.assertIn("<b>📅 全球總經與美股重磅行事曆</b>", card)
         self.assertIn("<pre><code>", card)
+        self.assertIn("[全球跨市場法說會暨財報日程]", card)
+        self.assertIn("• [TW] 2317 鴻海 (Foxconn): 11/12 15:00 (今日)", card)
+        self.assertIn("• [US] NVDA 輝達 (NVIDIA): 11/18 06:00 (倒數6天)", card)
         self.assertIn("CME 聯準會利率路徑", card)
-        self.assertIn("NVDA 輝達", card)
+        self.assertIn("• 銅 (Copper): 日漲跌 +0.11% (AI硬體景氣)", card)
+        self.assertNotIn("++0.11%%", card)
+        self.assertIn("• 黃金 (Gold): 日漲跌 +11.8335% (避險)", card)
+
+    def test_format_calendar_markdown_empty_sections_suppressed(self):
+        data = {
+            "commodities": {
+                "wti": {"name": "WTI 原油", "daily_change": "-2.5", "indicator": "能源"}
+            }
+        }
+        card = format_calendar_markdown(data)
+        self.assertNotIn("[美股重磅企業財報]", card)
+        self.assertNotIn("[全球重要總經指標公布]", card)
+        self.assertNotIn("[CME 聯準會利率路徑]", card)
+        self.assertIn("[大宗商品週期行情]", card)
+        self.assertIn("• WTI 原油: 日漲跌 -2.5% (能源)", card)
 
     def test_safe_reply_formatted_target_unwrapping(self):
         async def run_test():

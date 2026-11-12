@@ -521,6 +521,8 @@ CALENDAR_CATEGORY_ALIASES = {
     "all": "all",
     "earn": "earn",
     "earnings": "earn",
+    "call": "earn",
+    "calls": "earn",
     "econ": "econ",
     "economic": "econ",
     "macro": "econ",
@@ -530,6 +532,10 @@ CALENDAR_CATEGORY_ALIASES = {
     "comm": "comm",
     "commodity": "comm",
     "commodities": "comm",
+    "tw": "tw",
+    "taiwan": "tw",
+    "us": "us",
+    "usa": "us",
 }
 
 
@@ -539,41 +545,67 @@ def normalize_calendar_category(category: str = "all") -> str:
 
 
 def fetch_calendar_data(category: str = "all") -> Dict[str, Any]:
-    """Fetch structural investing calendars (earnings, economics, fed-rate, commodities)."""
-    category = normalize_calendar_category(category)
-    cache_key = f"cal:{category}"
+    """Fetch structural investing calendars (earnings calls, economics, fed-rate, commodities)."""
+    norm_cat = normalize_calendar_category(category)
+    cache_key = f"cal:{norm_cat}"
     cached = _calendar_cache.get(cache_key)
     if cached is not None:
         return cached
 
     def _fetch():
         result = {}
-        if category in ("all", "fed"):
+
+        # 1. Fast macro summary for fed-rate and commodities (avoids individual scrape timeout)
+        if norm_cat in ("all", "fed", "comm"):
+            summary_res = _get_json("/api/v1/macro/investing/summary")
+            if summary_res and summary_res.get("success"):
+                s_data = summary_res.get("data", {})
+                if norm_cat in ("all", "fed") and s_data.get("fed_rate"):
+                    result["fed"] = s_data["fed_rate"]
+                if norm_cat in ("all", "comm") and s_data.get("commodities"):
+                    result["commodities"] = s_data["commodities"]
+
+        # Fallback to direct fed-rate if summary didn't include it
+        if norm_cat in ("all", "fed") and "fed" not in result:
             fed_data = _get_json("/api/v1/macro/investing/fed-rate")
-            if fed_data and fed_data.get("success"):
+            if fed_data and fed_data.get("success") and fed_data.get("data"):
                 result["fed"] = fed_data.get("data", {})
 
-        if category in ("all", "earn"):
-            earn_data = _get_json("/api/v1/macro/investing/earnings-calendar")
-            if earn_data and earn_data.get("success"):
-                result["earnings"] = earn_data.get("data", [])
-
-        if category in ("all", "econ"):
-            econ_data = _get_json("/api/v1/macro/investing/economic-calendar")
-            if econ_data and econ_data.get("success"):
-                result["economic"] = econ_data.get("data", [])
-
-        if category in ("all", "comm"):
+        # Fallback to direct commodities
+        if norm_cat in ("all", "comm") and "commodities" not in result:
             comm_data = _get_json("/api/v1/macro/investing/commodities")
-            if comm_data and comm_data.get("success"):
+            if comm_data and comm_data.get("success") and comm_data.get("data"):
                 result["commodities"] = comm_data.get("data", {})
+
+        # 2. Upcoming Corporate Earnings Calls (法說會與重磅財報跨市場行事曆)
+        if norm_cat in ("all", "earn", "tw", "us"):
+            market_param = "TW" if norm_cat == "tw" else ("US" if norm_cat == "us" else "ALL")
+            ec_res = _get_json("/api/v1/earnings-call/upcoming", params={"market": market_param, "time_filter": "UPCOMING", "limit": 15})
+            calls = (ec_res.get("data") if ec_res and ec_res.get("success") else None)
+            if not calls:
+                ec_all = _get_json("/api/v1/earnings-call/upcoming", params={"market": market_param, "days": 14, "limit": 15})
+                if ec_all and ec_all.get("success"):
+                    calls = ec_all.get("data")
+            if calls:
+                result["earnings_calls"] = calls
+            else:
+                # Fallback to legacy earnings calendar if earnings-call was empty
+                earn_data = _get_json("/api/v1/macro/investing/earnings-calendar")
+                if earn_data and earn_data.get("success") and earn_data.get("data"):
+                    result["earnings"] = earn_data.get("data", [])
+
+        # 3. Global Economic Indicators Calendar
+        if norm_cat in ("all", "econ"):
+            econ_data = _get_json("/api/v1/macro/investing/economic-calendar")
+            if econ_data and econ_data.get("success") and econ_data.get("data"):
+                result["economic"] = econ_data.get("data", [])
 
         if result:
             _calendar_cache.set(cache_key, result)
             return result
         stale = _calendar_cache.get_stale(cache_key)
         if stale:
-            logger.info(f"StockData calendar API unavailable; serving stale cache for {category}")
+            logger.info(f"StockData calendar API unavailable; serving stale cache for {norm_cat}")
             return stale
         return {}
 
@@ -587,23 +619,27 @@ def format_calendar_markdown(data: Dict[str, Any], cat: str = "all") -> str:
 
     card_lines = []
 
-    if "fed" in data and isinstance(data["fed"], dict):
-        fed = data["fed"]
-        card_lines.append("[CME 聯準會利率路徑]")
-        meeting = fed.get("meeting_date", "近期")
-        upd = fed.get("updated_at", "")
-        card_lines.append(f"下次會議: {meeting}" + (f" (更新: {upd})" if upd else ""))
-        probs = fed.get("probabilities") or fed.get("target_rates") or []
-        if isinstance(probs, list):
-            for p in probs[:3]:
-                if isinstance(p, dict):
-                    rate = p.get("rate_range", "")
-                    prob = p.get("probability") or p.get("current_probability") or p.get("probability_value", "")
-                    card_lines.append(f"• 區間 {rate}: {prob}")
+    # 1. 法人說明會與重磅財報 (優先展示跨市場法說會：台股/美股/日股/韓股)
+    calls = data.get("earnings_calls")
+    earns = data.get("earnings")
+
+    if calls and isinstance(calls, list) and len(calls) > 0:
+        card_lines.append("[全球跨市場法說會暨財報日程]")
+        for c in calls[:6]:
+            if isinstance(c, dict):
+                mkt = c.get("market", "")
+                ticker = c.get("ticker", "")
+                name = c.get("name", "")
+                dt = c.get("call_date", "")
+                dt_short = "/".join(dt.split("-")[1:]) if "-" in dt else dt
+                t_str = c.get("call_time", "")
+                cd = c.get("countdown_days")
+                status = c.get("status", "")
+                tag = " (今日)" if cd == 0 or status == "today" else (" (明日)" if cd == 1 else (f" (倒數{cd}天)" if cd and cd > 1 else ""))
+                card_lines.append(f"• [{mkt}] {ticker} {name}: {dt_short} {t_str}{tag}")
         card_lines.append("")
 
-    if "earnings" in data and isinstance(data["earnings"], list):
-        earns = data["earnings"]
+    if earns and isinstance(earns, list) and len(earns) > 0:
         card_lines.append("[美股重磅企業財報]")
         for e in earns[:5]:
             if isinstance(e, dict):
@@ -614,8 +650,9 @@ def format_calendar_markdown(data: Dict[str, Any], cat: str = "all") -> str:
                 card_lines.append(f"• {t} {name}: {d} (預估EPS: {eps})")
         card_lines.append("")
 
-    if "economic" in data and isinstance(data["economic"], list):
-        econs = data["economic"]
+    # 2. 全球重大總經指標
+    econs = data.get("economic")
+    if econs and isinstance(econs, list) and len(econs) > 0:
         card_lines.append("[全球重要總經指標公布]")
         for ec in econs[:5]:
             if isinstance(ec, dict):
@@ -625,16 +662,34 @@ def format_calendar_markdown(data: Dict[str, Any], cat: str = "all") -> str:
                 card_lines.append(f"• [{country}] {time_str} {ev}")
         card_lines.append("")
 
-    if "commodities" in data and isinstance(data["commodities"], dict):
-        comm = data["commodities"]
+    # 3. CME 聯準會利率路徑
+    fed = data.get("fed")
+    if isinstance(fed, dict) and fed:
+        probs = fed.get("probabilities") or fed.get("target_rates") or []
+        if isinstance(probs, list) and len(probs) > 0:
+            card_lines.append("[CME 聯準會利率路徑]")
+            meeting = fed.get("meeting_date", "近期")
+            upd = fed.get("updated_at", "")
+            card_lines.append(f"下次會議: {meeting}" + (f" (更新: {upd})" if upd else ""))
+            for p in probs[:3]:
+                if isinstance(p, dict):
+                    rate = p.get("rate_range", "")
+                    prob = p.get("probability") or p.get("current_probability") or p.get("probability_value", "")
+                    card_lines.append(f"• 區間 {rate}: {prob}")
+            card_lines.append("")
+
+    # 4. 大宗商品週期行情 (防禦 +, - 與 % 重複符號)
+    comm = data.get("commodities")
+    if isinstance(comm, dict) and comm:
         card_lines.append("[大宗商品週期行情]")
         for k, v in comm.items():
             if isinstance(v, dict):
                 c_name = v.get("name", k)
-                d_chg = v.get("daily_change", "0")
-                sign = "+" if not str(d_chg).startswith("-") else ""
+                d_chg = str(v.get("daily_change", "0")).strip().rstrip("%")
+                if not d_chg.startswith(("+", "-")):
+                    d_chg = f"+{d_chg}"
                 ind = f" ({v.get('indicator', '')})" if v.get("indicator") else ""
-                card_lines.append(f"• {c_name}: 日漲跌 {sign}{d_chg}%{ind}")
+                card_lines.append(f"• {c_name}: 日漲跌 {d_chg}%{ind}")
         card_lines.append("")
 
     if not card_lines:

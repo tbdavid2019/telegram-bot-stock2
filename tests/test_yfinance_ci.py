@@ -75,6 +75,7 @@ class YFinanceCIContractTests(unittest.TestCase):
                 self.assertIn(f"updated={str(changed).lower()}", (root / "output").read_text())
                 self.assertEqual(requirements.read_text(), original.replace("1.7.0", latest) if changed else original)
 
+    @unittest.skipIf(shutil.which("git") is None, "git is not installed")
     def test_shell_same_and_older_versions_leave_git_untouched(self):
         for latest in ["1.7.0", "1.6.0"]:
             with self.subTest(latest=latest), tempfile.TemporaryDirectory() as directory:
